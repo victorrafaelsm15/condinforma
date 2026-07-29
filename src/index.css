@@ -1,0 +1,225 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap');
+
+:root {
+  /* surfaces */
+  --bg: #f5f6fc;
+  --bg-soft: #eef1fc;
+  --card: #ffffff;
+  --border: rgba(23, 35, 94, 0.09);
+  --border-strong: rgba(23, 35, 94, 0.16);
+
+  /* brand */
+  --blue: #3355e8;
+  --blue-light: #eef1ff;
+  --blue-dark: #141b4d;
+  --blue-mid: #1d2a70;
+  --violet: #7c6cf6;
+  --green: #12b76a;
+  --green-light: #e6f9f1;
+  --amber: #f59e0b;
+  --amber-light: #fef3e0;
+  --red: #ef4444;
+  --red-light: #fdecec;
+
+  /* text */
+  --text: #10142c;
+  --text-muted: #5b6178;
+  --text-faint: #8890a6;
+
+  /* gradients */
+  --gradient-brand: linear-gradient(135deg, #3355e8 0%, #7c6cf6 100%);
+  --gradient-dark: linear-gradient(160deg, #0a0e2c 0%, #151d52 45%, #33409e 100%);
+  --gradient-soft: linear-gradient(180deg, #eef1ff 0%, #f5f6fc 100%);
+
+  /* shadows */
+  --shadow-xs: 0 1px 2px rgba(16, 20, 44, 0.05);
+  --shadow-sm: 0 6px 16px rgba(16, 20, 44, 0.06);
+  --shadow-md: 0 16px 36px rgba(16, 20, 44, 0.09);
+  --shadow-lg: 0 30px 70px rgba(14, 20, 60, 0.18);
+  --shadow-brand: 0 18px 40px rgba(51, 85, 232, 0.28);
+
+  /* radii */
+  --radius-sm: 12px;
+  --radius-md: 16px;
+  --radius-lg: 22px;
+  --radius-xl: 28px;
+
+  --max-width: 1180px;
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* navy landing-page theme (additive, scoped to the landing page only) */
+  --navy-950: #0a0e27;
+  --navy-900: #0e1330;
+  --on-navy-text: rgba(255, 255, 255, 0.96);
+  --on-navy-muted: rgba(255, 255, 255, 0.68);
+  --on-navy-faint: rgba(255, 255, 255, 0.48);
+  --on-navy-border: rgba(255, 255, 255, 0.14);
+  --on-navy-border-strong: rgba(255, 255, 255, 0.26);
+  --on-navy-chip-bg: rgba(255, 255, 255, 0.08);
+  --on-navy-accent: #93a5ff;
+  --gradient-brand-onnavy: linear-gradient(135deg, #93a5ff 0%, #d9c9ff 100%);
+}
+
+* { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1, h2, h3, h4, .font-display {
+  font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+  letter-spacing: -0.02em;
+}
+
+a { text-decoration: none; color: inherit; }
+img { max-width: 100%; display: block; }
+
+.container {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+::selection { background: var(--violet); color: #fff; }
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: var(--blue); }
+
+/* ---------- reusable utilities ---------- */
+
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--blue);
+}
+.eyebrow::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--gradient-brand);
+}
+
+.gradient-text {
+  background: var(--gradient-brand);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.surface-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xs);
+  transition: transform 0.3s var(--ease), box-shadow 0.3s var(--ease), border-color 0.3s var(--ease);
+}
+.surface-card--hover:hover {
+  transform: translateY(-6px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--border-strong);
+}
+
+.icon-tile {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  flex-shrink: 0;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 100px;
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.section-pad { padding: 96px 0; }
+@media (max-width: 768px) {
+  .section-pad { padding: 64px 0; }
+}
+
+.grid-fade-mask {
+  background-image:
+    linear-gradient(to right, rgba(23,35,94,0.055) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(23,35,94,0.055) 1px, transparent 1px);
+  background-size: 44px 44px;
+  -webkit-mask-image: radial-gradient(ellipse 60% 60% at 50% 0%, #000 40%, transparent 100%);
+  mask-image: radial-gradient(ellipse 60% 60% at 50% 0%, #000 40%, transparent 100%);
+}
+.grid-fade-mask--onnavy {
+  background-image:
+    linear-gradient(to right, rgba(255,255,255,0.07) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255,255,255,0.07) 1px, transparent 1px);
+}
+
+.blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(70px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+@keyframes floatY {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-14px); }
+}
+@keyframes floatSlow {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-10px) rotate(2deg); }
+}
+@keyframes pulseRing {
+  0% { box-shadow: 0 0 0 0 rgba(18, 183, 106, 0.35); }
+  100% { box-shadow: 0 0 0 14px rgba(18, 183, 106, 0); }
+}
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.float { animation: floatY 5s ease-in-out infinite; }
+.float-slow { animation: floatSlow 7s ease-in-out infinite; }
+.pulse-ring { animation: pulseRing 1.8s ease-out infinite; }
+
+.btn-glow {
+  position: relative;
+  overflow: hidden;
+}
+.btn-glow::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(120deg, transparent 30%, rgba(255,255,255,0.35) 50%, transparent 70%);
+  background-size: 200% 100%;
+  animation: shimmer 3.2s ease-in-out infinite;
+}
+
+.checklist-row {
+  transition: background 0.2s var(--ease), border-color 0.2s var(--ease), transform 0.2s var(--ease);
+}
+.checklist-row:hover { border-color: var(--border-strong); }
+.checklist-row--done {
+  background: var(--green-light) !important;
+  border-color: rgba(18, 183, 106, 0.28) !important;
+}
