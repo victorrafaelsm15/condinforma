@@ -1,6 +1,6 @@
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@mantine/core';
-import { LogOut, Building2, AlertTriangle } from 'lucide-react';
+import { LogOut, Building2, AlertTriangle, BarChart3 } from 'lucide-react';
 import { logout } from '../lib/authService';
 
 export default function AdminLayout() {
@@ -43,6 +43,13 @@ export default function AdminLayout() {
             background: isActive('/admin/ocorrencias') ? 'var(--blue-light)' : 'transparent',
           }}>
             <AlertTriangle size={15} /> Ocorrências
+          </Link>
+          <Link to="/admin/relatorios" className="admin-nav-link" style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            color: isActive('/admin/relatorios') ? 'var(--blue)' : 'var(--text-muted)',
+            background: isActive('/admin/relatorios') ? 'var(--blue-light)' : 'transparent',
+          }}>
+            <BarChart3 size={15} /> Relatórios
           </Link>
           <Button variant="subtle" color="gray" size="xs" leftSection={<LogOut size={14} />} onClick={handleLogout} ml={8}>
             Sair
