@@ -39,8 +39,8 @@ export default function AdminDashboard() {
     <div>
       <Group justify="space-between" mb="xl" align="flex-start">
         <div>
-          <Text fw={800} size="xl" className="font-display">Condomínios</Text>
-          <Text size="sm" c="dimmed">Selecione um condomínio para gerenciar ambientes e checklists.</Text>
+          <Text fw={800} size="1.6rem" className="font-display">Condomínios</Text>
+          <Text size="md" c="dimmed" mt={2}>Selecione um condomínio para gerenciar ambientes e checklists.</Text>
         </div>
         <Button leftSection={<Plus size={16} />} onClick={() => setModalOpen(true)} className="btn-glow" style={{ boxShadow: 'var(--shadow-brand)' }}>
           Novo condomínio
@@ -58,11 +58,11 @@ export default function AdminDashboard() {
                   <span className="icon-tile" style={{ background: 'var(--blue-light)', width: 40, height: 40, borderRadius: 12 }}>
                     <Building2 size={19} color="var(--blue)" />
                   </span>
-                  <Text fw={700}>{c.name}</Text>
+                  <Text fw={700} size="md">{c.name}</Text>
                 </Group>
                 <ChevronRight size={18} color="var(--text-faint)" />
               </Group>
-              <Text size="xs" c="dimmed" mt={12}>{ambienteCounts[c.id] || 0} ambiente(s) cadastrado(s)</Text>
+              <Text size="sm" c="dimmed" mt={12}>{ambienteCounts[c.id] || 0} ambiente(s) cadastrado(s)</Text>
             </Link>
           ))}
         </SimpleGrid>

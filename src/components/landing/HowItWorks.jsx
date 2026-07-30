@@ -8,7 +8,7 @@ export default function HowItWorks() {
         <Reveal>
           <div style={{ maxWidth: 640, margin: '0 auto 48px', textAlign: 'center' }}>
             <span className="eyebrow" style={{ justifyContent: 'center', width: '100%' }}>Como funciona</span>
-            <h2 style={{ fontSize: 'clamp(24px,3vw,34px)', fontWeight: 800, margin: '12px 0 0', color: 'var(--on-navy-text)' }}>
+            <h2 style={{ fontSize: 'clamp(26px,3.2vw,36px)', fontWeight: 800, margin: '12px 0 0', color: 'var(--on-navy-text)' }}>
               Em poucos passos, transforme ambientes físicos em pontos de controle digital
             </h2>
           </div>
@@ -29,8 +29,8 @@ export default function HowItWorks() {
                 }}>
                   {i + 1}
                 </div>
-                <p className="font-display" style={{ fontWeight: 800, fontSize: 15, margin: '0 0 6px', color: 'var(--text)', letterSpacing: '-0.01em' }}>{s.title}</p>
-                <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, lineHeight: 1.55 }}>{s.text}</p>
+                <p className="font-display" style={{ fontWeight: 800, fontSize: 16, margin: '0 0 7px', color: 'var(--text)', letterSpacing: '-0.01em' }}>{s.title}</p>
+                <p style={{ fontSize: 14.5, color: 'var(--text-muted)', margin: 0, lineHeight: 1.6 }}>{s.text}</p>
               </div>
             </Reveal>
           ))}

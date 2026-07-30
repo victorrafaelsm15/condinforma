@@ -14,10 +14,10 @@ export default function Hero() {
           <span className="pill" style={{ background: 'var(--on-navy-chip-bg)', color: 'var(--on-navy-accent)', border: '1px solid var(--on-navy-border)', marginBottom: 20 }}>
             <QrCode size={14} /> Checklists digitais com QR Code
           </span>
-          <h1 style={{ fontSize: 'clamp(30px, 4.2vw, 48px)', fontWeight: 800, lineHeight: 1.12, margin: '0 0 20px', color: 'var(--on-navy-text)' }}>
-            Evite tarefas <span className="gradient-text" style={{ backgroundImage: 'var(--gradient-brand-onnavy)' }}>esquecidas</span> na limpeza e zeladoria do seu condomínio
+          <h1 style={{ fontSize: 'clamp(32px, 4.4vw, 52px)', fontWeight: 800, lineHeight: 1.12, margin: '0 0 20px', color: 'var(--on-navy-text)' }}>
+            Evite tarefas <span className="gradient-text" style={{ backgroundImage: 'var(--gradient-brand-onnavy)' }}>esquecidas</span> na rotina de manutenção e limpeza do seu condomínio
           </h1>
-          <p style={{ fontSize: 17.5, color: 'var(--on-navy-muted)', lineHeight: 1.65, marginBottom: 30, maxWidth: 480 }}>
+          <p style={{ fontSize: 18.5, color: 'var(--on-navy-muted)', lineHeight: 1.65, marginBottom: 30, maxWidth: 500 }}>
             O colaborador escaneia o QR Code, executa o checklist e registra fotos.
             Você acompanha tudo em relatórios, com status visível para os moradores.
           </p>

@@ -44,8 +44,8 @@ export default function OcorrenciasPage() {
           <AlertTriangle size={19} color="var(--red)" />
         </span>
         <div>
-          <Text fw={800} size="xl">Ocorrências</Text>
-          <Text size="sm" c="dimmed">Problemas registrados em todos os condomínios</Text>
+          <Text fw={800} size="1.6rem">Ocorrências</Text>
+          <Text size="md" c="dimmed" mt={2}>Problemas registrados em todos os condomínios</Text>
         </div>
       </Group>
       {list.length ? (
@@ -54,9 +54,9 @@ export default function OcorrenciasPage() {
             <div key={o.id} className="surface-card" style={{ padding: 18 }}>
               <Group justify="space-between" align="flex-start">
                 <div style={{ flex: 1 }}>
-                  <Text size="xs" c="dimmed" fw={600}>{o.condominioName} — {o.ambienteName}</Text>
-                  <Text size="sm" mt={4}>{o.description}</Text>
-                  <Text size="xs" c="dimmed" mt={4}>{new Date(o.created_at).toLocaleString('pt-BR')}</Text>
+                  <Text size="sm" c="dimmed" fw={600}>{o.condominioName} — {o.ambienteName}</Text>
+                  <Text size="md" mt={4}>{o.description}</Text>
+                  <Text size="sm" c="dimmed" mt={4}>{new Date(o.created_at).toLocaleString('pt-BR')}</Text>
                 </div>
                 <Badge color={o.status === 'resolvido' ? 'green' : 'red'} variant="light">{o.status}</Badge>
               </Group>

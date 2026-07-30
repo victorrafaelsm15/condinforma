@@ -14,7 +14,7 @@ export default function FeaturesSection() {
           <Reveal>
             <div style={{ maxWidth: 640, margin: '0 auto 48px', textAlign: 'center' }}>
               <span className="eyebrow" style={{ justifyContent: 'center', width: '100%' }}>Diferenciais</span>
-              <h2 style={{ fontSize: 'clamp(24px,3vw,34px)', fontWeight: 800, margin: '12px 0 0', color: 'var(--on-navy-text)' }}>
+              <h2 style={{ fontSize: 'clamp(26px,3.2vw,36px)', fontWeight: 800, margin: '12px 0 0', color: 'var(--on-navy-text)' }}>
                 Mais controle e transparência em cada ambiente
               </h2>
             </div>
@@ -28,8 +28,8 @@ export default function FeaturesSection() {
                     <span className="icon-tile" style={{ background: TINTS[i], marginBottom: 14 }}>
                       <Icon size={22} color={ICON_COLORS[i]} />
                     </span>
-                    <p className="font-display" style={{ fontWeight: 800, fontSize: 15, margin: '0 0 6px', color: 'var(--text)', letterSpacing: '-0.01em' }}>{f.title}</p>
-                    <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, lineHeight: 1.55 }}>{f.text}</p>
+                    <p className="font-display" style={{ fontWeight: 800, fontSize: 16, margin: '0 0 7px', color: 'var(--text)', letterSpacing: '-0.01em' }}>{f.title}</p>
+                    <p style={{ fontSize: 14.5, color: 'var(--text-muted)', margin: 0, lineHeight: 1.6 }}>{f.text}</p>
                   </div>
                 </Reveal>
               );
@@ -43,7 +43,7 @@ export default function FeaturesSection() {
           <Reveal>
             <div style={{ maxWidth: 640, margin: '0 auto 48px', textAlign: 'center' }}>
               <span className="eyebrow" style={{ justifyContent: 'center', width: '100%' }}>Casos de uso</span>
-              <h2 style={{ fontSize: 'clamp(24px,3vw,34px)', fontWeight: 800, margin: '12px 0 0', color: 'var(--on-navy-text)' }}>
+              <h2 style={{ fontSize: 'clamp(26px,3.2vw,36px)', fontWeight: 800, margin: '12px 0 0', color: 'var(--on-navy-text)' }}>
                 Feito para as rotinas reais do condomínio
               </h2>
             </div>
@@ -52,8 +52,8 @@ export default function FeaturesSection() {
             {useCases.map((u, i) => (
               <Reveal key={u.title} delay={i * 0.06}>
                 <div className="surface-card surface-card--hover" style={{ padding: 22, height: '100%' }}>
-                  <p className="font-display" style={{ fontWeight: 800, fontSize: 15, margin: '0 0 6px', color: 'var(--text)', letterSpacing: '-0.01em' }}>{u.title}</p>
-                  <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, lineHeight: 1.55 }}>{u.text}</p>
+                  <p className="font-display" style={{ fontWeight: 800, fontSize: 16, margin: '0 0 7px', color: 'var(--text)', letterSpacing: '-0.01em' }}>{u.title}</p>
+                  <p style={{ fontSize: 14.5, color: 'var(--text-muted)', margin: 0, lineHeight: 1.6 }}>{u.text}</p>
                 </div>
               </Reveal>
             ))}

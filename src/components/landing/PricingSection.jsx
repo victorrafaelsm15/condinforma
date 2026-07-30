@@ -11,10 +11,10 @@ export default function PricingSection() {
         <Reveal>
           <div style={{ maxWidth: 640, margin: '0 auto 48px', textAlign: 'center' }}>
             <span className="eyebrow" style={{ justifyContent: 'center', width: '100%' }}>Planos e assinaturas</span>
-            <h2 style={{ fontSize: 'clamp(24px,3vw,34px)', fontWeight: 800, margin: '12px 0 10px', color: 'var(--on-navy-text)' }}>
+            <h2 style={{ fontSize: 'clamp(26px,3.2vw,36px)', fontWeight: 800, margin: '12px 0 10px', color: 'var(--on-navy-text)' }}>
               Escolha o plano ideal para a sua operação
             </h2>
-            <p style={{ color: 'var(--on-navy-muted)', fontSize: 14.5 }}>
+            <p style={{ color: 'var(--on-navy-muted)', fontSize: 16 }}>
               Planos mensais para síndicos, administradoras e condomínios que querem controlar
               rotinas de limpeza, zeladoria e vistorias com QR Code.
             </p>
@@ -59,7 +59,7 @@ export default function PricingSection() {
                   </p>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 11, marginBottom: 26 }}>
                     {plan.features.map((f) => (
-                      <div key={f} style={{ display: 'flex', gap: 8, fontSize: 13.5, alignItems: 'flex-start' }}>
+                      <div key={f} style={{ display: 'flex', gap: 8, fontSize: 14.5, alignItems: 'flex-start' }}>
                         <span style={{
                           flexShrink: 0, marginTop: 1, width: 18, height: 18, borderRadius: '50%',
                           background: plan.highlight ? 'rgba(18,183,106,0.25)' : 'var(--green-light)',
@@ -89,7 +89,7 @@ export default function PricingSection() {
 
         <Reveal delay={0.2}>
           <div style={{ textAlign: 'center', marginTop: 36 }}>
-            <p style={{ fontSize: 13, color: 'var(--on-navy-muted)' }}>
+            <p style={{ fontSize: 14, color: 'var(--on-navy-muted)' }}>
               Operações acima de 10 condomínios: <strong style={{ color: 'var(--on-navy-text)' }}>Enterprise</strong>, sob consulta, com condições personalizadas.
             </p>
             <Button variant="white" mt="xs">Falar com especialista</Button>

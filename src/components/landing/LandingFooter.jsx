@@ -11,10 +11,10 @@ export default function LandingFooter() {
         <div className="blob" style={{ width: 380, height: 380, bottom: -160, right: '15%', background: 'radial-gradient(circle, rgba(124,108,246,0.4), transparent 70%)' }} />
         <div className="container" style={{ position: 'relative' }}>
           <Reveal>
-            <h2 style={{ fontSize: 'clamp(24px,3vw,36px)', fontWeight: 800, margin: '0 0 14px' }}>
+            <h2 style={{ fontSize: 'clamp(26px,3.2vw,38px)', fontWeight: 800, margin: '0 0 14px' }}>
               Comece hoje a organizar a limpeza e a zeladoria com QR Code
             </h2>
-            <p style={{ opacity: 0.75, fontSize: 15.5, marginBottom: 28, maxWidth: 480, margin: '0 auto 28px' }}>
+            <p style={{ opacity: 0.78, fontSize: 16.5, marginBottom: 28, maxWidth: 500, margin: '0 auto 28px' }}>
               Basta imprimir os QR Codes dos ambientes e começar.
             </p>
             <Button component="a" href="#planos" onClick={scrollToSection('planos')} size="lg" color="green" rightSection={<ArrowRight size={17} />}
