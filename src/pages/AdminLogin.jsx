@@ -26,7 +26,7 @@ export default function AdminLogin() {
         <div className="blob" style={{ width: 420, height: 420, top: -140, left: -140, background: 'radial-gradient(circle, rgba(124,108,246,0.45), transparent 70%)' }} />
         <div className="blob" style={{ width: 360, height: 360, bottom: -140, right: -100, background: 'radial-gradient(circle, rgba(51,85,232,0.4), transparent 70%)' }} />
         <div style={{ position: 'relative', zIndex: 1 }}>
-          <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 10, fontWeight: 800, fontSize: 18, color: '#fff', marginBottom: 44 }}>
+          <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 10, fontWeight: 800, fontSize: 18, color: '#fff', marginBottom: 44, textTransform: 'uppercase' }}>
             <span style={{
               width: 34, height: 34, borderRadius: 10, background: 'rgba(255,255,255,0.15)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -36,7 +36,7 @@ export default function AdminLogin() {
             Cond-Informa
           </Link>
           <h1 style={{ fontSize: 'clamp(26px,3vw,34px)', fontWeight: 800, lineHeight: 1.2, margin: '0 0 16px', maxWidth: 420 }}>
-            O painel completo para gerir limpeza e zeladoria do seu condomínio
+            O painel completo para gerir limpeza e manutenção do seu condomínio
           </h1>
           <p style={{ opacity: 0.72, fontSize: 15, lineHeight: 1.6, maxWidth: 380, marginBottom: 36 }}>
             Acompanhe checklists, ocorrências e relatórios de todos os ambientes em um só lugar.
@@ -62,7 +62,7 @@ export default function AdminLogin() {
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, background: 'var(--bg)' }}>
         <div style={{ width: '100%', maxWidth: 380 }}>
-          <div className="login-mobile-brand" style={{ display: 'none', alignItems: 'center', gap: 10, fontWeight: 800, fontSize: 17, color: 'var(--blue-dark)', marginBottom: 28, justifyContent: 'center' }}>
+          <div className="login-mobile-brand" style={{ display: 'none', alignItems: 'center', gap: 10, fontWeight: 800, fontSize: 17, color: 'var(--blue-dark)', marginBottom: 28, justifyContent: 'center', textTransform: 'uppercase' }}>
             <Building2 size={20} color="var(--blue)" /> Cond-Informa
           </div>
           <div className="surface-card" style={{ padding: 36, textAlign: 'center' }}>

@@ -28,7 +28,7 @@ export default function LandingHeader() {
       }}
     >
       <div className="container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 72 }}>
-        <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 10, fontWeight: 800, fontSize: 18, color: '#fff' }}>
+        <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 10, fontWeight: 800, fontSize: 18, color: '#fff', textTransform: 'uppercase' }}>
           <span style={{
             width: 34, height: 34, borderRadius: 10, background: 'var(--gradient-brand)',
             display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: 'var(--shadow-brand)',

@@ -18,6 +18,10 @@ export default function CondominioPage() {
   const [editName, setEditName] = useState('');
   const [savingEdit, setSavingEdit] = useState(false);
 
+  const [editCondoOpen, setEditCondoOpen] = useState(false);
+  const [editCondoName, setEditCondoName] = useState('');
+  const [savingCondoEdit, setSavingCondoEdit] = useState(false);
+
   const load = async () => {
     setLoading(true);
     const c = await condominiosStore.getById(id);
@@ -63,6 +67,20 @@ export default function CondominioPage() {
     load();
   };
 
+  const openEditCondo = () => {
+    setEditCondoName(condominio.name);
+    setEditCondoOpen(true);
+  };
+
+  const handleSaveCondoEdit = async () => {
+    if (!editCondoName.trim()) return;
+    setSavingCondoEdit(true);
+    await condominiosStore.update(id, { name: editCondoName.trim() });
+    setSavingCondoEdit(false);
+    setEditCondoOpen(false);
+    load();
+  };
+
   if (loading) return <Group justify="center" py={60}><Loader color="brand" /></Group>;
 
   return (
@@ -78,10 +96,15 @@ export default function CondominioPage() {
       </Group>
 
       <Group justify="space-between" mb="xl" align="flex-start">
-        <div>
-          <Text fw={800} size="1.6rem">{condominio?.name}</Text>
-          <Text size="md" c="dimmed" mt={2}>Ambientes cadastrados e status da última execução.</Text>
-        </div>
+        <Group gap={8} align="flex-start">
+          <div>
+            <Text fw={800} size="1.6rem">{condominio?.name}</Text>
+            <Text size="md" c="dimmed" mt={2}>Ambientes cadastrados e status da última execução.</Text>
+          </div>
+          <ActionIcon variant="subtle" color="gray" radius="xl" size="lg" mt={4} onClick={openEditCondo} aria-label="Editar condomínio">
+            <Pencil size={16} />
+          </ActionIcon>
+        </Group>
         <Button leftSection={<Plus size={16} />} onClick={() => setModalOpen(true)} className="btn-glow" style={{ boxShadow: 'var(--shadow-brand)' }}>
           Novo ambiente
         </Button>
@@ -149,6 +172,16 @@ export default function CondominioPage() {
           data-autofocus
         />
         <Button fullWidth mt="lg" onClick={handleSaveEdit} loading={savingEdit}>Salvar</Button>
+      </Modal>
+
+      <Modal opened={editCondoOpen} onClose={() => setEditCondoOpen(false)} title="Editar condomínio">
+        <TextInput
+          label="Nome do condomínio"
+          value={editCondoName}
+          onChange={(e) => setEditCondoName(e.currentTarget.value)}
+          data-autofocus
+        />
+        <Button fullWidth mt="lg" onClick={handleSaveCondoEdit} loading={savingCondoEdit}>Salvar</Button>
       </Modal>
     </div>
   );

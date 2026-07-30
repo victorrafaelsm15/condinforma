@@ -12,7 +12,7 @@ export default function LandingFooter() {
         <div className="container" style={{ position: 'relative' }}>
           <Reveal>
             <h2 style={{ fontSize: 'clamp(26px,3.2vw,38px)', fontWeight: 800, margin: '0 0 14px' }}>
-              Comece hoje a organizar a limpeza e a zeladoria com QR Code
+              Comece hoje a organizar a limpeza e a manutenção com QR Code
             </h2>
             <p style={{ opacity: 0.78, fontSize: 16.5, marginBottom: 28, maxWidth: 500, margin: '0 auto 28px' }}>
               Basta imprimir os QR Codes dos ambientes e começar.
@@ -27,7 +27,7 @@ export default function LandingFooter() {
 
       <footer style={{ background: '#080b22', color: 'rgba(255,255,255,0.6)', padding: '40px 0' }}>
         <div className="container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 14 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 9, color: '#fff', fontWeight: 700 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 9, color: '#fff', fontWeight: 700, textTransform: 'uppercase' }}>
             <span style={{
               width: 28, height: 28, borderRadius: 8, background: 'var(--gradient-brand)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -36,7 +36,7 @@ export default function LandingFooter() {
             </span>
             Cond-Informa
           </div>
-          <span style={{ fontSize: 12.5 }}>© {new Date().getFullYear()} Cond-Informa. Todos os direitos reservados.</span>
+          <span style={{ fontSize: 12.5 }}>© {new Date().getFullYear()} <span style={{ textTransform: 'uppercase' }}>Cond-Informa</span>. Todos os direitos reservados.</span>
         </div>
       </footer>
     </>

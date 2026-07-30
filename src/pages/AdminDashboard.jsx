@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Button, TextInput, Text, Group, Modal, Loader, SimpleGrid } from '@mantine/core';
-import { Plus, Building2, ChevronRight, LayoutGrid } from 'lucide-react';
+import { Button, TextInput, Text, Group, Modal, Loader, SimpleGrid, ActionIcon } from '@mantine/core';
+import { Plus, Building2, ChevronRight, LayoutGrid, Pencil } from 'lucide-react';
 import { condominiosStore, ambientesStore } from '../lib/stores';
 
 export default function AdminDashboard() {
@@ -11,6 +11,10 @@ export default function AdminDashboard() {
   const [modalOpen, setModalOpen] = useState(false);
   const [newName, setNewName] = useState('');
   const [saving, setSaving] = useState(false);
+
+  const [editing, setEditing] = useState(null);
+  const [editName, setEditName] = useState('');
+  const [savingEdit, setSavingEdit] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -32,6 +36,22 @@ export default function AdminDashboard() {
     setNewName('');
     setModalOpen(false);
     setSaving(false);
+    load();
+  };
+
+  const openEdit = (e, condominio) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setEditing(condominio);
+    setEditName(condominio.name);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editName.trim() || !editing) return;
+    setSavingEdit(true);
+    await condominiosStore.update(editing.id, { name: editName.trim() });
+    setSavingEdit(false);
+    setEditing(null);
     load();
   };
 
@@ -60,7 +80,12 @@ export default function AdminDashboard() {
                   </span>
                   <Text fw={700} size="md">{c.name}</Text>
                 </Group>
-                <ChevronRight size={18} color="var(--text-faint)" />
+                <Group gap={4}>
+                  <ActionIcon variant="subtle" color="gray" radius="xl" onClick={(e) => openEdit(e, c)} aria-label="Editar condomínio">
+                    <Pencil size={15} />
+                  </ActionIcon>
+                  <ChevronRight size={18} color="var(--text-faint)" />
+                </Group>
               </Group>
               <Text size="sm" c="dimmed" mt={12}>{ambienteCounts[c.id] || 0} ambiente(s) cadastrado(s)</Text>
             </Link>
@@ -84,6 +109,16 @@ export default function AdminDashboard() {
           data-autofocus
         />
         <Button fullWidth mt="lg" onClick={handleCreate} loading={saving}>Criar</Button>
+      </Modal>
+
+      <Modal opened={!!editing} onClose={() => setEditing(null)} title="Editar condomínio">
+        <TextInput
+          label="Nome do condomínio"
+          value={editName}
+          onChange={(e) => setEditName(e.currentTarget.value)}
+          data-autofocus
+        />
+        <Button fullWidth mt="lg" onClick={handleSaveEdit} loading={savingEdit}>Salvar</Button>
       </Modal>
     </div>
   );

@@ -77,7 +77,7 @@ export const plans = [
 ];
 
 export const faqItems = [
-  { q: 'Preciso instalar algum equipamento?', a: 'Não. Basta imprimir os QR Codes dos ambientes e usar o Cond-Informa pelo celular ou computador.' },
+  { q: 'Preciso instalar algum equipamento?', a: 'Não. Basta imprimir os QR Codes dos ambientes e usar o COND-INFORMA pelo celular ou computador.' },
   { q: 'O colaborador precisa ter conhecimento técnico?', a: 'Não. Basta escanear o QR Code e marcar as tarefas concluídas — a interface é simples e direta.' },
   { q: 'O morador precisa criar conta para consultar o status?', a: 'Não. A página de status é pública e acessível diretamente pelo QR Code do ambiente.' },
   { q: 'Serve apenas para condomínios?', a: 'É ideal para condomínios, administradoras e equipes de limpeza ou zeladoria em geral.' },

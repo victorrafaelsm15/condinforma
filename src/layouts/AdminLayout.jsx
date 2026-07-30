@@ -21,7 +21,7 @@ export default function AdminLayout() {
         padding: '14px 28px', background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(12px)',
         borderBottom: '1px solid var(--border)', position: 'sticky', top: 0, zIndex: 50,
       }}>
-        <Link to="/admin" style={{ display: 'flex', alignItems: 'center', gap: 10, fontWeight: 800, fontSize: 16.5, color: 'var(--blue-dark)' }}>
+        <Link to="/admin" style={{ display: 'flex', alignItems: 'center', gap: 10, fontWeight: 800, fontSize: 16.5, color: 'var(--blue-dark)', textTransform: 'uppercase' }}>
           <span style={{
             width: 32, height: 32, borderRadius: 9, background: 'var(--gradient-brand)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
