@@ -10,16 +10,16 @@ const ICON_COLORS = ['var(--blue)', 'var(--green)', 'var(--blue)', 'var(--amber)
 export default function FeaturesSection() {
   return (
     <>
-      <section
-        className="section-pad"
-        style={{
-          position: 'relative',
-          backgroundImage: `linear-gradient(180deg, rgba(10,14,39,0.87), rgba(10,14,39,0.93)), url(${diferenciaisBg})`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          backgroundRepeat: 'no-repeat',
-        }}
-      >
+      <section className="section-pad" style={{ position: 'relative', overflow: 'hidden' }}>
+        <div style={{
+          position: 'absolute', inset: 0, zIndex: 0,
+          backgroundImage: `url(${diferenciaisBg})`, backgroundSize: 'cover', backgroundPosition: 'center',
+          filter: 'brightness(1.2)',
+        }} />
+        <div style={{
+          position: 'absolute', inset: 0, zIndex: 0,
+          background: 'linear-gradient(180deg, rgba(10,14,39,0.87), rgba(10,14,39,0.93))',
+        }} />
         <div className="container" style={{ position: 'relative', zIndex: 1 }}>
           <Reveal>
             <div style={{ maxWidth: 640, margin: '0 auto 48px', textAlign: 'center' }}>
