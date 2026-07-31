@@ -1,9 +1,46 @@
-import { Button } from '@mantine/core';
+import { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { Button, Modal, TextInput, Text } from '@mantine/core';
 import { Check } from 'lucide-react';
 import { plans } from '../../data/landingContent';
 import Reveal from './Reveal';
 
 export default function PricingSection() {
+  const [selectedPlan, setSelectedPlan] = useState(null);
+  const [errorMsg, setErrorMsg] = useState('');
+  const { register, handleSubmit, reset, formState: { isSubmitting, errors } } = useForm();
+
+  const openModal = (planName) => {
+    setErrorMsg('');
+    reset();
+    setSelectedPlan(planName);
+  };
+
+  const onSubmit = async (values) => {
+    setErrorMsg('');
+    try {
+      // Chama a Edge Function do Supabase diretamente (o site é estático no
+      // GitHub Pages — não tem "backend próprio" pra receber esse POST).
+      const functionsUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/subscribe`;
+      const res = await fetch(functionsUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+        },
+        body: JSON.stringify({ planName: selectedPlan, ...values }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setErrorMsg(data.error || 'Não foi possível iniciar a assinatura. Tente novamente.');
+        return;
+      }
+      window.location.href = data.paymentUrl;
+    } catch {
+      setErrorMsg('Falha de conexão. Verifique sua internet e tente novamente.');
+    }
+  };
+
   return (
     <section id="planos" className="section-pad" style={{ background: 'transparent', position: 'relative', overflow: 'hidden' }}>
       <div className="blob" style={{ width: 560, height: 560, top: '10%', left: '50%', transform: 'translateX(-50%)', background: 'radial-gradient(circle, rgba(51,85,232,0.22), transparent 70%)' }} />
@@ -78,6 +115,7 @@ export default function PricingSection() {
                     variant={plan.highlight ? 'white' : 'filled'}
                     color={plan.highlight ? 'dark' : 'brand'}
                     style={plan.highlight ? { boxShadow: '0 10px 30px rgba(0,0,0,0.25)' } : { boxShadow: 'var(--shadow-brand)' }}
+                    onClick={() => openModal(plan.name)}
                   >
                     Assinar {plan.name}
                   </Button>
@@ -101,6 +139,46 @@ export default function PricingSection() {
           .pricing-grid { grid-template-columns: 1fr !important; max-width: 420px; margin: 0 auto; }
         }
       `}</style>
+
+      <Modal opened={!!selectedPlan} onClose={() => setSelectedPlan(null)} title={`Assinar plano ${selectedPlan || ''}`} centered>
+        <form onSubmit={handleSubmit(onSubmit)}>
+          <TextInput
+            label="Nome completo"
+            placeholder="Seu nome"
+            mb="sm"
+            error={errors.name && 'Informe seu nome'}
+            {...register('name', { required: true })}
+          />
+          <TextInput
+            label="E-mail"
+            placeholder="voce@email.com"
+            mb="sm"
+            error={errors.email && 'Informe um e-mail válido'}
+            {...register('email', { required: true, pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/ })}
+          />
+          <TextInput
+            label="CPF ou CNPJ"
+            placeholder="Somente números"
+            mb="sm"
+            error={errors.cpfCnpj && 'Informe um CPF ou CNPJ válido'}
+            {...register('cpfCnpj', { required: true, minLength: 11 })}
+          />
+          <TextInput
+            label="Telefone (com DDD)"
+            placeholder="(00) 00000-0000"
+            mb="md"
+            error={errors.phone && 'Informe um telefone válido'}
+            {...register('phone', { required: true, minLength: 10 })}
+          />
+          {errorMsg && <Text c="red" size="sm" mb="sm">{errorMsg}</Text>}
+          <Text size="xs" c="dimmed" mb="md">
+            Você será redirecionado para a página segura do Asaas para concluir o pagamento via Pix, boleto ou cartão.
+          </Text>
+          <Button type="submit" fullWidth loading={isSubmitting} className="btn-glow" style={{ boxShadow: 'var(--shadow-brand)' }}>
+            Continuar para pagamento
+          </Button>
+        </form>
+      </Modal>
     </section>
   );
 }
