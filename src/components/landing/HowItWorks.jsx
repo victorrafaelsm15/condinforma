@@ -1,10 +1,22 @@
 import { steps } from '../../data/landingContent';
 import Reveal from './Reveal';
+import comoFuncionaBg from '../../assets/img/como-funciona-bg.jpg';
 
 export default function HowItWorks() {
   return (
-    <section id="como-funciona" className="section-pad" style={{ background: 'transparent', position: 'relative', overflow: 'hidden' }}>
-      <div className="container" style={{ position: 'relative' }}>
+    <section
+      id="como-funciona"
+      className="section-pad"
+      style={{
+        position: 'relative',
+        overflow: 'hidden',
+        backgroundImage: `linear-gradient(180deg, rgba(10,14,39,0.88), rgba(10,14,39,0.93)), url(${comoFuncionaBg})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+      }}
+    >
+      <div className="container" style={{ position: 'relative', zIndex: 1 }}>
         <Reveal>
           <div style={{ maxWidth: 640, margin: '0 auto 48px', textAlign: 'center' }}>
             <span className="eyebrow" style={{ justifyContent: 'center', width: '100%' }}>Como funciona</span>

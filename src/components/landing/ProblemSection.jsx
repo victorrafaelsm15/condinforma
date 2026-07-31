@@ -1,6 +1,7 @@
 import { ListX, HelpCircle, Footprints, MessageSquareWarning } from 'lucide-react';
 import { problems } from '../../data/landingContent';
 import Reveal from './Reveal';
+import problemaBg from '../../assets/img/problema-bg.jpg';
 
 const ICONS = [ListX, HelpCircle, Footprints, MessageSquareWarning];
 const TINTS = ['var(--amber-light)', 'var(--blue-light)', 'var(--blue-light)', 'var(--red-light)'];
@@ -8,8 +9,17 @@ const ICON_COLORS = ['var(--amber)', 'var(--blue)', 'var(--blue)', 'var(--red)']
 
 export default function ProblemSection() {
   return (
-    <section className="section-pad" style={{ background: 'transparent' }}>
-      <div className="container">
+    <section
+      className="section-pad"
+      style={{
+        position: 'relative',
+        backgroundImage: `linear-gradient(180deg, rgba(10,14,39,0.87), rgba(10,14,39,0.93)), url(${problemaBg})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+      }}
+    >
+      <div className="container" style={{ position: 'relative', zIndex: 1 }}>
         <Reveal>
           <div style={{ maxWidth: 640, margin: '0 auto 48px', textAlign: 'center' }}>
             <span className="eyebrow" style={{ justifyContent: 'center', width: '100%' }}>O problema</span>

@@ -1,6 +1,7 @@
 import { ClipboardCheck, Camera, Eye, AlertTriangle, BarChart3, Wrench } from 'lucide-react';
 import { features, useCases } from '../../data/landingContent';
 import Reveal from './Reveal';
+import diferenciaisBg from '../../assets/img/diferenciais-bg.jpg';
 
 const ICONS = [ClipboardCheck, Camera, Eye, AlertTriangle, BarChart3, Wrench];
 const TINTS = ['var(--blue-light)', 'var(--green-light)', 'var(--blue-light)', 'var(--amber-light)', 'var(--blue-light)', 'var(--green-light)'];
@@ -9,8 +10,17 @@ const ICON_COLORS = ['var(--blue)', 'var(--green)', 'var(--blue)', 'var(--amber)
 export default function FeaturesSection() {
   return (
     <>
-      <section className="section-pad" style={{ background: 'transparent' }}>
-        <div className="container">
+      <section
+        className="section-pad"
+        style={{
+          position: 'relative',
+          backgroundImage: `linear-gradient(180deg, rgba(10,14,39,0.87), rgba(10,14,39,0.93)), url(${diferenciaisBg})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat',
+        }}
+      >
+        <div className="container" style={{ position: 'relative', zIndex: 1 }}>
           <Reveal>
             <div style={{ maxWidth: 640, margin: '0 auto 48px', textAlign: 'center' }}>
               <span className="eyebrow" style={{ justifyContent: 'center', width: '100%' }}>Diferenciais</span>
