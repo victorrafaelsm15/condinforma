@@ -41,8 +41,8 @@ export default function LandingHeader() {
           <a href="#como-funciona" onClick={scrollToSection('como-funciona')} className="nav-link">Como funciona</a>
           <a href="#planos" onClick={scrollToSection('planos')} className="nav-link">Planos</a>
           <a href="#faq" onClick={scrollToSection('faq')} className="nav-link">Dúvidas</a>
-          <Button component={Link} to="/admin/login" variant="subtle" size="sm" ml={6} styles={{ root: { color: '#fff' } }}>Painel do gestor</Button>
-          <Button component="a" href="#planos" onClick={scrollToSection('planos')} size="sm" className="btn-glow">Assinar agora</Button>
+          <Button component={Link} to="/admin/login" variant="subtle" size="sm" ml={6} className="header-manager-btn" styles={{ root: { color: '#fff' } }}>Painel do gestor</Button>
+          <Button component="a" href="#planos" onClick={scrollToSection('planos')} size="sm" className="btn-glow header-cta-btn">Assinar agora</Button>
         </nav>
       </div>
       <style>{`
@@ -53,6 +53,10 @@ export default function LandingHeader() {
         .nav-link:hover { color: #fff; background: var(--on-navy-chip-bg); }
         @media (max-width: 860px) {
           .nav-link { display: none; }
+        }
+        @media (max-width: 480px) {
+          .header-manager-btn { display: none; }
+          .header-cta-btn { padding-left: 12px; padding-right: 12px; font-size: 13px; }
         }
       `}</style>
     </header>
