@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Button } from '@mantine/core';
-import { Building2 } from 'lucide-react';
+import { Button, ActionIcon } from '@mantine/core';
+import { Building2, ShieldCheck } from 'lucide-react';
 import { scrollToSection } from '../../lib/scrollToSection';
 
 export default function LandingHeader() {
@@ -41,7 +41,19 @@ export default function LandingHeader() {
           <a href="#como-funciona" onClick={scrollToSection('como-funciona')} className="nav-link">Como funciona</a>
           <a href="#planos" onClick={scrollToSection('planos')} className="nav-link">Planos</a>
           <a href="#faq" onClick={scrollToSection('faq')} className="nav-link">Dúvidas</a>
-          <Button component={Link} to="/admin/login" variant="subtle" size="sm" ml={6} className="header-manager-btn" styles={{ root: { color: '#fff' } }}>Painel do gestor</Button>
+          <Button component={Link} to="/admin/login" variant="subtle" size="sm" ml={6} className="header-manager-btn header-manager-btn--full" styles={{ root: { color: '#fff' } }}>Painel do gestor</Button>
+          <ActionIcon
+            component={Link}
+            to="/admin/login"
+            variant="subtle"
+            size="lg"
+            radius="xl"
+            className="header-manager-btn--icon"
+            style={{ color: '#fff' }}
+            aria-label="Painel do gestor"
+          >
+            <ShieldCheck size={19} />
+          </ActionIcon>
           <Button component="a" href="#planos" onClick={scrollToSection('planos')} size="sm" className="btn-glow header-cta-btn">Assinar agora</Button>
         </nav>
       </div>
@@ -51,11 +63,13 @@ export default function LandingHeader() {
           padding: 8px 12px; border-radius: 8px; transition: all 0.2s var(--ease);
         }
         .nav-link:hover { color: #fff; background: var(--on-navy-chip-bg); }
+        .header-manager-btn--icon { display: none; }
         @media (max-width: 860px) {
           .nav-link { display: none; }
         }
         @media (max-width: 480px) {
-          .header-manager-btn { display: none; }
+          .header-manager-btn--full { display: none; }
+          .header-manager-btn--icon { display: inline-flex; }
           .header-cta-btn { padding-left: 12px; padding-right: 12px; font-size: 13px; }
         }
       `}</style>
