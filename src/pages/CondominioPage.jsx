@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Button, TextInput, Text, Group, Modal, Loader, SimpleGrid, Breadcrumbs, Badge, ActionIcon } from '@mantine/core';
-import { Plus, DoorOpen, ChevronRight, Clock, LayoutGrid, ArrowLeft, Pencil } from 'lucide-react';
+import { Plus, DoorOpen, ChevronRight, Clock, LayoutGrid, ArrowLeft, Pencil, LayoutDashboard } from 'lucide-react';
 import { condominiosStore, ambientesStore, execucoesStore } from '../lib/stores';
 
 export default function CondominioPage() {
@@ -105,9 +105,14 @@ export default function CondominioPage() {
             <Pencil size={16} />
           </ActionIcon>
         </Group>
-        <Button leftSection={<Plus size={16} />} onClick={() => setModalOpen(true)} className="btn-glow" style={{ boxShadow: 'var(--shadow-brand)' }}>
-          Novo ambiente
-        </Button>
+        <Group gap={8}>
+          <Button component={Link} to={`/admin/condominios/${id}/dashboard`} variant="default" leftSection={<LayoutDashboard size={16} />}>
+            Visão geral
+          </Button>
+          <Button leftSection={<Plus size={16} />} onClick={() => setModalOpen(true)} className="btn-glow" style={{ boxShadow: 'var(--shadow-brand)' }}>
+            Novo ambiente
+          </Button>
+        </Group>
       </Group>
 
       {ambientes.length ? (

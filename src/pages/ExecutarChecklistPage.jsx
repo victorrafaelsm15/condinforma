@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Text, Checkbox, Button, TextInput, Textarea, Loader, FileButton, Group, Progress } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { CheckCircle2, Camera, AlertTriangle, Building2 } from 'lucide-react';
+import { CheckCircle2, Camera, AlertTriangle, Building2, WifiOff } from 'lucide-react';
 import { ambientesStore, checklistItemsStore, execucoesStore, ocorrenciasStore } from '../lib/stores';
 
 function fileToBase64(file) {
@@ -25,12 +25,26 @@ export default function ExecutarChecklistPage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
+  const [submitError, setSubmitError] = useState('');
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
 
   const [showOcorrencia, setShowOcorrencia] = useState(false);
   const [ocorrenciaDesc, setOcorrenciaDesc] = useState('');
   const [ocorrenciaPhoto, setOcorrenciaPhoto] = useState(null);
   const [sendingOcorrencia, setSendingOcorrencia] = useState(false);
   const [ocorrenciaSent, setOcorrenciaSent] = useState(false);
+  const [ocorrenciaError, setOcorrenciaError] = useState('');
+
+  useEffect(() => {
+    const goOnline = () => setIsOnline(true);
+    const goOffline = () => setIsOnline(false);
+    window.addEventListener('online', goOnline);
+    window.addEventListener('offline', goOffline);
+    return () => {
+      window.removeEventListener('online', goOnline);
+      window.removeEventListener('offline', goOffline);
+    };
+  }, []);
 
   useEffect(() => {
     Promise.all([
@@ -57,17 +71,35 @@ export default function ExecutarChecklistPage() {
   const progressPct = items.length ? Math.round((completedCount / items.length) * 100) : 0;
 
   const handleSubmit = async () => {
+    setSubmitError('');
+
+    // O checklistItemsStore (createStore.js) cai silenciosamente pra
+    // localStorage se a chamada ao Supabase falhar — ótimo pra quando o
+    // Supabase não está configurado, mas ruim aqui: sem internet, o
+    // colaborador veria "concluído" mesmo sem a execução chegar no painel
+    // do gestor. Por isso checamos a conexão ANTES de tentar, sem perder
+    // nada do que já foi preenchido.
+    if (!navigator.onLine) {
+      setSubmitError('Sem conexão com a internet. Suas respostas continuam preenchidas — tente confirmar de novo assim que o sinal voltar.');
+      return;
+    }
+
     setSubmitting(true);
-    await execucoesStore.create({
-      ambiente_id: id,
-      executed_by: executedBy || 'Colaborador',
-      completed_count: completedCount,
-      total_count: items.length,
-      items: items.map((i) => ({ task: i.task, done: !!checked[i.id] })),
-      photo,
-    });
-    setSubmitting(false);
-    setDone(true);
+    try {
+      await execucoesStore.create({
+        ambiente_id: id,
+        executed_by: executedBy || 'Colaborador',
+        completed_count: completedCount,
+        total_count: items.length,
+        items: items.map((i) => ({ task: i.task, done: !!checked[i.id] })),
+        photo,
+      });
+      setDone(true);
+    } catch {
+      setSubmitError('Não foi possível confirmar agora. Suas respostas continuam preenchidas — tente novamente em instantes.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleSendOcorrencia = async () => {
@@ -75,15 +107,25 @@ export default function ExecutarChecklistPage() {
       notifications.show({ color: 'red', message: 'Descreva o problema encontrado.' });
       return;
     }
+    setOcorrenciaError('');
+    if (!navigator.onLine) {
+      setOcorrenciaError('Sem conexão com a internet. O texto continua preenchido — tente enviar de novo assim que o sinal voltar.');
+      return;
+    }
     setSendingOcorrencia(true);
-    await ocorrenciasStore.create({
-      ambiente_id: id,
-      description: ocorrenciaDesc.trim(),
-      photo: ocorrenciaPhoto,
-      status: 'pendente',
-    });
-    setSendingOcorrencia(false);
-    setOcorrenciaSent(true);
+    try {
+      await ocorrenciasStore.create({
+        ambiente_id: id,
+        description: ocorrenciaDesc.trim(),
+        photo: ocorrenciaPhoto,
+        status: 'pendente',
+      });
+      setOcorrenciaSent(true);
+    } catch {
+      setOcorrenciaError('Não foi possível enviar agora. O texto continua preenchido — tente novamente em instantes.');
+    } finally {
+      setSendingOcorrencia(false);
+    }
   };
 
   if (loading) return <Group justify="center" py={80}><Loader color="brand" /></Group>;
@@ -129,6 +171,18 @@ export default function ExecutarChecklistPage() {
           </span>
           <Text size="xs" c="dimmed" fw={700} tt="uppercase" style={{ letterSpacing: '0.06em' }}>Cond-Informa</Text>
         </Group>
+
+        {!isOnline && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', marginBottom: 16,
+            background: 'var(--amber-light)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 12,
+          }}>
+            <WifiOff size={17} color="var(--amber)" style={{ flexShrink: 0 }} />
+            <Text size="sm" fw={600} style={{ color: '#92620a' }}>
+              Sem conexão agora. Você pode marcar as tarefas normalmente, mas a confirmação só é enviada quando a internet voltar.
+            </Text>
+          </div>
+        )}
 
         <div className="surface-card" style={{ padding: 22, marginBottom: 18 }}>
           <Text fw={800} size="xl" mb={4}>{ambiente.name}</Text>
@@ -205,6 +259,9 @@ export default function ExecutarChecklistPage() {
         >
           Confirmar execução
         </Button>
+        {submitError && (
+          <Text size="sm" c="red" fw={600} mt={10} ta="center">{submitError}</Text>
+        )}
 
         <div style={{ marginTop: 28, borderTop: '1px solid var(--border)', paddingTop: 20 }}>
           <AnimatePresence mode="wait">
@@ -246,6 +303,9 @@ export default function ExecutarChecklistPage() {
                 <Button fullWidth color="red" onClick={handleSendOcorrencia} loading={sendingOcorrencia}>
                   Enviar ocorrência
                 </Button>
+                {ocorrenciaError && (
+                  <Text size="sm" c="red" fw={600} mt={10} ta="center">{ocorrenciaError}</Text>
+                )}
               </motion.div>
             )}
           </AnimatePresence>

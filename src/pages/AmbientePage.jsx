@@ -2,11 +2,16 @@ import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
   Text, Group, Breadcrumbs, Loader, TextInput, Button, ActionIcon,
-  Tabs, Badge, Image as MantineImage, Modal,
+  Tabs, Badge, Image as MantineImage, Modal, Menu,
 } from '@mantine/core';
-import { QRCodeSVG } from 'qrcode.react';
-import { Plus, Trash2, ClipboardList, QrCode, History, AlertTriangle, Download, ListChecks, ArrowLeft, Pencil, Check, X } from 'lucide-react';
-import { ambientesStore, checklistItemsStore, execucoesStore, ocorrenciasStore } from '../lib/stores';
+import { notifications } from '@mantine/notifications';
+import {
+  Plus, Trash2, ClipboardList, QrCode, History, AlertTriangle, ListChecks, ArrowLeft, Pencil, Check, X,
+  FileDown, Download, Share2, Calendar,
+} from 'lucide-react';
+import { ambientesStore, checklistItemsStore, execucoesStore, ocorrenciasStore, condominiosStore } from '../lib/stores';
+import AmbienteQrCards from '../components/admin/AmbienteQrCards';
+import { generateComunicadoPdf, downloadPdf, sharePdf } from '../lib/comunicado';
 
 function ChecklistTab({ ambienteId }) {
   const [items, setItems] = useState([]);
@@ -128,62 +133,30 @@ function ChecklistTab({ ambienteId }) {
 }
 
 function QrCodeTab({ ambiente }) {
-  // HashRouter (necessário no GitHub Pages, que não suporta fallback de SPA):
-  // as rotas ficam depois do "#", então o link precisa incluir o BASE_URL + "#/...".
-  const baseUrl = window.location.origin + import.meta.env.BASE_URL;
-  const execUrl = `${baseUrl}#/ambiente/${ambiente.id}/executar`;
-  const statusUrl = `${baseUrl}#/ambiente/${ambiente.id}/status`;
+  return <AmbienteQrCards ambiente={ambiente} />;
+}
 
-  const downloadQr = (elId, filename) => {
-    const svg = document.getElementById(elId);
-    const svgData = new XMLSerializer().serializeToString(svg);
-    const canvas = document.createElement('canvas');
-    const img = new window.Image();
-    const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
-    const url = URL.createObjectURL(svgBlob);
-    img.onload = () => {
-      canvas.width = img.width + 40;
-      canvas.height = img.height + 40;
-      const ctx = canvas.getContext('2d');
-      ctx.fillStyle = '#fff';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(img, 20, 20);
-      URL.revokeObjectURL(url);
-      const pngUrl = canvas.toDataURL('image/png');
-      const a = document.createElement('a');
-      a.href = pngUrl;
-      a.download = filename;
-      a.click();
-    };
-    img.src = url;
-  };
-
+function ComunicadoMenu({ label, icon, onPick, loading }) {
   return (
-    <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
-      {[
-        { id: 'qr-exec', title: 'QR Code — Execução do checklist', desc: 'Para o colaborador escanear no local', value: execUrl, file: `checklist-${ambiente.name}.png`, tint: 'var(--blue-light)', color: 'var(--blue)' },
-        { id: 'qr-status', title: 'QR Code — Status público', desc: 'Para o morador consultar (sem login)', value: statusUrl, file: `status-${ambiente.name}.png`, tint: 'var(--green-light)', color: 'var(--green)' },
-      ].map((qr) => (
-        <div key={qr.id} className="surface-card" style={{ padding: 26, textAlign: 'center', width: 240 }}>
-          <Text fw={700} size="sm" mb={4}>{qr.title}</Text>
-          <Text size="xs" c="dimmed" mb="md">{qr.desc}</Text>
-          <div style={{ padding: 16, background: qr.tint, borderRadius: 16, display: 'inline-block' }}>
-            <div style={{ background: '#fff', padding: 12, borderRadius: 10 }}>
-              <QRCodeSVG id={qr.id} value={qr.value} size={150} fgColor="#10142c" />
-            </div>
-          </div>
-          <Button mt="md" size="xs" variant="light" color={qr.color === 'var(--green)' ? 'green' : 'brand'} leftSection={<Download size={14} />} onClick={() => downloadQr(qr.id, qr.file)}>
-            Baixar QR Code
-          </Button>
-        </div>
-      ))}
-    </div>
+    <Menu shadow="md" width={210} position="bottom-end" withinPortal>
+      <Menu.Target>
+        <Button size="xs" variant="light" leftSection={icon} loading={loading} onClick={(e) => e.stopPropagation()}>
+          {label}
+        </Button>
+      </Menu.Target>
+      <Menu.Dropdown onClick={(e) => e.stopPropagation()}>
+        <Menu.Item leftSection={<Download size={14} />} onClick={() => onPick('download')}>Baixar PDF</Menu.Item>
+        <Menu.Item leftSection={<Share2 size={14} />} onClick={() => onPick('share')}>Compartilhar (WhatsApp)</Menu.Item>
+      </Menu.Dropdown>
+    </Menu>
   );
 }
 
-function HistoryTab({ ambienteId }) {
+function HistoryTab({ ambienteId, ambienteName, condominioName }) {
   const [execs, setExecs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [generatingId, setGeneratingId] = useState(null);
+  const [generatingPeriod, setGeneratingPeriod] = useState(false);
 
   useEffect(() => {
     execucoesStore.list({ ambiente_id: ambienteId }).then((data) => {
@@ -192,23 +165,93 @@ function HistoryTab({ ambienteId }) {
     });
   }, [ambienteId]);
 
+  const runComunicado = async (execucoes, filename, action, setBusy, key) => {
+    if (!execucoes.length) {
+      notifications.show({ color: 'red', message: 'Nenhuma execução nesse período pra gerar comunicado.' });
+      return;
+    }
+    setBusy(key);
+    try {
+      const doc = generateComunicadoPdf({ condominioName, ambienteName, execucoes });
+      if (action === 'share') {
+        const result = await sharePdf(doc, filename);
+        if (result === 'downloaded') {
+          notifications.show({ color: 'blue', message: 'Seu navegador não suporta compartilhar arquivos — o PDF foi baixado.' });
+        }
+      } else {
+        downloadPdf(doc, filename);
+      }
+    } catch {
+      notifications.show({ color: 'red', message: 'Não foi possível gerar o PDF. Tente novamente.' });
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const handleExecucaoComunicado = (exec, action) => {
+    const dataStr = new Date(exec.created_at).toLocaleDateString('pt-BR').replaceAll('/', '-');
+    runComunicado([exec], `comunicado-${ambienteName}-${dataStr}.pdf`, action, setGeneratingId, exec.id);
+  };
+
+  const handlePeriodoComunicado = (days, action) => {
+    const cutoff = days ? Date.now() - days * 24 * 3_600_000 : null;
+    const filtered = cutoff ? execs.filter((e) => new Date(e.created_at).getTime() >= cutoff) : execs;
+    const label = days ? `ultimos-${days}-dias` : 'todas';
+    runComunicado(filtered, `comunicado-${ambienteName}-${label}.pdf`, action, setGeneratingPeriod, true);
+  };
+
   if (loading) return <Loader size="sm" color="brand" />;
-  if (!execs.length) return <Text c="dimmed" size="sm">Nenhuma execução registrada ainda.</Text>;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      {execs.map((e) => (
-        <div key={e.id} className="surface-card" style={{ padding: 16 }}>
-          <Group justify="space-between" align="flex-start">
-            <div>
-              <Text size="sm" fw={600}>{e.executed_by || 'Colaborador'}</Text>
-              <Text size="xs" c="dimmed">{new Date(e.created_at).toLocaleString('pt-BR')}</Text>
+    <div>
+      {!!execs.length && (
+        <Group justify="flex-end" mb="md">
+          <Menu shadow="md" width={230} position="bottom-end" withinPortal>
+            <Menu.Target>
+              <Button size="xs" variant="default" leftSection={<Calendar size={14} />} loading={!!generatingPeriod}>
+                Gerar comunicado do período
+              </Button>
+            </Menu.Target>
+            <Menu.Dropdown>
+              <Menu.Label>Baixar PDF</Menu.Label>
+              <Menu.Item onClick={() => handlePeriodoComunicado(7, 'download')}>Últimos 7 dias</Menu.Item>
+              <Menu.Item onClick={() => handlePeriodoComunicado(30, 'download')}>Últimos 30 dias</Menu.Item>
+              <Menu.Item onClick={() => handlePeriodoComunicado(null, 'download')}>Todo o histórico</Menu.Item>
+              <Menu.Divider />
+              <Menu.Label>Compartilhar (WhatsApp)</Menu.Label>
+              <Menu.Item onClick={() => handlePeriodoComunicado(7, 'share')}>Últimos 7 dias</Menu.Item>
+              <Menu.Item onClick={() => handlePeriodoComunicado(30, 'share')}>Últimos 30 dias</Menu.Item>
+            </Menu.Dropdown>
+          </Menu>
+        </Group>
+      )}
+
+      {!execs.length ? (
+        <Text c="dimmed" size="sm">Nenhuma execução registrada ainda.</Text>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {execs.map((e) => (
+            <div key={e.id} className="surface-card" style={{ padding: 16 }}>
+              <Group justify="space-between" align="flex-start" wrap="wrap" gap={10}>
+                <div>
+                  <Text size="sm" fw={600}>{e.executed_by || 'Colaborador'}</Text>
+                  <Text size="xs" c="dimmed">{new Date(e.created_at).toLocaleString('pt-BR')}</Text>
+                </div>
+                <Group gap={8}>
+                  <Badge color="green" variant="light">{e.completed_count}/{e.total_count} tarefas</Badge>
+                  <ComunicadoMenu
+                    label="Gerar comunicado"
+                    icon={<FileDown size={14} />}
+                    loading={generatingId === e.id}
+                    onPick={(action) => handleExecucaoComunicado(e, action)}
+                  />
+                </Group>
+              </Group>
+              {e.photo && <MantineImage src={e.photo} radius="md" mt="sm" h={140} w={140} fit="cover" />}
             </div>
-            <Badge color="green" variant="light">{e.completed_count}/{e.total_count} tarefas</Badge>
-          </Group>
-          {e.photo && <MantineImage src={e.photo} radius="md" mt="sm" h={140} w={140} fit="cover" />}
+          ))}
         </div>
-      ))}
+      )}
     </div>
   );
 }
@@ -258,12 +301,21 @@ function OccurrencesTab({ ambienteId }) {
 export default function AmbientePage() {
   const { id } = useParams();
   const [ambiente, setAmbiente] = useState(null);
+  const [condominio, setCondominio] = useState(null);
   const [loading, setLoading] = useState(true);
   const [editOpen, setEditOpen] = useState(false);
   const [editName, setEditName] = useState('');
   const [savingEdit, setSavingEdit] = useState(false);
 
-  const load = () => ambientesStore.getById(id).then((data) => { setAmbiente(data); setLoading(false); });
+  const load = async () => {
+    const data = await ambientesStore.getById(id);
+    setAmbiente(data);
+    if (data) {
+      const c = await condominiosStore.getById(data.condominio_id);
+      setCondominio(c);
+    }
+    setLoading(false);
+  };
 
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [id]);
 
@@ -334,7 +386,7 @@ export default function AmbientePage() {
         </Tabs.List>
         <Tabs.Panel value="checklist" pt="lg"><ChecklistTab ambienteId={id} /></Tabs.Panel>
         <Tabs.Panel value="qrcode" pt="lg"><QrCodeTab ambiente={ambiente} /></Tabs.Panel>
-        <Tabs.Panel value="historico" pt="lg"><HistoryTab ambienteId={id} /></Tabs.Panel>
+        <Tabs.Panel value="historico" pt="lg"><HistoryTab ambienteId={id} ambienteName={ambiente.name} condominioName={condominio?.name} /></Tabs.Panel>
         <Tabs.Panel value="ocorrencias" pt="lg"><OccurrencesTab ambienteId={id} /></Tabs.Panel>
       </Tabs>
     </div>
