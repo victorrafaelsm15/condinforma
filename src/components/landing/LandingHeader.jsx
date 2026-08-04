@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Button, ActionIcon } from '@mantine/core';
 import { Building2, ShieldCheck } from 'lucide-react';
 import { scrollToSection } from '../../lib/scrollToSection';
+import InstallAppButton from '../common/InstallAppButton';
 
 export default function LandingHeader() {
   const [scrolled, setScrolled] = useState(false);
@@ -41,6 +42,13 @@ export default function LandingHeader() {
           <a href="#como-funciona" onClick={scrollToSection('como-funciona')} className="nav-link">Como funciona</a>
           <a href="#planos" onClick={scrollToSection('planos')} className="nav-link">Planos</a>
           <a href="#faq" onClick={scrollToSection('faq')} className="nav-link">Dúvidas</a>
+          <InstallAppButton
+            label="Instalar app"
+            variant="subtle"
+            size="sm"
+            className="header-install-btn"
+            styles={{ root: { color: '#fff' } }}
+          />
           <Button component={Link} to="/admin/login" variant="subtle" size="sm" ml={6} className="header-manager-btn header-manager-btn--full" styles={{ root: { color: '#fff' } }}>Painel do gestor</Button>
           <ActionIcon
             component={Link}
@@ -71,6 +79,8 @@ export default function LandingHeader() {
           .header-manager-btn--full { display: none; }
           .header-manager-btn--icon { display: inline-flex; }
           .header-cta-btn { padding-left: 12px; padding-right: 12px; font-size: 13px; }
+          .header-install-btn { padding-left: 10px; padding-right: 10px; }
+          .header-install-btn .install-btn-label { display: none; }
         }
       `}</style>
     </header>

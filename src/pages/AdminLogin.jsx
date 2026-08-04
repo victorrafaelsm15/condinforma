@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form';
 import { Button, TextInput, PasswordInput, Text } from '@mantine/core';
 import { ShieldCheck, Building2, QrCode, BarChart3 } from 'lucide-react';
 import { login } from '../lib/authService';
+import InstallAppButton from '../components/common/InstallAppButton';
 
 export default function AdminLogin() {
   const navigate = useNavigate();
@@ -91,6 +92,14 @@ export default function AdminLogin() {
                 Entrar
               </Button>
             </form>
+
+            <InstallAppButton
+              label="Instalar app no dispositivo"
+              variant="default"
+              fullWidth
+              mt="md"
+              size="sm"
+            />
           </div>
         </div>
       </div>
