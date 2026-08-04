@@ -11,10 +11,15 @@ import './index.css';
 import { theme } from './theme';
 import App from './App.jsx';
 import { registerSW } from 'virtual:pwa-register';
+import { checkInstallLaunchRedirect } from './lib/installPrompt';
 
 if ('serviceWorker' in navigator) {
   registerSW({ immediate: true });
 }
+
+// Antes do HashRouter ler a URL: se o ícone instalado veio do botão da
+// página de login, já troca o hash pra lá — a landing page nunca renderiza.
+checkInstallLaunchRedirect();
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

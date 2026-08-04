@@ -95,6 +95,7 @@ export default function AdminLogin() {
 
             <InstallAppButton
               label="Instalar app no dispositivo"
+              installSource="login"
               variant="default"
               fullWidth
               mt="md"
