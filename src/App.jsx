@@ -2,6 +2,7 @@ import { Routes, Route } from 'react-router-dom';
 import AdminLayout from './layouts/AdminLayout';
 import LandingPage from './pages/LandingPage';
 import AdminLogin from './pages/AdminLogin';
+import AdminSignup from './pages/AdminSignup';
 import AdminDashboard from './pages/AdminDashboard';
 import CondominioPage from './pages/CondominioPage';
 import SindicoDashboard from './pages/SindicoDashboard';
@@ -19,6 +20,7 @@ export default function App() {
       <Route path="/" element={<LandingPage />} />
 
       <Route path="/admin/login" element={<AdminLogin />} />
+      <Route path="/admin/signup" element={<AdminSignup />} />
       <Route element={<ProtectedRoute />}>
         <Route element={<AdminLayout />}>
           <Route path="/admin" element={<AdminDashboard />} />

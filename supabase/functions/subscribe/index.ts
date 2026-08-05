@@ -40,7 +40,7 @@ Deno.serve(async (req: Request) => {
     return jsonResponse({ error: 'Método não permitido.' }, 405);
   }
 
-  const { planName, name, email, cpfCnpj, phone } = await req.json().catch(() => ({}));
+  const { planName, name, email, cpfCnpj, phone, accountId } = await req.json().catch(() => ({}));
 
   const price = PLAN_PRICES[planName];
   if (!price) return jsonResponse({ error: 'Plano inválido.' }, 400);
@@ -72,6 +72,7 @@ Deno.serve(async (req: Request) => {
     const { error: dbError } = await supabaseAdmin.from('assinantes').upsert({
       asaas_customer_id: customer.id,
       asaas_subscription_id: subscription.id,
+      account_id: accountId || null,
       name,
       email,
       plan_name: planName,

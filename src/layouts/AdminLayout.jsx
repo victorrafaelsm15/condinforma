@@ -1,7 +1,7 @@
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { Button, ActionIcon, Menu } from '@mantine/core';
 import { LogOut, Building2, AlertTriangle, BarChart3, Menu as MenuIcon } from 'lucide-react';
-import { logout } from '../lib/authService';
+import { signOut } from '../lib/authService';
 
 const NAV_ITEMS = [
   { to: '/admin', label: 'Condomínios', icon: Building2, match: (p) => p === '/admin' || p.startsWith('/admin/condominios') },
@@ -13,8 +13,8 @@ export default function AdminLayout() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await signOut();
     navigate('/admin/login');
   };
 

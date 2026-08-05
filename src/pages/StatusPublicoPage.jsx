@@ -14,7 +14,7 @@ export default function StatusPublicoPage() {
   useEffect(() => {
     Promise.all([
       ambientesStore.getById(id),
-      execucoesStore.list({ ambiente_id: id }),
+      execucoesStore.list({ ambiente_id: id }, { skipAccountFilter: true }),
     ]).then(([amb, execs]) => {
       setAmbiente(amb);
       setLastExec(execs[0] || null);

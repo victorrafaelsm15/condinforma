@@ -2,27 +2,55 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { Button, TextInput, PasswordInput, Text } from '@mantine/core';
-import { ShieldCheck, Building2, QrCode, BarChart3 } from 'lucide-react';
-import { signIn } from '../lib/authService';
-import InstallAppButton from '../components/common/InstallAppButton';
+import { ShieldCheck, Building2, QrCode, BarChart3, MailCheck } from 'lucide-react';
+import { signUp } from '../lib/authService';
 
 function translateAuthError(message) {
-  if (message?.includes('Invalid login credentials')) return 'E-mail ou senha incorretos.';
-  if (message?.includes('Email not confirmed')) return 'Confirme seu e-mail antes de entrar — verifique sua caixa de entrada.';
-  return message || 'Não foi possível entrar. Tente novamente.';
+  if (message?.includes('User already registered')) return 'Já existe uma conta com esse e-mail. Tente entrar.';
+  if (message?.includes('Password should be at least')) return 'A senha precisa ter pelo menos 6 caracteres.';
+  if (message?.includes('Unable to validate email address')) return 'Informe um e-mail válido.';
+  return message || 'Não foi possível criar sua conta. Tente novamente.';
 }
 
-export default function AdminLogin() {
+export default function AdminSignup() {
   const navigate = useNavigate();
   const [error, setError] = useState('');
-  const { register, handleSubmit, formState: { isSubmitting } } = useForm();
+  const [awaitingConfirmation, setAwaitingConfirmation] = useState(false);
+  const { register, handleSubmit, watch, formState: { isSubmitting, errors } } = useForm();
 
   const onSubmit = async ({ email, password }) => {
     setError('');
-    const { error: authError } = await signIn(email, password);
-    if (authError) setError(translateAuthError(authError.message));
-    else navigate('/admin');
+    const { data, error: authError } = await signUp(email, password);
+    if (authError) {
+      setError(translateAuthError(authError.message));
+      return;
+    }
+    // Se a confirmação por e-mail estiver ativada no projeto Supabase, o
+    // signUp não devolve uma sessão ativa — o cliente precisa confirmar
+    // o e-mail antes de conseguir entrar.
+    if (data.session) navigate('/admin');
+    else setAwaitingConfirmation(true);
   };
+
+  if (awaitingConfirmation) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)', padding: 24 }}>
+        <div className="surface-card" style={{ maxWidth: 400, padding: '48px 32px', textAlign: 'center' }}>
+          <div style={{
+            width: 60, height: 60, borderRadius: '50%', background: 'var(--blue-light)', color: 'var(--blue)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 18px',
+          }}>
+            <MailCheck size={28} />
+          </div>
+          <Text fw={800} size="lg">Confirme seu e-mail</Text>
+          <Text c="dimmed" size="sm" mt={8}>
+            Enviamos um link de confirmação. Depois de confirmar, volte e entre com seu e-mail e senha.
+          </Text>
+          <Button component={Link} to="/admin/login" mt="xl" fullWidth variant="light">Ir para o login</Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ minHeight: '100vh', display: 'grid', gridTemplateColumns: '1fr 1fr' }} className="login-grid">
@@ -43,10 +71,11 @@ export default function AdminLogin() {
             Cond-Informa
           </Link>
           <h1 style={{ fontSize: 'clamp(26px,3vw,34px)', fontWeight: 800, lineHeight: 1.2, margin: '0 0 16px', maxWidth: 420 }}>
-            O painel completo para gerir limpeza e manutenção do seu condomínio
+            Crie sua conta e comece a organizar a limpeza e manutenção do seu condomínio
           </h1>
           <p style={{ opacity: 0.72, fontSize: 15, lineHeight: 1.6, maxWidth: 380, marginBottom: 36 }}>
-            Acompanhe checklists, ocorrências e relatórios de todos os ambientes em um só lugar.
+            Cada conta tem seus próprios condomínios, ambientes e dados — completamente
+            isolados de outros clientes.
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             {[
@@ -79,12 +108,30 @@ export default function AdminLogin() {
             }}>
               <ShieldCheck size={24} />
             </div>
-            <Text fw={800} size="lg">Painel do gestor</Text>
-            <Text size="sm" c="dimmed" mb="lg">Entre com suas credenciais para continuar</Text>
+            <Text fw={800} size="lg">Criar conta</Text>
+            <Text size="sm" c="dimmed" mb="lg">Cadastre-se para começar a usar o Cond-Informa</Text>
 
             <form onSubmit={handleSubmit(onSubmit)} style={{ textAlign: 'left' }}>
-              <TextInput label="E-mail" placeholder="voce@condinforma.com" {...register('email', { required: true })} />
-              <PasswordInput label="Senha" placeholder="••••••••" mt="md" {...register('password', { required: true })} />
+              <TextInput
+                label="E-mail"
+                placeholder="voce@condinforma.com"
+                error={errors.email && 'Informe um e-mail válido'}
+                {...register('email', { required: true, pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/ })}
+              />
+              <PasswordInput
+                label="Senha"
+                placeholder="Mínimo 6 caracteres"
+                mt="md"
+                error={errors.password && 'A senha precisa ter pelo menos 6 caracteres'}
+                {...register('password', { required: true, minLength: 6 })}
+              />
+              <PasswordInput
+                label="Confirmar senha"
+                placeholder="Repita a senha"
+                mt="md"
+                error={errors.confirmPassword && 'As senhas não coincidem'}
+                {...register('confirmPassword', { required: true, validate: (v) => v === watch('password') })}
+              />
               {error && <Text c="red" size="sm" mt="sm">{error}</Text>}
               <Button
                 type="submit"
@@ -95,23 +142,14 @@ export default function AdminLogin() {
                 className="btn-glow"
                 style={{ boxShadow: 'var(--shadow-brand)' }}
               >
-                Entrar
+                Criar conta
               </Button>
             </form>
 
             <Text size="sm" c="dimmed" ta="center" mt="md">
-              Ainda não tem conta?{' '}
-              <Link to="/admin/signup" style={{ color: 'var(--blue)', fontWeight: 600 }}>Cadastre-se</Link>
+              Já tem conta?{' '}
+              <Link to="/admin/login" style={{ color: 'var(--blue)', fontWeight: 600 }}>Entrar</Link>
             </Text>
-
-            <InstallAppButton
-              label="Instalar app no dispositivo"
-              installSource="login"
-              variant="default"
-              fullWidth
-              mt="md"
-              size="sm"
-            />
           </div>
         </div>
       </div>

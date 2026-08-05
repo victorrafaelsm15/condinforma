@@ -1,24 +1,35 @@
-// Login simples do painel do gestor/síndico.
-// Pode ser sobrescrito por variáveis de ambiente no build (VITE_ADMIN_EMAIL / VITE_ADMIN_PASSWORD).
+// Autenticação real do painel do gestor via Supabase Auth. Cada cliente que
+// se cadastra vira um usuário do Supabase Auth — o isolamento de dados entre
+// contas é garantido pelas políticas de RLS (ver supabase/schema.sql), que
+// usam auth.uid() como account_id dono de cada registro.
+import { supabase } from './supabaseClient';
 
-// .trim() nas duas pontas: variáveis de ambiente coladas em formulários (ex.:
-// Secrets do GitHub Actions) frequentemente carregam um "\n" ou espaço extra
-// no final, o que quebraria a comparação exata sem isso.
-const ADMIN_EMAIL = (import.meta.env.VITE_ADMIN_EMAIL || 'admin@condinforma.com').trim();
-const ADMIN_PASSWORD = (import.meta.env.VITE_ADMIN_PASSWORD || 'condinforma2026').trim();
-
-const SESSION_KEY = 'condinforma_admin_session';
-
-export function login(email, password) {
-  const ok = email.trim().toLowerCase() === ADMIN_EMAIL.toLowerCase() && password.trim() === ADMIN_PASSWORD;
-  if (ok) sessionStorage.setItem(SESSION_KEY, '1');
-  return ok;
+export async function signUp(email, password) {
+  const { data, error } = await supabase.auth.signUp({
+    email: email.trim(),
+    password,
+  });
+  return { data, error };
 }
 
-export function logout() {
-  sessionStorage.removeItem(SESSION_KEY);
+export async function signIn(email, password) {
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email: email.trim(),
+    password,
+  });
+  return { data, error };
 }
 
-export function isLoggedIn() {
-  return sessionStorage.getItem(SESSION_KEY) === '1';
+export async function signOut() {
+  await supabase.auth.signOut();
+}
+
+export async function getSession() {
+  const { data } = await supabase.auth.getSession();
+  return data.session;
+}
+
+export function onAuthStateChange(callback) {
+  const { data } = supabase.auth.onAuthStateChange((_event, session) => callback(session));
+  return () => data.subscription.unsubscribe();
 }

@@ -1,14 +1,23 @@
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { Button, Modal, TextInput, Text } from '@mantine/core';
+import { Button, Modal, TextInput, PasswordInput, Text } from '@mantine/core';
 import { Check } from 'lucide-react';
 import { plans } from '../../data/landingContent';
+import { signUp } from '../../lib/authService';
 import Reveal from './Reveal';
+
+function translateSignUpError(message) {
+  if (message?.includes('User already registered')) {
+    return 'Já existe uma conta com esse e-mail. Entre no painel pra assinar por lá, ou use outro e-mail.';
+  }
+  if (message?.includes('Password should be at least')) return 'A senha precisa ter pelo menos 6 caracteres.';
+  return message || 'Não foi possível criar sua conta. Tente novamente.';
+}
 
 export default function PricingSection() {
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [errorMsg, setErrorMsg] = useState('');
-  const { register, handleSubmit, reset, formState: { isSubmitting, errors } } = useForm();
+  const { register, handleSubmit, reset, watch, formState: { isSubmitting, errors } } = useForm();
 
   const openModal = (planName) => {
     setErrorMsg('');
@@ -16,9 +25,17 @@ export default function PricingSection() {
     setSelectedPlan(planName);
   };
 
-  const onSubmit = async (values) => {
+  const onSubmit = async ({ name, email, cpfCnpj, phone, password }) => {
     setErrorMsg('');
     try {
+      // Cria a conta (Supabase Auth) primeiro — o cliente já sai daqui com
+      // login pronto, sem precisar de um segundo cadastro depois de pagar.
+      const { data: signUpData, error: signUpError } = await signUp(email, password);
+      if (signUpError) {
+        setErrorMsg(translateSignUpError(signUpError.message));
+        return;
+      }
+
       // Chama a Edge Function do Supabase diretamente (o site é estático no
       // GitHub Pages — não tem "backend próprio" pra receber esse POST).
       const functionsUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/subscribe`;
@@ -28,7 +45,7 @@ export default function PricingSection() {
           'Content-Type': 'application/json',
           apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
         },
-        body: JSON.stringify({ planName: selectedPlan, ...values }),
+        body: JSON.stringify({ planName: selectedPlan, name, email, cpfCnpj, phone, accountId: signUpData.user?.id }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -166,13 +183,28 @@ export default function PricingSection() {
           <TextInput
             label="Telefone (com DDD)"
             placeholder="(00) 00000-0000"
-            mb="md"
+            mb="sm"
             error={errors.phone && 'Informe um telefone válido'}
             {...register('phone', { required: true, minLength: 10 })}
           />
+          <PasswordInput
+            label="Crie uma senha"
+            placeholder="Mínimo 6 caracteres"
+            mb="sm"
+            error={errors.password && 'A senha precisa ter pelo menos 6 caracteres'}
+            {...register('password', { required: true, minLength: 6 })}
+          />
+          <PasswordInput
+            label="Confirmar senha"
+            placeholder="Repita a senha"
+            mb="md"
+            error={errors.confirmPassword && 'As senhas não coincidem'}
+            {...register('confirmPassword', { required: true, validate: (v) => v === watch('password') })}
+          />
           {errorMsg && <Text c="red" size="sm" mb="sm">{errorMsg}</Text>}
           <Text size="xs" c="dimmed" mb="md">
-            Você será redirecionado para a página segura do Asaas para concluir o pagamento via Pix, boleto ou cartão.
+            Essa senha já será o login do seu painel de gestor. Depois de criar a conta, você
+            será redirecionado para a página segura do Asaas para concluir o pagamento via Pix, boleto ou cartão.
           </Text>
           <Button type="submit" fullWidth loading={isSubmitting} className="btn-glow" style={{ boxShadow: 'var(--shadow-brand)' }}>
             Continuar para pagamento

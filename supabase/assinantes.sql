@@ -12,6 +12,7 @@
 create table if not exists assinantes (
   asaas_subscription_id  text primary key,
   asaas_customer_id      text not null,
+  account_id             uuid references auth.users(id) on delete set null,
   name                   text,
   email                  text,
   plan_name              text,
@@ -22,6 +23,12 @@ create table if not exists assinantes (
 );
 
 create index if not exists assinantes_customer_id_idx on assinantes(asaas_customer_id);
+create index if not exists assinantes_account_id_idx on assinantes(account_id);
+
+-- Se a tabela já existir de uma instalação anterior, roda isto pra adicionar
+-- a coluna nova sem precisar recriar a tabela:
+-- alter table assinantes add column if not exists account_id uuid references auth.users(id) on delete set null;
+-- create index if not exists assinantes_account_id_idx on assinantes(account_id);
 
 alter table assinantes enable row level security;
 -- Nenhuma policy criada de propósito: com RLS ligado e sem policies, a anon

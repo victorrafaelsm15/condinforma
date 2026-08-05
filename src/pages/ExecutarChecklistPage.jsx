@@ -49,7 +49,7 @@ export default function ExecutarChecklistPage() {
   useEffect(() => {
     Promise.all([
       ambientesStore.getById(id),
-      checklistItemsStore.list({ ambiente_id: id }),
+      checklistItemsStore.list({ ambiente_id: id }, { skipAccountFilter: true }),
     ]).then(([amb, checklist]) => {
       setAmbiente(amb);
       setItems(checklist.sort((a, b) => (a.order_index || 0) - (b.order_index || 0)));
@@ -88,6 +88,9 @@ export default function ExecutarChecklistPage() {
     try {
       await execucoesStore.create({
         ambiente_id: id,
+        // Sem sessão logada nesta página pública — o dono do registro é
+        // copiado do próprio ambiente, não detectado por auth.
+        account_id: ambiente.account_id,
         executed_by: executedBy || 'Colaborador',
         completed_count: completedCount,
         total_count: items.length,
@@ -116,6 +119,7 @@ export default function ExecutarChecklistPage() {
     try {
       await ocorrenciasStore.create({
         ambiente_id: id,
+        account_id: ambiente.account_id,
         description: ocorrenciaDesc.trim(),
         photo: ocorrenciaPhoto,
         status: 'pendente',
