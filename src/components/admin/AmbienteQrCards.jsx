@@ -45,23 +45,43 @@ export default function AmbienteQrCards({ ambiente, size = 150, showDownload = t
   const idPrefix = `qr-${ambiente.id}`;
 
   const cards = [
-    { id: `${idPrefix}-exec`, title: 'Execução do checklist', desc: 'Para o colaborador escanear no local', value: execUrl, file: `checklist-${ambiente.name}.png`, tint: 'var(--blue-light)', color: 'brand' },
-    { id: `${idPrefix}-status`, title: 'Status público', desc: 'Para o morador consultar (sem login)', value: statusUrl, file: `status-${ambiente.name}.png`, tint: 'var(--green-light)', color: 'green' },
+    {
+      id: `${idPrefix}-exec`,
+      title: 'Execução do checklist',
+      desc: 'Para o colaborador escanear no local',
+      value: execUrl,
+      file: `checklist-${ambiente.name}.png`,
+      background: 'var(--gradient-brand)',
+      color: 'brand',
+    },
+    {
+      id: `${idPrefix}-status`,
+      title: 'Status público',
+      desc: 'Para o morador consultar (sem login)',
+      value: statusUrl,
+      file: `status-${ambiente.name}.png`,
+      background: 'linear-gradient(135deg, #12b76a 0%, #0a7d47 100%)',
+      color: 'green',
+    },
   ];
 
   return (
     <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
       {cards.map((qr) => (
-        <div key={qr.id} className="surface-card qr-print-card" style={{ padding: 26, textAlign: 'center', width: 240 }}>
-          <Text fw={700} size="sm" mb={4}>{qr.title}</Text>
-          <Text size="xs" c="dimmed" mb="md">{qr.desc}</Text>
-          <div style={{ padding: 16, background: qr.tint, borderRadius: 16, display: 'inline-block' }}>
-            <div style={{ background: '#fff', padding: 12, borderRadius: 10 }}>
-              <QRCodeSVG id={qr.id} value={qr.value} size={size} fgColor="#10142c" />
-            </div>
+        <div
+          key={qr.id}
+          className="qr-print-card"
+          style={{ padding: 26, textAlign: 'center', width: 240, background: qr.background, borderRadius: 'var(--radius-lg)', border: 'none' }}
+        >
+          <Text fw={700} size="sm" mb={4} c="#fff">{qr.title}</Text>
+          <Text size="xs" mb="md" c="rgba(255,255,255,0.8)">{qr.desc}</Text>
+          {/* Fundo do QR Code em si continua branco — QR colorido de ponta a
+              ponta perde contraste entre os módulos e fica ilegível pra câmera. */}
+          <div style={{ padding: 16, background: '#fff', borderRadius: 16, display: 'inline-block' }}>
+            <QRCodeSVG id={qr.id} value={qr.value} size={size} fgColor="#10142c" />
           </div>
           {showDownload && (
-            <Button mt="md" size="xs" variant="light" color={qr.color} leftSection={<Download size={14} />} onClick={() => downloadQr(qr.id, qr.file)} className="no-print">
+            <Button mt="md" size="xs" variant="white" color={qr.color} leftSection={<Download size={14} />} onClick={() => downloadQr(qr.id, qr.file)} className="no-print">
               Baixar QR Code
             </Button>
           )}

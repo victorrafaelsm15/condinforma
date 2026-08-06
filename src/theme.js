@@ -6,6 +6,7 @@ export const theme = createTheme({
   headings: { fontWeight: '800' },
   primaryColor: 'brand',
   primaryShade: 6,
+  autoContrast: true,
   defaultRadius: 'lg',
   colors: {
     brand: [

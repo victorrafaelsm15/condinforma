@@ -43,14 +43,15 @@ export default function AdminLayout() {
               key={item.to}
               component={Link}
               to={item.to}
-              variant={isActive(item) ? 'light' : 'outline'}
+              variant="filled"
               color={item.color}
               leftSection={<item.icon size={15} />}
+              style={isActive(item) ? { boxShadow: 'inset 0 0 0 2px rgba(255,255,255,0.55)' } : undefined}
             >
               {item.label}
             </Button>
           ))}
-          <Button variant="outline" color="gray" leftSection={<LogOut size={14} />} onClick={handleLogout} ml={8}>
+          <Button variant="filled" color="gray" leftSection={<LogOut size={14} />} onClick={handleLogout} ml={8}>
             Sair
           </Button>
         </nav>
