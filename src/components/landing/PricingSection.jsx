@@ -35,17 +35,24 @@ export default function PricingSection() {
         setErrorMsg(translateSignUpError(signUpError.message));
         return;
       }
+      if (!signUpData.session) {
+        setErrorMsg('Conta criada, mas seu e-mail precisa ser confirmado antes de assinar. Confirme e depois entre no painel para assinar por lá.');
+        return;
+      }
 
       // Chama a Edge Function do Supabase diretamente (o site é estático no
-      // GitHub Pages — não tem "backend próprio" pra receber esse POST).
+      // GitHub Pages — não tem "backend próprio" pra receber esse POST). A
+      // função valida esse token pra saber a qual conta vincular a
+      // assinatura — não confiamos num accountId solto no corpo do request.
       const functionsUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/subscribe`;
       const res = await fetch(functionsUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${signUpData.session.access_token}`,
         },
-        body: JSON.stringify({ planName: selectedPlan, name, email, cpfCnpj, phone, accountId: signUpData.user?.id }),
+        body: JSON.stringify({ planName: selectedPlan, name, email, cpfCnpj, phone }),
       });
       const data = await res.json();
       if (!res.ok) {

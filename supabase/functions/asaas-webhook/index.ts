@@ -1,6 +1,7 @@
 // Edge Function pública: recebe eventos do Asaas (PAYMENT_CONFIRMED,
-// PAYMENT_RECEIVED, PAYMENT_OVERDUE etc.) e atualiza o status do assinante
-// na tabela "assinantes".
+// PAYMENT_RECEIVED, PAYMENT_OVERDUE etc.), atualiza o status do assinante na
+// tabela "assinantes" (histórico/auditoria) e aplica o plano/limite na conta
+// (tabela "accounts"), que é o que realmente libera o uso no app.
 //
 // Quem chama aqui é o servidor do Asaas, não o Supabase Auth — por isso a
 // validação é feita manualmente pelo header "asaas-access-token" (configurado
@@ -9,6 +10,7 @@
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { corsHeaders, jsonResponse } from '../_shared/cors.ts';
+import { PLAN_LIMITS } from '../_shared/plans.ts';
 
 // Eventos que fazem a assinatura contar como "em dia".
 const ACTIVE_EVENTS = new Set(['PAYMENT_CONFIRMED', 'PAYMENT_RECEIVED']);
@@ -55,11 +57,24 @@ Deno.serve(async (req: Request) => {
   const subscriptionId = payment.subscription;
   const customerId = payment.customer;
 
+  // externalReference foi gravado no formato "account_id:planName" na
+  // criação da assinatura (ver subscribe/index.ts) — é o único jeito do
+  // webhook, que só recebe dados do Asaas, saber qual conta liberar.
+  const externalRef: string | undefined = payment.externalReference;
+  let accountId: string | null = null;
+  let planKey: string | null = null;
+  if (externalRef?.includes(':')) {
+    const sep = externalRef.indexOf(':');
+    accountId = externalRef.slice(0, sep);
+    planKey = externalRef.slice(sep + 1).toLowerCase();
+  }
+
   try {
     if (subscriptionId) {
       const update: Record<string, unknown> = {
         asaas_subscription_id: subscriptionId,
         asaas_customer_id: customerId,
+        account_id: accountId,
         last_event: event,
         updated_at: new Date().toISOString(),
       };
@@ -72,6 +87,29 @@ Deno.serve(async (req: Request) => {
       if (error) throw error;
     } else {
       console.warn(`Webhook Asaas evento ${event} sem subscription vinculada (payment ${payment.id}).`);
+    }
+
+    // Aplica o plano/limite (ou desativa) na conta — isto sim é o que
+    // libera/bloqueia o uso real do app, via o trigger de condominios.
+    if (accountId) {
+      if (status === 'ativo' && planKey && PLAN_LIMITS[planKey] != null) {
+        const { error: accError } = await supabaseAdmin.from('accounts').update({
+          plan_name: planKey,
+          condominio_limit: PLAN_LIMITS[planKey],
+          status: 'ativo',
+          asaas_customer_id: customerId,
+          updated_at: new Date().toISOString(),
+        }).eq('id', accountId);
+        if (accError) console.error('Erro ao ativar plano na conta:', accError.message);
+      } else if (status === 'inativo') {
+        // Mantém plan_name/condominio_limit intactos — se a pessoa
+        // regularizar o pagamento depois, a configuração não se perde.
+        const { error: accError } = await supabaseAdmin.from('accounts').update({
+          status: 'inativo',
+          updated_at: new Date().toISOString(),
+        }).eq('id', accountId);
+        if (accError) console.error('Erro ao inativar conta:', accError.message);
+      }
     }
 
     return jsonResponse({ received: true });

@@ -5,6 +5,10 @@
 -- (sem account_id/RLS), NÃO rode este arquivo — use
 -- supabase/multitenant_migration.sql em vez disso.
 --
+-- Este arquivo já inclui os limites de uso por plano (tabela accounts +
+-- triggers). Se seu projeto já tinha multitenant_migration.sql rodado antes
+-- dos limites de plano existirem, use supabase/plan_limits_migration.sql.
+--
 -- Autenticação é feita via Supabase Auth (ver src/lib/authService.js). Cada
 -- linha das 5 tabelas abaixo pertence a uma conta (account_id = auth.uid()),
 -- e o isolamento entre clientes é garantido por Row Level Security.
@@ -104,3 +108,62 @@ create policy "ocorrencias_owner_all" on ocorrencias
   using (account_id = auth.uid()) with check (account_id = auth.uid());
 create policy "ocorrencias_public_insert" on ocorrencias
   for insert to anon with check (true);
+
+-- ============================================================
+-- Limites de uso por plano — ver comentário completo em
+-- plan_limits_migration.sql sobre o trigger de bloqueio e o SQLSTATE CI001.
+-- ============================================================
+
+create table if not exists accounts (
+  id                 uuid primary key references auth.users(id) on delete cascade,
+  email              text,
+  plan_name          text,
+  condominio_limit   integer not null default 0,
+  status             text not null default 'trial',
+  asaas_customer_id  text,
+  created_at         timestamptz not null default now(),
+  updated_at         timestamptz not null default now()
+);
+
+create or replace function handle_new_user_account()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  insert into public.accounts (id, email, status, condominio_limit)
+  values (new.id, new.email, 'trial', 0)
+  on conflict (id) do nothing;
+  return new;
+end;
+$$;
+
+drop trigger if exists on_auth_user_created_account on auth.users;
+create trigger on_auth_user_created_account
+  after insert on auth.users
+  for each row execute function handle_new_user_account();
+
+alter table accounts enable row level security;
+create policy "accounts_select_own" on accounts
+  for select to authenticated using (id = auth.uid());
+
+create or replace function check_condominio_limit()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare
+  v_status text;
+  v_limit  integer;
+  v_count  integer;
+begin
+  select status, condominio_limit into v_status, v_limit from accounts where id = new.account_id;
+  if v_status is null or v_status <> 'ativo' then
+    raise exception 'Sua assinatura não está ativa. Assine um plano para cadastrar condomínios.' using errcode = 'CI001';
+  end if;
+  select count(*) into v_count from condominios where account_id = new.account_id;
+  if v_count >= v_limit then
+    raise exception 'Limite de % condomínio(s) do seu plano atingido. Faça upgrade para cadastrar mais.', v_limit using errcode = 'CI001';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_check_condominio_limit on condominios;
+create trigger trg_check_condominio_limit
+  before insert on condominios
+  for each row execute function check_condominio_limit();

@@ -3,21 +3,15 @@
 // a URL da página de pagamento (Pix, boleto ou cartão).
 //
 // Chamada pelo navegador com a publishable/anon key (ver PricingSection.jsx).
-// verify_jwt = false no config.toml — a validação de quem pode chamar fica
-// por conta da própria publishable key, que já é pública por natureza.
+// verify_jwt = false no config.toml — mas a função exige e valida, ELA
+// MESMA, o token de sessão do usuário logado (Authorization: Bearer), pra
+// saber a qual conta (account_id) vincular a assinatura. Sem isso, o
+// webhook não teria como saber qual conta liberar quando o pagamento cair.
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { findOrCreateCustomer, createSubscription, getFirstPaymentLink } from '../_shared/asaas.ts';
 import { corsHeaders, jsonResponse } from '../_shared/cors.ts';
-
-// Preço de cada plano é definido AQUI, no servidor — nunca confiar em um
-// valor de preço vindo do cliente, senão qualquer pessoa poderia manipular
-// o request e assinar o plano Business pagando o preço do Start.
-const PLAN_PRICES: Record<string, number> = {
-  Start: 49,
-  Pro: 149,
-  Business: 299,
-};
+import { PLAN_PRICES } from '../_shared/plans.ts';
 
 function isValidEmail(email: string | undefined): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email || '');
@@ -40,7 +34,20 @@ Deno.serve(async (req: Request) => {
     return jsonResponse({ error: 'Método não permitido.' }, 405);
   }
 
-  const { planName, name, email, cpfCnpj, phone, accountId } = await req.json().catch(() => ({}));
+  // A conta é sempre derivada do token de sessão validado — nunca de um
+  // campo accountId enviado no corpo, que qualquer um poderia forjar.
+  const authHeader = req.headers.get('authorization') ?? '';
+  const accessToken = authHeader.replace(/^Bearer\s+/i, '');
+  if (!accessToken) {
+    return jsonResponse({ error: 'Não autenticado. Crie sua conta antes de assinar.' }, 401);
+  }
+  const { data: userData, error: userError } = await supabaseAdmin.auth.getUser(accessToken);
+  if (userError || !userData.user) {
+    return jsonResponse({ error: 'Sessão inválida ou expirada. Cadastre-se novamente.' }, 401);
+  }
+  const accountId = userData.user.id;
+
+  const { planName, name, email, cpfCnpj, phone } = await req.json().catch(() => ({}));
 
   const price = PLAN_PRICES[planName];
   if (!price) return jsonResponse({ error: 'Plano inválido.' }, 400);
@@ -62,7 +69,10 @@ Deno.serve(async (req: Request) => {
       customerId: customer.id,
       value: price,
       description: `Cond-Informa — Plano ${planName}`,
-      externalReference: planName,
+      // "account_id:planName" — é assim que o webhook, ao receber o evento
+      // de pagamento de volta do Asaas, sabe qual conta liberar e com qual
+      // plano/limite, sem precisar adivinhar ou comparar valor pago.
+      externalReference: `${accountId}:${planName}`,
     });
 
     const paymentUrl = await getFirstPaymentLink(subscription.id);
@@ -72,7 +82,7 @@ Deno.serve(async (req: Request) => {
     const { error: dbError } = await supabaseAdmin.from('assinantes').upsert({
       asaas_customer_id: customer.id,
       asaas_subscription_id: subscription.id,
-      account_id: accountId || null,
+      account_id: accountId,
       name,
       email,
       plan_name: planName,

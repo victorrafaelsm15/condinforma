@@ -113,8 +113,18 @@ export function createStore(table, { orderBy = 'created_at', ascending = false }
           const { data, error } = await supabase.from(table).insert(record).select().single();
           if (error) throw error;
           return data;
-        } catch {
-          // cai para localStorage
+        } catch (err) {
+          // CI001 é uma regra de negócio do banco (ex.: limite de
+          // condomínios do plano), não um erro de infraestrutura — não cai
+          // pro localStorage, senão criaria um registro fantasma que
+          // violaria a própria regra que acabou de bloquear a escrita.
+          if (err?.code === 'CI001') {
+            const planError = new Error(err.message);
+            planError.code = 'CI001';
+            throw planError;
+          }
+          // qualquer outro erro (rede, tabela ausente, Supabase mal
+          // configurado) cai para localStorage, mantendo o app utilizável
         }
       }
       const list = readLocal(localKey);
