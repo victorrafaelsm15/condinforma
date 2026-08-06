@@ -98,10 +98,10 @@ export default function CondominioPage() {
       <Group justify="space-between" mb="xl" align="flex-start">
         <Group gap={8} align="flex-start">
           <div>
-            <Text fw={800} size="1.6rem">{condominio?.name}</Text>
+            <Text fw={800} size="1.6rem" className="font-display">{condominio?.name}</Text>
             <Text size="md" c="dimmed" mt={2}>Ambientes cadastrados e status da última execução.</Text>
           </div>
-          <ActionIcon variant="subtle" color="gray" radius="xl" size="lg" mt={4} onClick={openEditCondo} aria-label="Editar condomínio">
+          <ActionIcon variant="light" color="gray" radius="xl" size="lg" mt={4} onClick={openEditCondo} aria-label="Editar condomínio">
             <Pencil size={16} />
           </ActionIcon>
         </Group>
@@ -129,7 +129,7 @@ export default function CondominioPage() {
                     <Text fw={700} size="md">{a.name}</Text>
                   </Group>
                   <Group gap={4}>
-                    <ActionIcon variant="subtle" color="gray" radius="xl" onClick={(e) => openEdit(e, a)} aria-label="Editar ambiente">
+                    <ActionIcon variant="light" color="gray" radius="xl" onClick={(e) => openEdit(e, a)} aria-label="Editar ambiente">
                       <Pencil size={15} />
                     </ActionIcon>
                     <ChevronRight size={18} color="var(--text-faint)" />

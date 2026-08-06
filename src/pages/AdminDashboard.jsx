@@ -137,7 +137,7 @@ export default function AdminDashboard() {
                   <Text fw={700} size="md">{c.name}</Text>
                 </Group>
                 <Group gap={4}>
-                  <ActionIcon variant="subtle" color="gray" radius="xl" onClick={(e) => openEdit(e, c)} aria-label="Editar condomínio">
+                  <ActionIcon variant="light" color="gray" radius="xl" onClick={(e) => openEdit(e, c)} aria-label="Editar condomínio">
                     <Pencil size={15} />
                   </ActionIcon>
                   <ChevronRight size={18} color="var(--text-faint)" />

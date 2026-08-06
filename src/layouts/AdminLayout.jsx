@@ -4,9 +4,9 @@ import { LogOut, Building2, AlertTriangle, BarChart3, Menu as MenuIcon } from 'l
 import { signOut } from '../lib/authService';
 
 const NAV_ITEMS = [
-  { to: '/admin', label: 'Condomínios', icon: Building2, match: (p) => p === '/admin' || p.startsWith('/admin/condominios') },
-  { to: '/admin/ocorrencias', label: 'Ocorrências', icon: AlertTriangle, match: (p) => p.startsWith('/admin/ocorrencias') },
-  { to: '/admin/relatorios', label: 'Relatórios', icon: BarChart3, match: (p) => p.startsWith('/admin/relatorios') },
+  { to: '/admin', label: 'Condomínios', icon: Building2, color: 'brand', match: (p) => p === '/admin' || p.startsWith('/admin/condominios') },
+  { to: '/admin/ocorrencias', label: 'Ocorrências', icon: AlertTriangle, color: 'red', match: (p) => p.startsWith('/admin/ocorrencias') },
+  { to: '/admin/relatorios', label: 'Relatórios', icon: BarChart3, color: 'yellow', match: (p) => p.startsWith('/admin/relatorios') },
 ];
 
 export default function AdminLayout() {
@@ -39,15 +39,18 @@ export default function AdminLayout() {
 
         <nav className="admin-nav-full">
           {NAV_ITEMS.map((item) => (
-            <Link key={item.to} to={item.to} className="admin-nav-link" style={{
-              display: 'flex', alignItems: 'center', gap: 6,
-              color: isActive(item) ? 'var(--blue)' : 'var(--text-muted)',
-              background: isActive(item) ? 'var(--blue-light)' : 'transparent',
-            }}>
-              <item.icon size={15} /> {item.label}
-            </Link>
+            <Button
+              key={item.to}
+              component={Link}
+              to={item.to}
+              variant={isActive(item) ? 'light' : 'outline'}
+              color={item.color}
+              leftSection={<item.icon size={15} />}
+            >
+              {item.label}
+            </Button>
           ))}
-          <Button variant="subtle" color="gray" size="xs" leftSection={<LogOut size={14} />} onClick={handleLogout} ml={8}>
+          <Button variant="outline" color="gray" leftSection={<LogOut size={14} />} onClick={handleLogout} ml={8}>
             Sair
           </Button>
         </nav>
@@ -84,14 +87,9 @@ export default function AdminLayout() {
         <Outlet />
       </main>
       <style>{`
-        .admin-nav-full { display: flex; gap: 6px; align-items: center; }
-        .admin-nav-link {
-          font-size: 14px; font-weight: 600; padding: 8px 14px; border-radius: 10px;
-          transition: all 0.2s var(--ease);
-        }
-        .admin-nav-link:hover { color: var(--blue); background: var(--blue-light); }
+        .admin-nav-full { display: flex; gap: 8px; align-items: center; }
         .admin-nav-mobile { display: none; }
-        @media (max-width: 720px) {
+        @media (max-width: 900px) {
           .admin-header { padding-left: 18px; padding-right: 18px; }
           .admin-nav-full { display: none; }
           .admin-nav-mobile { display: flex; }

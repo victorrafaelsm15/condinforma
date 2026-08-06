@@ -92,19 +92,19 @@ function ChecklistTab({ ambienteId }) {
                 <Group gap={4}>
                   {isEditing ? (
                     <>
-                      <ActionIcon color="green" variant="subtle" radius="md" onClick={saveEdit} aria-label="Salvar tarefa">
+                      <ActionIcon color="green" variant="light" radius="md" onClick={saveEdit} aria-label="Salvar tarefa">
                         <Check size={15} />
                       </ActionIcon>
-                      <ActionIcon color="gray" variant="subtle" radius="md" onClick={cancelEdit} aria-label="Cancelar edição">
+                      <ActionIcon color="gray" variant="light" radius="md" onClick={cancelEdit} aria-label="Cancelar edição">
                         <X size={15} />
                       </ActionIcon>
                     </>
                   ) : (
                     <>
-                      <ActionIcon color="gray" variant="subtle" radius="md" onClick={() => startEdit(item)} aria-label="Editar tarefa">
+                      <ActionIcon color="gray" variant="light" radius="md" onClick={() => startEdit(item)} aria-label="Editar tarefa">
                         <Pencil size={15} />
                       </ActionIcon>
-                      <ActionIcon color="red" variant="subtle" radius="md" onClick={() => handleRemove(item.id)} aria-label="Remover tarefa">
+                      <ActionIcon color="red" variant="light" radius="md" onClick={() => handleRemove(item.id)} aria-label="Remover tarefa">
                         <Trash2 size={15} />
                       </ActionIcon>
                     </>
@@ -227,9 +227,9 @@ function HistoryTab({ ambienteId, ambienteName, condominioName }) {
     <div>
       {!!execs.length && (
         <Group justify="space-between" mb="md" wrap="wrap" gap={10}>
-          <Group gap={6}>
-            <Button size="xs" variant="subtle" onClick={selectAll}>Selecionar todos</Button>
-            <Button size="xs" variant="subtle" color="gray" onClick={deselectAll}>Desmarcar todos</Button>
+          <Group gap={8}>
+            <Button size="xs" variant="light" onClick={selectAll}>Selecionar todos</Button>
+            <Button size="xs" variant="light" color="gray" onClick={deselectAll}>Desmarcar todos</Button>
           </Group>
           <Group gap={8}>
             <ComunicadoMenu
@@ -413,9 +413,9 @@ export default function AmbientePage() {
           <span className="icon-tile" style={{ background: 'var(--blue-light)', width: 40, height: 40, borderRadius: 12 }}>
             <ListChecks size={19} color="var(--blue)" />
           </span>
-          <Text fw={800} size="1.6rem">{ambiente.name}</Text>
+          <Text fw={800} size="1.6rem" className="font-display">{ambiente.name}</Text>
         </Group>
-        <ActionIcon variant="subtle" color="gray" radius="xl" size="lg" onClick={openEdit} aria-label="Editar ambiente">
+        <ActionIcon variant="light" color="gray" radius="xl" size="lg" onClick={openEdit} aria-label="Editar ambiente">
           <Pencil size={17} />
         </ActionIcon>
       </Group>
