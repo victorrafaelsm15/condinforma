@@ -10,6 +10,7 @@ const PLAN_LABELS = { start: 'Start', pro: 'Pro', business: 'Business' };
 
 function getBlockedMessage(account, condominiosCount) {
   if (!account) return '';
+  if (account.role === 'owner') return ''; // conta dona da plataforma: sem limite
   if (account.status === 'inativo') {
     return 'Sua assinatura está inativa (pagamento pendente). Regularize o pagamento para voltar a cadastrar condomínios.';
   }

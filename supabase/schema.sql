@@ -120,6 +120,7 @@ create table if not exists accounts (
   plan_name          text,
   condominio_limit   integer not null default 0,
   status             text not null default 'trial',
+  role               text not null default 'customer' check (role in ('customer', 'owner')),
   asaas_customer_id  text,
   created_at         timestamptz not null default now(),
   updated_at         timestamptz not null default now()
@@ -147,11 +148,16 @@ create policy "accounts_select_own" on accounts
 create or replace function check_condominio_limit()
 returns trigger language plpgsql security definer set search_path = public as $$
 declare
+  v_role   text;
   v_status text;
   v_limit  integer;
   v_count  integer;
 begin
-  select status, condominio_limit into v_status, v_limit from accounts where id = new.account_id;
+  select role, status, condominio_limit into v_role, v_status, v_limit from accounts where id = new.account_id;
+  -- Conta dona da plataforma: acesso ilimitado, sem depender de assinatura.
+  if v_role = 'owner' then
+    return new;
+  end if;
   if v_status is null or v_status <> 'ativo' then
     raise exception 'Sua assinatura não está ativa. Assine um plano para cadastrar condomínios.' using errcode = 'CI001';
   end if;
