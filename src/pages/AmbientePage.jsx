@@ -136,11 +136,11 @@ function QrCodeTab({ ambiente }) {
   return <AmbienteQrCards ambiente={ambiente} />;
 }
 
-function ComunicadoMenu({ label, icon, onPick, loading }) {
+function ComunicadoMenu({ label, icon, onPick, loading, disabled }) {
   return (
-    <Menu shadow="md" width={210} position="bottom-end" withinPortal>
+    <Menu shadow="md" width={210} position="bottom-end" withinPortal disabled={disabled}>
       <Menu.Target>
-        <Button size="xs" variant="light" leftSection={icon} loading={loading} onClick={(e) => e.stopPropagation()}>
+        <Button size="xs" variant="light" leftSection={icon} loading={loading} disabled={disabled} onClick={(e) => e.stopPropagation()}>
           {label}
         </Button>
       </Menu.Target>
@@ -155,19 +155,34 @@ function ComunicadoMenu({ label, icon, onPick, loading }) {
 function HistoryTab({ ambienteId, ambienteName, condominioName }) {
   const [execs, setExecs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [selectedIds, setSelectedIds] = useState(() => new Set());
   const [generatingId, setGeneratingId] = useState(null);
   const [generatingPeriod, setGeneratingPeriod] = useState(false);
+  const [generatingSelection, setGeneratingSelection] = useState(false);
 
   useEffect(() => {
+    setSelectedIds(new Set());
     execucoesStore.list({ ambiente_id: ambienteId }).then((data) => {
       setExecs(data);
       setLoading(false);
     });
   }, [ambienteId]);
 
+  const toggleSelect = (id) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const selectAll = () => setSelectedIds(new Set(execs.map((e) => e.id)));
+  const deselectAll = () => setSelectedIds(new Set());
+
   const runComunicado = async (execucoes, filename, action, setBusy, key) => {
     if (!execucoes.length) {
-      notifications.show({ color: 'red', message: 'Nenhuma execução nesse período pra gerar comunicado.' });
+      notifications.show({ color: 'red', message: 'Nenhuma execução selecionada pra gerar comunicado.' });
       return;
     }
     setBusy(key);
@@ -200,29 +215,48 @@ function HistoryTab({ ambienteId, ambienteName, condominioName }) {
     runComunicado(filtered, `comunicado-${ambienteName}-${label}.pdf`, action, setGeneratingPeriod, true);
   };
 
+  const handleSelectionComunicado = (action) => {
+    // .filter preserva a ordem em que aparecem em "execs" (mais recente primeiro)
+    const selectedExecs = execs.filter((e) => selectedIds.has(e.id));
+    runComunicado(selectedExecs, `comunicado-${ambienteName}-selecionados.pdf`, action, setGeneratingSelection, true);
+  };
+
   if (loading) return <Loader size="sm" color="brand" />;
 
   return (
     <div>
       {!!execs.length && (
-        <Group justify="flex-end" mb="md">
-          <Menu shadow="md" width={230} position="bottom-end" withinPortal>
-            <Menu.Target>
-              <Button size="xs" variant="default" leftSection={<Calendar size={14} />} loading={!!generatingPeriod}>
-                Gerar comunicado do período
-              </Button>
-            </Menu.Target>
-            <Menu.Dropdown>
-              <Menu.Label>Baixar PDF</Menu.Label>
-              <Menu.Item onClick={() => handlePeriodoComunicado(7, 'download')}>Últimos 7 dias</Menu.Item>
-              <Menu.Item onClick={() => handlePeriodoComunicado(30, 'download')}>Últimos 30 dias</Menu.Item>
-              <Menu.Item onClick={() => handlePeriodoComunicado(null, 'download')}>Todo o histórico</Menu.Item>
-              <Menu.Divider />
-              <Menu.Label>Compartilhar (WhatsApp)</Menu.Label>
-              <Menu.Item onClick={() => handlePeriodoComunicado(7, 'share')}>Últimos 7 dias</Menu.Item>
-              <Menu.Item onClick={() => handlePeriodoComunicado(30, 'share')}>Últimos 30 dias</Menu.Item>
-            </Menu.Dropdown>
-          </Menu>
+        <Group justify="space-between" mb="md" wrap="wrap" gap={10}>
+          <Group gap={6}>
+            <Button size="xs" variant="subtle" onClick={selectAll}>Selecionar todos</Button>
+            <Button size="xs" variant="subtle" color="gray" onClick={deselectAll}>Desmarcar todos</Button>
+          </Group>
+          <Group gap={8}>
+            <ComunicadoMenu
+              label={selectedIds.size ? `Gerar comunicado (${selectedIds.size})` : 'Gerar comunicado'}
+              icon={<FileDown size={14} />}
+              loading={!!generatingSelection}
+              disabled={!selectedIds.size}
+              onPick={handleSelectionComunicado}
+            />
+            <Menu shadow="md" width={230} position="bottom-end" withinPortal>
+              <Menu.Target>
+                <Button size="xs" variant="default" leftSection={<Calendar size={14} />} loading={!!generatingPeriod}>
+                  Por período
+                </Button>
+              </Menu.Target>
+              <Menu.Dropdown>
+                <Menu.Label>Baixar PDF</Menu.Label>
+                <Menu.Item onClick={() => handlePeriodoComunicado(7, 'download')}>Últimos 7 dias</Menu.Item>
+                <Menu.Item onClick={() => handlePeriodoComunicado(30, 'download')}>Últimos 30 dias</Menu.Item>
+                <Menu.Item onClick={() => handlePeriodoComunicado(null, 'download')}>Todo o histórico</Menu.Item>
+                <Menu.Divider />
+                <Menu.Label>Compartilhar (WhatsApp)</Menu.Label>
+                <Menu.Item onClick={() => handlePeriodoComunicado(7, 'share')}>Últimos 7 dias</Menu.Item>
+                <Menu.Item onClick={() => handlePeriodoComunicado(30, 'share')}>Últimos 30 dias</Menu.Item>
+              </Menu.Dropdown>
+            </Menu>
+          </Group>
         </Group>
       )}
 
@@ -230,26 +264,51 @@ function HistoryTab({ ambienteId, ambienteName, condominioName }) {
         <Text c="dimmed" size="sm">Nenhuma execução registrada ainda.</Text>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {execs.map((e) => (
-            <div key={e.id} className="surface-card" style={{ padding: 16 }}>
-              <Group justify="space-between" align="flex-start" wrap="wrap" gap={10}>
-                <div>
-                  <Text size="sm" fw={600}>{e.executed_by || 'Colaborador'}</Text>
-                  <Text size="xs" c="dimmed">{new Date(e.created_at).toLocaleString('pt-BR')}</Text>
-                </div>
-                <Group gap={8}>
-                  <Badge color="green" variant="light">{e.completed_count}/{e.total_count} tarefas</Badge>
-                  <ComunicadoMenu
-                    label="Gerar comunicado"
-                    icon={<FileDown size={14} />}
-                    loading={generatingId === e.id}
-                    onPick={(action) => handleExecucaoComunicado(e, action)}
-                  />
+          {execs.map((e) => {
+            const isSelected = selectedIds.has(e.id);
+            return (
+              <div key={e.id} className="surface-card" style={{ padding: 16 }}>
+                <Group justify="space-between" align="flex-start" wrap="wrap" gap={10}>
+                  <Group gap={10} align="flex-start" wrap="nowrap">
+                    <button
+                      type="button"
+                      onClick={() => toggleSelect(e.id)}
+                      aria-label={isSelected ? 'Desmarcar execução' : 'Marcar execução'}
+                      aria-pressed={isSelected}
+                      style={{
+                        width: 22, height: 22, marginTop: 2, borderRadius: '50%', flexShrink: 0, cursor: 'pointer', padding: 0,
+                        border: isSelected ? 'none' : '2px solid var(--border)',
+                        background: isSelected ? 'var(--blue)' : '#fff',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        transition: 'all 0.15s var(--ease)',
+                      }}
+                    >
+                      {isSelected && <Check size={13} color="#fff" strokeWidth={3} />}
+                    </button>
+                    <div>
+                      <Text size="sm" fw={600}>{e.executed_by || 'Colaborador'}</Text>
+                      <Text size="xs" c="dimmed">{new Date(e.created_at).toLocaleString('pt-BR')}</Text>
+                    </div>
+                  </Group>
+                  <Group gap={8}>
+                    <Badge color="green" variant="light">{e.completed_count}/{e.total_count} tarefas</Badge>
+                    <ComunicadoMenu
+                      label="Gerar comunicado"
+                      icon={<FileDown size={14} />}
+                      loading={generatingId === e.id}
+                      onPick={(action) => handleExecucaoComunicado(e, action)}
+                    />
+                  </Group>
                 </Group>
-              </Group>
-              {e.photo && <MantineImage src={e.photo} radius="md" mt="sm" h={140} w={140} fit="cover" />}
-            </div>
-          ))}
+                {e.free_text_note && (
+                  <Text size="sm" mt={8} ml={32} style={{ fontStyle: 'italic', color: 'var(--text-muted)' }}>
+                    &quot;{e.free_text_note}&quot;
+                  </Text>
+                )}
+                {e.photo && <MantineImage src={e.photo} radius="md" mt="sm" ml={32} h={140} w={140} fit="cover" />}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

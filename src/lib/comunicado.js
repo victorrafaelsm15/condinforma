@@ -53,28 +53,43 @@ function renderExecucaoPage(doc, { condominioName, ambienteName, execucao }) {
   y += 8;
 
   const items = Array.isArray(execucao.items) ? execucao.items : [];
-  autoTable(doc, {
-    startY: y,
-    margin: { left: marginX, right: marginX },
-    head: [['#', 'Tarefa', 'Status']],
-    // Sem símbolos ✓/✗: as fontes padrão do jsPDF (WinAnsi) não têm esses
-    // glifos e acabam quebrando o espaçamento do texto. Cor + palavra já
-    // deixa o status claro.
-    body: items.map((item, i) => [String(i + 1), item.task, item.done ? 'Concluída' : 'Não concluída']),
-    headStyles: { fillColor: BLUE, textColor: [255, 255, 255], fontStyle: 'bold' },
-    alternateRowStyles: { fillColor: [245, 246, 252] },
-    styles: { fontSize: 10, cellPadding: 4, textColor: INK },
-    columnStyles: { 0: { cellWidth: 10 }, 2: { cellWidth: 34 } },
-    didParseCell(data) {
-      if (data.section === 'body' && data.column.index === 2) {
-        const done = String(data.cell.raw) === 'Concluída';
-        data.cell.styles.textColor = done ? GREEN : RED;
-        data.cell.styles.fontStyle = 'bold';
-      }
-    },
-  });
+  if (items.length) {
+    autoTable(doc, {
+      startY: y,
+      margin: { left: marginX, right: marginX },
+      head: [['#', 'Tarefa', 'Status']],
+      // Sem símbolos ✓/✗: as fontes padrão do jsPDF (WinAnsi) não têm esses
+      // glifos e acabam quebrando o espaçamento do texto. Cor + palavra já
+      // deixa o status claro.
+      body: items.map((item, i) => [String(i + 1), item.task, item.done ? 'Concluída' : 'Não concluída']),
+      headStyles: { fillColor: BLUE, textColor: [255, 255, 255], fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [245, 246, 252] },
+      styles: { fontSize: 10, cellPadding: 4, textColor: INK },
+      columnStyles: { 0: { cellWidth: 10 }, 2: { cellWidth: 34 } },
+      didParseCell(data) {
+        if (data.section === 'body' && data.column.index === 2) {
+          const done = String(data.cell.raw) === 'Concluída';
+          data.cell.styles.textColor = done ? GREEN : RED;
+          data.cell.styles.fontStyle = 'bold';
+        }
+      },
+    });
+    y = doc.lastAutoTable.finalY + 10;
+  }
 
-  y = doc.lastAutoTable.finalY + 12;
+  if (execucao.free_text_note) {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(...INK);
+    doc.text('Observação / registro livre:', marginX, y);
+    y += 6;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.setTextColor(...MUTED);
+    const noteLines = doc.splitTextToSize(execucao.free_text_note, pageWidth - marginX * 2);
+    doc.text(noteLines, marginX, y);
+    y += noteLines.length * 5 + 8;
+  }
 
   if (execucao.photo) {
     const imgFormat = detectImageFormat(execucao.photo);

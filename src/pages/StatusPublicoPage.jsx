@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { Text, Loader, Badge, Group } from '@mantine/core';
 import { CheckCircle2, Clock, Building2, ListChecks, HelpCircle } from 'lucide-react';
 import { ambientesStore, execucoesStore } from '../lib/stores';
+import OcorrenciaForm from '../components/OcorrenciaForm';
 
 export default function StatusPublicoPage() {
   const { id } = useParams();
@@ -88,6 +89,16 @@ export default function StatusPublicoPage() {
             </>
           )}
         </motion.div>
+
+        <div style={{ marginTop: 24, borderTop: '1px solid var(--border)', paddingTop: 20 }}>
+          <OcorrenciaForm
+            ambienteId={id}
+            accountId={ambiente.account_id}
+            reportedByRole="morador"
+            askReporterName
+            triggerLabel="Notou algo errado? Registrar ocorrência"
+          />
+        </div>
       </div>
     </div>
   );

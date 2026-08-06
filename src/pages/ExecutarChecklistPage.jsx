@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { Text, Checkbox, Button, TextInput, Textarea, Loader, FileButton, Group, Progress } from '@mantine/core';
-import { notifications } from '@mantine/notifications';
-import { CheckCircle2, Camera, AlertTriangle, Building2, WifiOff } from 'lucide-react';
-import { ambientesStore, checklistItemsStore, execucoesStore, ocorrenciasStore } from '../lib/stores';
+import { CheckCircle2, Camera, Building2, WifiOff } from 'lucide-react';
+import { ambientesStore, checklistItemsStore, execucoesStore } from '../lib/stores';
+import OcorrenciaForm from '../components/OcorrenciaForm';
 
 function fileToBase64(file) {
   return new Promise((resolve, reject) => {
@@ -27,13 +27,7 @@ export default function ExecutarChecklistPage() {
   const [done, setDone] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [isOnline, setIsOnline] = useState(navigator.onLine);
-
-  const [showOcorrencia, setShowOcorrencia] = useState(false);
-  const [ocorrenciaDesc, setOcorrenciaDesc] = useState('');
-  const [ocorrenciaPhoto, setOcorrenciaPhoto] = useState(null);
-  const [sendingOcorrencia, setSendingOcorrencia] = useState(false);
-  const [ocorrenciaSent, setOcorrenciaSent] = useState(false);
-  const [ocorrenciaError, setOcorrenciaError] = useState('');
+  const [freeTextNote, setFreeTextNote] = useState('');
 
   useEffect(() => {
     const goOnline = () => setIsOnline(true);
@@ -96,39 +90,13 @@ export default function ExecutarChecklistPage() {
         total_count: items.length,
         items: items.map((i) => ({ task: i.task, done: !!checked[i.id] })),
         photo,
+        free_text_note: freeTextNote.trim() || null,
       });
       setDone(true);
     } catch {
       setSubmitError('Não foi possível confirmar agora. Suas respostas continuam preenchidas — tente novamente em instantes.');
     } finally {
       setSubmitting(false);
-    }
-  };
-
-  const handleSendOcorrencia = async () => {
-    if (!ocorrenciaDesc.trim()) {
-      notifications.show({ color: 'red', message: 'Descreva o problema encontrado.' });
-      return;
-    }
-    setOcorrenciaError('');
-    if (!navigator.onLine) {
-      setOcorrenciaError('Sem conexão com a internet. O texto continua preenchido — tente enviar de novo assim que o sinal voltar.');
-      return;
-    }
-    setSendingOcorrencia(true);
-    try {
-      await ocorrenciasStore.create({
-        ambiente_id: id,
-        account_id: ambiente.account_id,
-        description: ocorrenciaDesc.trim(),
-        photo: ocorrenciaPhoto,
-        status: 'pendente',
-      });
-      setOcorrenciaSent(true);
-    } catch {
-      setOcorrenciaError('Não foi possível enviar agora. O texto continua preenchido — tente novamente em instantes.');
-    } finally {
-      setSendingOcorrencia(false);
     }
   };
 
@@ -159,7 +127,11 @@ export default function ExecutarChecklistPage() {
           </motion.div>
           <Text fw={800} size="lg">Checklist concluído!</Text>
           <Text c="dimmed" size="sm" mt={4}>{ambiente.name}</Text>
-          <Text size="xs" c="dimmed" mt={10}>{completedCount} de {items.length} tarefas marcadas como feitas</Text>
+          {items.length > 0 ? (
+            <Text size="xs" c="dimmed" mt={10}>{completedCount} de {items.length} tarefas marcadas como feitas</Text>
+          ) : (
+            <Text size="xs" c="dimmed" mt={10}>Registro livre enviado</Text>
+          )}
           <Button mt="xl" variant="light" fullWidth onClick={() => window.location.reload()}>Executar novamente</Button>
         </motion.div>
       </div>
@@ -241,8 +213,16 @@ export default function ExecutarChecklistPage() {
             })}
           </div>
         ) : (
-          <Text c="dimmed" size="sm" mb="lg">Nenhuma tarefa cadastrada para este ambiente ainda.</Text>
+          <Text c="dimmed" size="sm" mb="lg">Nenhuma tarefa cadastrada para este ambiente ainda. Você ainda pode confirmar um registro livre abaixo.</Text>
         )}
+
+        <Textarea
+          placeholder="Observação / registro livre (opcional) — descreva algo que fez ou notou, mesmo fora do checklist"
+          value={freeTextNote}
+          onChange={(e) => setFreeTextNote(e.currentTarget.value)}
+          minRows={2}
+          mb="md"
+        />
 
         <FileButton onChange={handlePhoto} accept="image/*">
           {(props) => (
@@ -257,7 +237,6 @@ export default function ExecutarChecklistPage() {
           size="md"
           onClick={handleSubmit}
           loading={submitting}
-          disabled={!items.length}
           className="btn-glow"
           style={{ boxShadow: 'var(--shadow-brand)' }}
         >
@@ -268,51 +247,7 @@ export default function ExecutarChecklistPage() {
         )}
 
         <div style={{ marginTop: 28, borderTop: '1px solid var(--border)', paddingTop: 20 }}>
-          <AnimatePresence mode="wait">
-            {!showOcorrencia ? (
-              <motion.div key="btn" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                <Button
-                  variant="subtle"
-                  color="red"
-                  fullWidth
-                  leftSection={<AlertTriangle size={15} />}
-                  onClick={() => setShowOcorrencia(true)}
-                >
-                  Encontrou um problema? Registrar ocorrência
-                </Button>
-              </motion.div>
-            ) : ocorrenciaSent ? (
-              <motion.div key="sent" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
-                <div className="surface-card" style={{ padding: 16, textAlign: 'center', background: 'var(--green-light)', borderColor: 'rgba(18,183,106,0.25)' }}>
-                  <Text size="sm" c="green" fw={700}>Ocorrência registrada. Obrigado!</Text>
-                </div>
-              </motion.div>
-            ) : (
-              <motion.div key="form" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
-                <Text fw={700} size="sm" mb="sm">Registrar ocorrência</Text>
-                <Textarea
-                  placeholder="Descreva o problema encontrado"
-                  value={ocorrenciaDesc}
-                  onChange={(e) => setOcorrenciaDesc(e.currentTarget.value)}
-                  minRows={3}
-                  mb="sm"
-                />
-                <FileButton onChange={async (f) => setOcorrenciaPhoto(f ? await fileToBase64(f) : null)} accept="image/*">
-                  {(props) => (
-                    <Button {...props} variant="light" leftSection={<Camera size={16} />} fullWidth mb="sm">
-                      {ocorrenciaPhoto ? 'Foto anexada ✓' : 'Anexar foto (opcional)'}
-                    </Button>
-                  )}
-                </FileButton>
-                <Button fullWidth color="red" onClick={handleSendOcorrencia} loading={sendingOcorrencia}>
-                  Enviar ocorrência
-                </Button>
-                {ocorrenciaError && (
-                  <Text size="sm" c="red" fw={600} mt={10} ta="center">{ocorrenciaError}</Text>
-                )}
-              </motion.div>
-            )}
-          </AnimatePresence>
+          <OcorrenciaForm ambienteId={id} accountId={ambiente.account_id} reportedByRole="colaborador" />
         </div>
       </div>
     </div>

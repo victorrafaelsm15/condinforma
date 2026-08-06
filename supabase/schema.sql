@@ -51,19 +51,22 @@ create table if not exists execucoes (
   total_count      integer not null default 0,
   items            jsonb,
   photo            text,
+  free_text_note   text,
   created_at       timestamptz not null default now()
 );
 create index if not exists execucoes_ambiente_id_idx on execucoes(ambiente_id);
 create index if not exists execucoes_account_id_idx on execucoes(account_id);
 
 create table if not exists ocorrencias (
-  id           text primary key,
-  ambiente_id  text not null references ambientes(id) on delete cascade,
-  account_id   uuid not null references auth.users(id) on delete cascade,
-  description  text not null,
-  photo        text,
-  status       text not null default 'pendente',
-  created_at   timestamptz not null default now()
+  id                text primary key,
+  ambiente_id       text not null references ambientes(id) on delete cascade,
+  account_id        uuid not null references auth.users(id) on delete cascade,
+  description       text not null,
+  photo             text,
+  status            text not null default 'pendente',
+  reported_by_role  text check (reported_by_role is null or reported_by_role in ('colaborador', 'morador')),
+  reporter_name     text,
+  created_at        timestamptz not null default now()
 );
 create index if not exists ocorrencias_ambiente_id_idx on ocorrencias(ambiente_id);
 create index if not exists ocorrencias_account_id_idx on ocorrencias(account_id);
