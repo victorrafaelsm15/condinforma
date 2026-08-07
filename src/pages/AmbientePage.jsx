@@ -13,7 +13,7 @@ import { ambientesStore, checklistItemsStore, execucoesStore, ocorrenciasStore, 
 import AmbienteQrCards from '../components/admin/AmbienteQrCards';
 import { generateComunicadoPdf, downloadPdf, sharePdf } from '../lib/comunicado';
 
-function ChecklistTab({ ambienteId }) {
+function ChecklistTab({ ambienteId, accountId }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [newTask, setNewTask] = useState('');
@@ -31,7 +31,9 @@ function ChecklistTab({ ambienteId }) {
 
   const handleAdd = async () => {
     if (!newTask.trim()) return;
-    await checklistItemsStore.create({ ambiente_id: ambienteId, task: newTask.trim(), order_index: items.length });
+    // account_id copiado do ambiente (não da sessão) — quem cria pode ser
+    // um sub-usuário, cujo próprio account_id não é o dono real do ambiente.
+    await checklistItemsStore.create({ ambiente_id: ambienteId, task: newTask.trim(), order_index: items.length, account_id: accountId });
     setNewTask('');
     load();
   };
@@ -479,7 +481,7 @@ export default function AmbientePage() {
             Ocorrências
           </Tabs.Tab>
         </Tabs.List>
-        <Tabs.Panel value="checklist" pt="lg"><ChecklistTab ambienteId={id} /></Tabs.Panel>
+        <Tabs.Panel value="checklist" pt="lg"><ChecklistTab ambienteId={id} accountId={ambiente.account_id} /></Tabs.Panel>
         <Tabs.Panel value="qrcode" pt="lg"><QrCodeTab ambiente={ambiente} /></Tabs.Panel>
         <Tabs.Panel value="historico" pt="lg"><HistoryTab ambienteId={id} ambienteName={ambiente.name} condominioName={condominio?.name} /></Tabs.Panel>
         <Tabs.Panel value="ocorrencias" pt="lg"><OccurrencesTab ambienteId={id} /></Tabs.Panel>

@@ -434,3 +434,9 @@ entrypoint = "./functions/asaas-webhook/index.ts"
 # Specifies static files to be bundled with the function. Supports glob patterns.
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/asaas-webhook/*.html" ]
+
+[functions.create-sub-usuario]
+enabled = true
+verify_jwt = false
+import_map = "./functions/create-sub-usuario/deno.json"
+entrypoint = "./functions/create-sub-usuario/index.ts"

@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { Button, ActionIcon, Menu } from '@mantine/core';
-import { LogOut, Building2, AlertTriangle, BarChart3, Users, Menu as MenuIcon } from 'lucide-react';
+import { Settings, Building2, AlertTriangle, BarChart3, Users, Menu as MenuIcon } from 'lucide-react';
 import { signOut, getSession } from '../lib/authService';
 import { accountsStore } from '../lib/stores';
+import { getSubUsuarioInfo } from '../lib/subUsuario';
+import ConfiguracoesDrawer from '../components/admin/ConfiguracoesDrawer';
 
 const BASE_NAV_ITEMS = [
   { to: '/admin', label: 'Condomínios', icon: Building2, color: 'brand', match: (p) => p === '/admin' || p.startsWith('/admin/condominios') },
@@ -19,13 +21,19 @@ export default function AdminLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const [isOwner, setIsOwner] = useState(false);
+  const [isSubUsuario, setIsSubUsuario] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   useEffect(() => {
     (async () => {
       const session = await getSession();
       if (!session) return;
-      const account = await accountsStore.getById(session.user.id);
-      setIsOwner(account?.role === 'owner');
+      const subInfo = await getSubUsuarioInfo(session.user.id);
+      setIsSubUsuario(!!subInfo);
+      if (!subInfo) {
+        const account = await accountsStore.getById(session.user.id);
+        setIsOwner(account?.role === 'owner');
+      }
     })();
   }, []);
 
@@ -69,8 +77,8 @@ export default function AdminLayout() {
               {item.label}
             </Button>
           ))}
-          <Button variant="filled" color="gray" leftSection={<LogOut size={14} />} onClick={handleLogout} ml={8}>
-            Sair
+          <Button variant="filled" color="gray" leftSection={<Settings size={14} />} onClick={() => setSettingsOpen(true)} ml={8}>
+            Configurações
           </Button>
         </nav>
 
@@ -95,8 +103,8 @@ export default function AdminLayout() {
                 </Menu.Item>
               ))}
               <Menu.Divider />
-              <Menu.Item leftSection={<LogOut size={16} />} color="red" onClick={handleLogout}>
-                Sair
+              <Menu.Item leftSection={<Settings size={16} />} onClick={() => setSettingsOpen(true)}>
+                Configurações
               </Menu.Item>
             </Menu.Dropdown>
           </Menu>
@@ -105,6 +113,14 @@ export default function AdminLayout() {
       <main style={{ padding: '32px 28px 60px', maxWidth: 1100, margin: '0 auto' }}>
         <Outlet />
       </main>
+
+      <ConfiguracoesDrawer
+        opened={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        onLogout={handleLogout}
+        isSubUsuario={isSubUsuario}
+      />
+
       <style>{`
         .admin-nav-full { display: flex; gap: 8px; align-items: center; }
         .admin-nav-mobile { display: none; }

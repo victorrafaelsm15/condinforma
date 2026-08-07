@@ -176,3 +176,124 @@ drop trigger if exists trg_check_condominio_limit on condominios;
 create trigger trg_check_condominio_limit
   before insert on condominios
   for each row execute function check_condominio_limit();
+
+-- ============================================================
+-- Sub-usuários por conta — ver comentário completo em
+-- sub_usuarios_migration.sql.
+-- ============================================================
+
+alter table accounts add column if not exists sub_usuario_limit integer not null default 0;
+create extension if not exists pgcrypto;
+
+create table if not exists sub_usuarios (
+  id            uuid primary key default gen_random_uuid(),
+  account_id    uuid not null references auth.users(id) on delete cascade,
+  auth_user_id  uuid not null unique references auth.users(id) on delete cascade,
+  nome          text not null,
+  email         text not null,
+  created_at    timestamptz not null default now()
+);
+create index if not exists sub_usuarios_account_id_idx on sub_usuarios(account_id);
+
+create table if not exists sub_usuario_condominios (
+  sub_usuario_id  uuid not null references sub_usuarios(id) on delete cascade,
+  condominio_id   text not null references condominios(id) on delete cascade,
+  primary key (sub_usuario_id, condominio_id)
+);
+create index if not exists sub_usuario_condominios_condominio_id_idx on sub_usuario_condominios(condominio_id);
+
+create or replace function has_subusuario_access(target_condominio_id text)
+returns boolean language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1 from sub_usuarios su
+    join sub_usuario_condominios suc on suc.sub_usuario_id = su.id
+    where su.auth_user_id = auth.uid() and suc.condominio_id = target_condominio_id
+  );
+$$;
+
+create or replace function has_subusuario_access_via_ambiente(target_ambiente_id text)
+returns boolean language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1 from ambientes a
+    join sub_usuarios su on su.auth_user_id = auth.uid()
+    join sub_usuario_condominios suc on suc.sub_usuario_id = su.id and suc.condominio_id = a.condominio_id
+    where a.id = target_ambiente_id
+  );
+$$;
+
+create or replace function condominio_owner_account(target_condominio_id text)
+returns uuid language sql stable security definer set search_path = public as $$
+  select account_id from condominios where id = target_condominio_id;
+$$;
+
+create or replace function ambiente_owner_account(target_ambiente_id text)
+returns uuid language sql stable security definer set search_path = public as $$
+  select c.account_id from ambientes a join condominios c on c.id = a.condominio_id where a.id = target_ambiente_id;
+$$;
+
+alter table sub_usuarios enable row level security;
+alter table sub_usuario_condominios enable row level security;
+
+create policy "sub_usuarios_owner_all" on sub_usuarios
+  for all to authenticated
+  using (account_id = auth.uid()) with check (account_id = auth.uid());
+create policy "sub_usuarios_self_select" on sub_usuarios
+  for select to authenticated using (auth_user_id = auth.uid());
+
+create policy "sub_usuario_condominios_owner_all" on sub_usuario_condominios
+  for all to authenticated
+  using (exists (select 1 from sub_usuarios su where su.id = sub_usuario_id and su.account_id = auth.uid()))
+  with check (exists (select 1 from sub_usuarios su where su.id = sub_usuario_id and su.account_id = auth.uid()));
+create policy "sub_usuario_condominios_self_select" on sub_usuario_condominios
+  for select to authenticated
+  using (exists (select 1 from sub_usuarios su where su.id = sub_usuario_id and su.auth_user_id = auth.uid()));
+
+create or replace function check_subusuario_limit()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare
+  v_role  text;
+  v_limit integer;
+  v_count integer;
+begin
+  select role, sub_usuario_limit into v_role, v_limit from accounts where id = new.account_id;
+  if v_role = 'owner' then
+    return new;
+  end if;
+  select count(*) into v_count from sub_usuarios where account_id = new.account_id;
+  if v_count >= coalesce(v_limit, 0) then
+    raise exception 'Limite de % sub-usuário(s) do seu plano atingido. Faça upgrade para adicionar mais.', coalesce(v_limit, 0)
+      using errcode = 'CI001';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_check_subusuario_limit on sub_usuarios;
+create trigger trg_check_subusuario_limit
+  before insert on sub_usuarios
+  for each row execute function check_subusuario_limit();
+
+-- Políticas adicionais nas tabelas principais, pra sub-usuários (somam às
+-- políticas "_owner_all"/"_public_*" já criadas acima, não substituem nada).
+create policy "condominios_subusuario_select" on condominios
+  for select to authenticated using (has_subusuario_access(id));
+
+create policy "ambientes_subusuario_all" on ambientes
+  for all to authenticated
+  using (has_subusuario_access(condominio_id))
+  with check (has_subusuario_access(condominio_id) and account_id = condominio_owner_account(condominio_id));
+
+create policy "checklist_items_subusuario_all" on checklist_items
+  for all to authenticated
+  using (has_subusuario_access_via_ambiente(ambiente_id))
+  with check (has_subusuario_access_via_ambiente(ambiente_id) and account_id = ambiente_owner_account(ambiente_id));
+
+create policy "execucoes_subusuario_all" on execucoes
+  for all to authenticated
+  using (has_subusuario_access_via_ambiente(ambiente_id))
+  with check (has_subusuario_access_via_ambiente(ambiente_id) and account_id = ambiente_owner_account(ambiente_id));
+
+create policy "ocorrencias_subusuario_all" on ocorrencias
+  for all to authenticated
+  using (has_subusuario_access_via_ambiente(ambiente_id))
+  with check (has_subusuario_access_via_ambiente(ambiente_id) and account_id = ambiente_owner_account(ambiente_id));

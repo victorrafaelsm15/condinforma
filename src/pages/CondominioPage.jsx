@@ -3,12 +3,15 @@ import { useParams, Link } from 'react-router-dom';
 import { Button, TextInput, Text, Group, Modal, Loader, SimpleGrid, Breadcrumbs, Badge, ActionIcon } from '@mantine/core';
 import { Plus, DoorOpen, ChevronRight, Clock, LayoutGrid, ArrowLeft, Pencil, LayoutDashboard } from 'lucide-react';
 import { condominiosStore, ambientesStore, execucoesStore } from '../lib/stores';
+import { getSession } from '../lib/authService';
+import { getSubUsuarioInfo } from '../lib/subUsuario';
 
 export default function CondominioPage() {
   const { id } = useParams();
   const [condominio, setCondominio] = useState(null);
   const [ambientes, setAmbientes] = useState([]);
   const [lastExec, setLastExec] = useState({});
+  const [isSubUsuario, setIsSubUsuario] = useState(false);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [newName, setNewName] = useState('');
@@ -24,6 +27,11 @@ export default function CondominioPage() {
 
   const load = async () => {
     setLoading(true);
+    const session = await getSession();
+    if (session) {
+      const subInfo = await getSubUsuarioInfo(session.user.id);
+      setIsSubUsuario(!!subInfo);
+    }
     const c = await condominiosStore.getById(id);
     setCondominio(c);
     const list = await ambientesStore.list({ condominio_id: id });
@@ -44,7 +52,10 @@ export default function CondominioPage() {
   const handleCreate = async () => {
     if (!newName.trim()) return;
     setSaving(true);
-    await ambientesStore.create({ condominio_id: id, name: newName.trim() });
+    // account_id copiado explicitamente do condomínio (não da sessão): quem
+    // está criando pode ser um sub-usuário, cujo próprio account_id não é
+    // o dono real do condomínio.
+    await ambientesStore.create({ condominio_id: id, name: newName.trim(), account_id: condominio.account_id });
     setNewName('');
     setModalOpen(false);
     setSaving(false);
@@ -101,9 +112,14 @@ export default function CondominioPage() {
             <Text fw={800} size="1.6rem" className="font-display">{condominio?.name}</Text>
             <Text size="md" c="dimmed" mt={2}>Ambientes cadastrados e status da última execução.</Text>
           </div>
-          <ActionIcon variant="light" color="gray" radius="xl" size="lg" mt={4} onClick={openEditCondo} aria-label="Editar condomínio">
-            <Pencil size={16} />
-          </ActionIcon>
+          {/* Sub-usuário só tem SELECT em condominios via RLS — esconde o
+              lápis pra não deixar cair no fallback silencioso de
+              localStorage do createStore quando o update for recusado. */}
+          {!isSubUsuario && (
+            <ActionIcon variant="light" color="gray" radius="xl" size="lg" mt={4} onClick={openEditCondo} aria-label="Editar condomínio">
+              <Pencil size={16} />
+            </ActionIcon>
+          )}
         </Group>
         <Group gap={8}>
           <Button component={Link} to={`/admin/condominios/${id}/dashboard`} variant="default" leftSection={<LayoutDashboard size={16} />}>

@@ -10,7 +10,7 @@
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { corsHeaders, jsonResponse } from '../_shared/cors.ts';
-import { PLAN_LIMITS } from '../_shared/plans.ts';
+import { PLAN_LIMITS, SUB_USUARIO_LIMITS } from '../_shared/plans.ts';
 
 // Eventos que fazem a assinatura contar como "em dia".
 const ACTIVE_EVENTS = new Set(['PAYMENT_CONFIRMED', 'PAYMENT_RECEIVED']);
@@ -96,6 +96,7 @@ Deno.serve(async (req: Request) => {
         const { error: accError } = await supabaseAdmin.from('accounts').update({
           plan_name: planKey,
           condominio_limit: PLAN_LIMITS[planKey],
+          sub_usuario_limit: SUB_USUARIO_LIMITS[planKey] ?? 0,
           status: 'ativo',
           asaas_customer_id: customerId,
           updated_at: new Date().toISOString(),

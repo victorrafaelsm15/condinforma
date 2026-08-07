@@ -5,6 +5,7 @@ import { notifications } from '@mantine/notifications';
 import { Plus, Building2, ChevronRight, LayoutGrid, Pencil, Lock, ArrowRight } from 'lucide-react';
 import { condominiosStore, ambientesStore, accountsStore } from '../lib/stores';
 import { getSession } from '../lib/authService';
+import { getSubUsuarioInfo } from '../lib/subUsuario';
 
 const PLAN_LABELS = { start: 'Start', pro: 'Pro', business: 'Business' };
 
@@ -28,6 +29,7 @@ export default function AdminDashboard() {
   const [condominios, setCondominios] = useState([]);
   const [ambienteCounts, setAmbienteCounts] = useState({});
   const [account, setAccount] = useState(null);
+  const [isSubUsuario, setIsSubUsuario] = useState(false);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [newName, setNewName] = useState('');
@@ -41,8 +43,15 @@ export default function AdminDashboard() {
     setLoading(true);
     const session = await getSession();
     if (session) {
-      const acc = await accountsStore.getById(session.user.id);
-      setAccount(acc);
+      const subInfo = await getSubUsuarioInfo(session.user.id);
+      setIsSubUsuario(!!subInfo);
+      // Sub-usuário nunca gerencia plano/limite — isso é só da conta
+      // principal, então nem busca o próprio account (irrelevante: seria
+      // sempre um "trial" vazio, sem relação com o plano de quem o convidou).
+      if (!subInfo) {
+        const acc = await accountsStore.getById(session.user.id);
+        setAccount(acc);
+      }
     }
     const list = await condominiosStore.list();
     setCondominios(list);
@@ -55,7 +64,7 @@ export default function AdminDashboard() {
 
   useEffect(() => { load(); }, []);
 
-  const blockedMessage = getBlockedMessage(account, condominios.length);
+  const blockedMessage = isSubUsuario ? '' : getBlockedMessage(account, condominios.length);
 
   const handleCreate = async () => {
     if (!newName.trim()) return;
@@ -98,15 +107,21 @@ export default function AdminDashboard() {
           <Text fw={800} size="1.6rem" className="font-display">Condomínios</Text>
           <Text size="md" c="dimmed" mt={2}>Selecione um condomínio para gerenciar ambientes e checklists.</Text>
         </div>
-        <Button
-          leftSection={<Plus size={16} />}
-          onClick={() => setModalOpen(true)}
-          disabled={loading || !!blockedMessage}
-          className="btn-glow"
-          style={{ boxShadow: 'var(--shadow-brand)' }}
-        >
-          Novo condomínio
-        </Button>
+        {/* Sub-usuário nunca cria condomínio — isso é da conta principal,
+            que é quem paga pelo condominio_limit. Esconde em vez de
+            desabilitar, pra não confundir com uma mensagem de plano que
+            não é dele. */}
+        {!isSubUsuario && (
+          <Button
+            leftSection={<Plus size={16} />}
+            onClick={() => setModalOpen(true)}
+            disabled={loading || !!blockedMessage}
+            className="btn-glow"
+            style={{ boxShadow: 'var(--shadow-brand)' }}
+          >
+            Novo condomínio
+          </Button>
+        )}
       </Group>
 
       {!loading && blockedMessage && (
@@ -137,9 +152,15 @@ export default function AdminDashboard() {
                   <Text fw={700} size="md">{c.name}</Text>
                 </Group>
                 <Group gap={4}>
-                  <ActionIcon variant="light" color="gray" radius="xl" onClick={(e) => openEdit(e, c)} aria-label="Editar condomínio">
-                    <Pencil size={15} />
-                  </ActionIcon>
+                  {/* Sub-usuário só enxerga o condomínio (RLS de select),
+                      não pode renomear — esconde o lápis pra não deixar
+                      cair no fallback silencioso de localStorage do
+                      createStore quando o RLS recusar o update. */}
+                  {!isSubUsuario && (
+                    <ActionIcon variant="light" color="gray" radius="xl" onClick={(e) => openEdit(e, c)} aria-label="Editar condomínio">
+                      <Pencil size={15} />
+                    </ActionIcon>
+                  )}
                   <ChevronRight size={18} color="var(--text-faint)" />
                 </Group>
               </Group>
@@ -152,7 +173,11 @@ export default function AdminDashboard() {
           <span className="icon-tile" style={{ background: 'var(--blue-light)', width: 52, height: 52, borderRadius: 16, margin: '0 auto 16px' }}>
             <LayoutGrid size={24} color="var(--blue)" />
           </span>
-          <Text c="dimmed">Nenhum condomínio cadastrado ainda. Clique em &quot;Novo condomínio&quot; para começar.</Text>
+          <Text c="dimmed">
+            {isSubUsuario
+              ? 'Nenhum condomínio liberado pra você ainda. Peça pra quem administra a conta liberar acesso.'
+              : 'Nenhum condomínio cadastrado ainda. Clique em "Novo condomínio" para começar.'}
+          </Text>
         </div>
       )}
 

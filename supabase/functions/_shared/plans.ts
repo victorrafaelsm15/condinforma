@@ -14,3 +14,10 @@ export const PLAN_LIMITS: Record<string, number> = {
   pro: 5,
   business: 10,
 };
+
+// Limite de sub-usuários por plano — mesma lógica do PLAN_LIMITS acima.
+export const SUB_USUARIO_LIMITS: Record<string, number> = {
+  start: 2,
+  pro: 10,
+  business: 30,
+};

@@ -17,15 +17,6 @@ function writeLocal(key, list) {
   localStorage.setItem(key, JSON.stringify(list));
 }
 
-// getSession() lê do cache local do client (rápido, sem round-trip de rede
-// na maioria das vezes) — usado em leituras (list/update/remove), onde um
-// pequeno atraso na detecção de sessão não é crítico.
-async function getSessionAccountId() {
-  if (!isSupabaseConfigured) return null;
-  const { data } = await supabase.auth.getSession();
-  return data.session?.user?.id ?? null;
-}
-
 // getUser() valida a sessão com o servidor — usado só na escrita (create),
 // onde queremos ter certeza do dono antes de gravar o registro.
 async function getFreshAccountId() {
@@ -40,26 +31,24 @@ async function getFreshAccountId() {
  * (ex.: tabela ainda não criada no banco). Isso garante que o app funcione
  * de ponta a ponta mesmo antes de configurar o Supabase.
  *
- * Multi-tenant: toda escrita grava o account_id do usuário logado (dono do
- * registro), e toda leitura via list() filtra implicitamente por esse mesmo
- * account_id — a não ser que a própria chamada avise que é uma consulta
- * pública (skipAccountFilter: true), usada nas páginas sem login (execução
- * de checklist via QR Code, status público). getById() nunca filtra por
- * conta — é usado tanto pelo painel quanto pelas páginas públicas, e quem
- * garante o isolamento real dos dados nos dois casos é o RLS no Supabase,
- * não este filtro de conveniência no app.
+ * Multi-tenant: quem decide o que cada sessão pode ler/escrever é o RLS no
+ * Supabase — não um filtro de account_id aqui no app. Isso é proposital:
+ * dono da conta e sub-usuários autorizados usam o MESMO auth.uid() só que
+ * dono de contas diferentes (o dono vê pelo próprio account_id; o
+ * sub-usuário vê pelos condomínios liberados pra ele via sub_usuarios/
+ * sub_usuario_condominios) — filtrar aqui por "account_id = quem está
+ * logado" quebraria o acesso de sub-usuário, já que o account_id dos
+ * registros é sempre o da conta PRINCIPAL, nunca o do sub-usuário. Ver
+ * supabase/sub_usuarios_migration.sql.
  */
 export function createStore(table, { orderBy = 'created_at', ascending = false } = {}) {
   const localKey = `condinforma_${table}_v1`;
 
   return {
-    async list(filters = {}, { skipAccountFilter = false } = {}) {
-      const accountId = skipAccountFilter ? null : await getSessionAccountId();
-
+    async list(filters = {}) {
       if (isSupabaseConfigured) {
         try {
           let query = supabase.from(table).select('*').order(orderBy, { ascending });
-          if (accountId) query = query.eq('account_id', accountId);
           Object.entries(filters).forEach(([k, v]) => { query = query.eq(k, v); });
           const { data, error } = await query;
           if (error) throw error;
@@ -69,7 +58,6 @@ export function createStore(table, { orderBy = 'created_at', ascending = false }
         }
       }
       let list = readLocal(localKey);
-      if (accountId) list = list.filter((item) => item.account_id === accountId);
       Object.entries(filters).forEach(([k, v]) => {
         list = list.filter((item) => item[k] === v);
       });
@@ -98,9 +86,12 @@ export function createStore(table, { orderBy = 'created_at', ascending = false }
     },
 
     async create(payload) {
-      // Se o chamador já passou account_id (ex.: execução/ocorrência pública,
-      // copiando o account_id do ambiente), respeita esse valor — só busca
-      // da sessão logada quando não veio explícito no payload.
+      // Se o chamador já passou account_id (ex.: ambiente/checklist_item
+      // criado por um sub-usuário, copiando o account_id do pai — ou
+      // execução/ocorrência pública, copiando do ambiente), respeita esse
+      // valor. Só busca da sessão logada quando não veio explícito, o que
+      // só faz sentido pra criação de nível raiz (condominios), onde quem
+      // cria É o dono.
       const accountId = payload.account_id ?? await getFreshAccountId();
       const record = {
         id: uid(),
@@ -115,9 +106,10 @@ export function createStore(table, { orderBy = 'created_at', ascending = false }
           return data;
         } catch (err) {
           // CI001 é uma regra de negócio do banco (ex.: limite de
-          // condomínios do plano), não um erro de infraestrutura — não cai
-          // pro localStorage, senão criaria um registro fantasma que
-          // violaria a própria regra que acabou de bloquear a escrita.
+          // condomínios/sub-usuários do plano), não um erro de
+          // infraestrutura — não cai pro localStorage, senão criaria um
+          // registro fantasma que violaria a própria regra que acabou de
+          // bloquear a escrita.
           if (err?.code === 'CI001') {
             const planError = new Error(err.message);
             planError.code = 'CI001';
@@ -134,12 +126,9 @@ export function createStore(table, { orderBy = 'created_at', ascending = false }
     },
 
     async update(id, payload) {
-      const accountId = await getSessionAccountId();
       if (isSupabaseConfigured) {
         try {
-          let query = supabase.from(table).update(payload).eq('id', id);
-          if (accountId) query = query.eq('account_id', accountId);
-          const { data, error } = await query.select().single();
+          const { data, error } = await supabase.from(table).update(payload).eq('id', id).select().single();
           if (error) throw error;
           return data;
         } catch {
@@ -157,12 +146,9 @@ export function createStore(table, { orderBy = 'created_at', ascending = false }
     },
 
     async remove(id) {
-      const accountId = await getSessionAccountId();
       if (isSupabaseConfigured) {
         try {
-          let query = supabase.from(table).delete().eq('id', id);
-          if (accountId) query = query.eq('account_id', accountId);
-          const { error } = await query;
+          const { error } = await supabase.from(table).delete().eq('id', id);
           if (error) throw error;
           return true;
         } catch {

@@ -43,7 +43,7 @@ export default function ExecutarChecklistPage() {
   useEffect(() => {
     Promise.all([
       ambientesStore.getById(id),
-      checklistItemsStore.list({ ambiente_id: id }, { skipAccountFilter: true }),
+      checklistItemsStore.list({ ambiente_id: id }),
     ]).then(([amb, checklist]) => {
       setAmbiente(amb);
       setItems(checklist.sort((a, b) => (a.order_index || 0) - (b.order_index || 0)));
