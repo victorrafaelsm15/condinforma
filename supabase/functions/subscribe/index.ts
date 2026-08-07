@@ -85,6 +85,8 @@ Deno.serve(async (req: Request) => {
       account_id: accountId,
       name,
       email,
+      phone,
+      cpf_cnpj: cleanCpfCnpj,
       plan_name: planName,
       status: 'pendente',
       last_event: 'SUBSCRIPTION_CREATED',

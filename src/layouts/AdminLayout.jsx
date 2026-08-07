@@ -1,17 +1,35 @@
+import { useEffect, useState } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { Button, ActionIcon, Menu } from '@mantine/core';
-import { LogOut, Building2, AlertTriangle, BarChart3, Menu as MenuIcon } from 'lucide-react';
-import { signOut } from '../lib/authService';
+import { LogOut, Building2, AlertTriangle, BarChart3, Users, Menu as MenuIcon } from 'lucide-react';
+import { signOut, getSession } from '../lib/authService';
+import { accountsStore } from '../lib/stores';
 
-const NAV_ITEMS = [
+const BASE_NAV_ITEMS = [
   { to: '/admin', label: 'Condomínios', icon: Building2, color: 'brand', match: (p) => p === '/admin' || p.startsWith('/admin/condominios') },
   { to: '/admin/ocorrencias', label: 'Ocorrências', icon: AlertTriangle, color: 'red', match: (p) => p.startsWith('/admin/ocorrencias') },
   { to: '/admin/relatorios', label: 'Relatórios', icon: BarChart3, color: 'yellow', match: (p) => p.startsWith('/admin/relatorios') },
 ];
 
+const OWNER_NAV_ITEM = {
+  to: '/admin/assinantes', label: 'Assinantes', icon: Users, color: 'violet', match: (p) => p.startsWith('/admin/assinantes'),
+};
+
 export default function AdminLayout() {
   const navigate = useNavigate();
   const location = useLocation();
+  const [isOwner, setIsOwner] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      const session = await getSession();
+      if (!session) return;
+      const account = await accountsStore.getById(session.user.id);
+      setIsOwner(account?.role === 'owner');
+    })();
+  }, []);
+
+  const navItems = isOwner ? [...BASE_NAV_ITEMS, OWNER_NAV_ITEM] : BASE_NAV_ITEMS;
 
   const handleLogout = async () => {
     await signOut();
@@ -38,7 +56,7 @@ export default function AdminLayout() {
         </Link>
 
         <nav className="admin-nav-full">
-          {NAV_ITEMS.map((item) => (
+          {navItems.map((item) => (
             <Button
               key={item.to}
               component={Link}
@@ -64,7 +82,7 @@ export default function AdminLayout() {
               </ActionIcon>
             </Menu.Target>
             <Menu.Dropdown>
-              {NAV_ITEMS.map((item) => (
+              {navItems.map((item) => (
                 <Menu.Item
                   key={item.to}
                   component={Link}
