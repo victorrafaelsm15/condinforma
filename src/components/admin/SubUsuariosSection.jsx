@@ -27,6 +27,7 @@ export default function SubUsuariosSection() {
   const [editing, setEditing] = useState(null);
   const [editCondominioIds, setEditCondominioIds] = useState([]);
   const [savingEdit, setSavingEdit] = useState(false);
+  const [showAll, setShowAll] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -134,7 +135,7 @@ export default function SubUsuariosSection() {
 
       {subUsuarios.length ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {subUsuarios.map((sub) => (
+          {(showAll ? subUsuarios : subUsuarios.slice(0, 3)).map((sub) => (
             <div key={sub.id} className="surface-card" style={{ padding: 12 }}>
               <Group justify="space-between" align="flex-start" wrap="nowrap">
                 <div style={{ minWidth: 0 }}>
@@ -164,6 +165,19 @@ export default function SubUsuariosSection() {
         </div>
       ) : (
         <Text size="xs" c="dimmed">Nenhum sub-usuário criado ainda.</Text>
+      )}
+
+      {subUsuarios.length > 3 && (
+        <Button
+          variant="subtle"
+          color="gray"
+          size="xs"
+          fullWidth
+          mt={8}
+          onClick={() => setShowAll((v) => !v)}
+        >
+          {showAll ? 'Ver menos' : `Ver mais sub-usuários (${subUsuarios.length - 3})`}
+        </Button>
       )}
 
       <Modal opened={createOpen} onClose={() => setCreateOpen(false)} title="Novo sub-usuário" centered>
