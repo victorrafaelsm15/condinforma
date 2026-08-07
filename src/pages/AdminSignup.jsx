@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { Button, TextInput, PasswordInput, Text } from '@mantine/core';
-import { ShieldCheck, Building2, QrCode, BarChart3, MailCheck } from 'lucide-react';
+import { ShieldCheck, QrCode, BarChart3, MailCheck } from 'lucide-react';
 import { signUp } from '../lib/authService';
 
 function translateAuthError(message) {
@@ -62,12 +62,7 @@ export default function AdminSignup() {
         <div className="blob" style={{ width: 360, height: 360, bottom: -140, right: -100, background: 'radial-gradient(circle, rgba(51,85,232,0.4), transparent 70%)' }} />
         <div style={{ position: 'relative', zIndex: 1 }}>
           <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 10, fontWeight: 800, fontSize: 18, color: '#fff', marginBottom: 44, textTransform: 'uppercase' }}>
-            <span style={{
-              width: 34, height: 34, borderRadius: 10, background: 'rgba(255,255,255,0.15)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              <Building2 size={18} />
-            </span>
+            <img src={`${import.meta.env.BASE_URL}logo-icon.png`} alt="" style={{ height: 34, width: 'auto' }} />
             Cond-Informa
           </Link>
           <h1 style={{ fontSize: 'clamp(26px,3vw,34px)', fontWeight: 800, lineHeight: 1.2, margin: '0 0 16px', maxWidth: 420 }}>
@@ -99,7 +94,7 @@ export default function AdminSignup() {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, background: 'var(--bg)' }}>
         <div style={{ width: '100%', maxWidth: 380 }}>
           <div className="login-mobile-brand" style={{ display: 'none', alignItems: 'center', gap: 10, fontWeight: 800, fontSize: 17, color: 'var(--blue-dark)', marginBottom: 28, justifyContent: 'center', textTransform: 'uppercase' }}>
-            <Building2 size={20} color="var(--blue)" /> Cond-Informa
+            <img src={`${import.meta.env.BASE_URL}logo-icon.png`} alt="" style={{ height: 26, width: 'auto' }} /> Cond-Informa
           </div>
           <div className="surface-card" style={{ padding: 36, textAlign: 'center' }}>
             <div style={{

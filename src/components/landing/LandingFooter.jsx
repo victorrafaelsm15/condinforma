@@ -1,5 +1,5 @@
 import { Button } from '@mantine/core';
-import { Building2, ArrowRight } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import Reveal from './Reveal';
 import { scrollToSection } from '../../lib/scrollToSection';
 
@@ -28,12 +28,7 @@ export default function LandingFooter() {
       <footer style={{ background: '#080b22', color: 'rgba(255,255,255,0.6)', padding: '40px 0' }}>
         <div className="container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 14 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 9, color: '#fff', fontWeight: 700, textTransform: 'uppercase' }}>
-            <span style={{
-              width: 28, height: 28, borderRadius: 8, background: 'var(--gradient-brand)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              <Building2 size={15} color="#fff" />
-            </span>
+            <img src={`${import.meta.env.BASE_URL}logo-icon.png`} alt="" style={{ height: 26, width: 'auto' }} />
             Cond-Informa
           </div>
           <span style={{ fontSize: 12.5 }}>© {new Date().getFullYear()} <span style={{ textTransform: 'uppercase' }}>Cond-Informa</span>. Todos os direitos reservados.</span>
