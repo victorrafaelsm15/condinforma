@@ -23,6 +23,7 @@ export default function AdminLayout() {
   const [isOwner, setIsOwner] = useState(false);
   const [isSubUsuario, setIsSubUsuario] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -78,29 +79,45 @@ export default function AdminLayout() {
         </nav>
 
         <div className="admin-nav-mobile">
-          <Menu shadow="md" width={210} position="bottom-end" withinPortal>
+          <Menu shadow="md" width={220} position="bottom-end" withinPortal opened={mobileMenuOpen} onChange={setMobileMenuOpen}>
             <Menu.Target>
               <ActionIcon variant="light" color="gray" size="lg" radius="xl" aria-label="Abrir menu">
                 <MenuIcon size={19} />
               </ActionIcon>
             </Menu.Target>
             <Menu.Dropdown>
-              {navItems.map((item) => (
-                <Menu.Item
-                  key={item.to}
-                  component={Link}
-                  to={item.to}
-                  leftSection={<item.icon size={16} />}
-                  color={isActive(item) ? 'blue' : undefined}
-                  fw={isActive(item) ? 700 : 500}
+              {/* Botões de verdade (não Menu.Item) pra herdar exatamente as
+                  mesmas cores de fundo preenchidas usadas no nav de desktop —
+                  a prop color do Menu.Item só tinge o texto, não preenche o
+                  fundo, então os itens apareciam sem cor nenhuma no celular. */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: 4 }}>
+                {navItems.map((item) => (
+                  <Button
+                    key={item.to}
+                    component={Link}
+                    to={item.to}
+                    variant="filled"
+                    color={item.color}
+                    fullWidth
+                    justify="flex-start"
+                    leftSection={<item.icon size={15} />}
+                    onClick={() => setMobileMenuOpen(false)}
+                    style={isActive(item) ? { boxShadow: 'inset 0 0 0 2px rgba(255,255,255,0.55)' } : undefined}
+                  >
+                    {item.label}
+                  </Button>
+                ))}
+                <Button
+                  variant="filled"
+                  color="gray"
+                  fullWidth
+                  justify="flex-start"
+                  leftSection={<Settings size={15} />}
+                  onClick={() => { setMobileMenuOpen(false); setSettingsOpen(true); }}
                 >
-                  {item.label}
-                </Menu.Item>
-              ))}
-              <Menu.Divider />
-              <Menu.Item leftSection={<Settings size={16} />} onClick={() => setSettingsOpen(true)}>
-                Configurações
-              </Menu.Item>
+                  Configurações
+                </Button>
+              </div>
             </Menu.Dropdown>
           </Menu>
         </div>
