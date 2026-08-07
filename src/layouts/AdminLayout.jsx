@@ -54,12 +54,7 @@ export default function AdminLayout() {
         borderBottom: '1px solid var(--border)', position: 'sticky', top: 0, zIndex: 50,
       }} className="admin-header">
         <Link to="/admin" style={{ display: 'flex', alignItems: 'center', gap: 10, fontWeight: 800, fontSize: 16.5, color: 'var(--blue-dark)', textTransform: 'uppercase' }}>
-          <span style={{
-            width: 32, height: 32, borderRadius: 9, background: 'var(--gradient-brand)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-          }}>
-            <Building2 size={17} color="#fff" />
-          </span>
+          <img src={`${import.meta.env.BASE_URL}logo-icon.png`} alt="" style={{ height: 30, width: 'auto' }} />
           Cond-Informa
         </Link>
 

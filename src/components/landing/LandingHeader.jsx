@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button, ActionIcon } from '@mantine/core';
-import { Building2, ShieldCheck } from 'lucide-react';
+import { ShieldCheck } from 'lucide-react';
 import { scrollToSection } from '../../lib/scrollToSection';
 import InstallAppButton from '../common/InstallAppButton';
 
@@ -30,12 +30,7 @@ export default function LandingHeader() {
     >
       <div className="container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 72 }}>
         <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 10, fontWeight: 800, fontSize: 18, color: '#fff', textTransform: 'uppercase' }}>
-          <span style={{
-            width: 34, height: 34, borderRadius: 10, background: 'var(--gradient-brand)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: 'var(--shadow-brand)',
-          }}>
-            <Building2 size={18} color="#fff" />
-          </span>
+          <img src={`${import.meta.env.BASE_URL}logo-icon.png`} alt="" style={{ height: 34, width: 'auto' }} />
           Cond-Informa
         </Link>
         <nav style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
