@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { Drawer, Text, Switch, Button, Group, Divider, Modal, useMantineColorScheme } from '@mantine/core';
+import { Drawer, Text, Switch, Button, Group, Divider, useMantineColorScheme } from '@mantine/core';
 import { Moon, Sun, Headphones, LogOut } from 'lucide-react';
 import SubUsuariosSection from './SubUsuariosSection';
+import SupportChat from '../SupportChat';
 
 export default function ConfiguracoesDrawer({ opened, onClose, onLogout, isSubUsuario }) {
   const { colorScheme, setColorScheme } = useMantineColorScheme();
@@ -52,15 +53,7 @@ export default function ConfiguracoesDrawer({ opened, onClose, onLogout, isSubUs
         </Button>
       </Drawer>
 
-      <Modal opened={supportOpen} onClose={() => setSupportOpen(false)} title="Falar com o suporte" centered>
-        <Text size="sm" c="dimmed" mb="md">
-          Nosso atendimento automático chega em breve por aqui. Enquanto isso, você pode falar
-          diretamente com a gente por e-mail.
-        </Text>
-        <Button component="a" href="mailto:suporte@condinforma.com.br" fullWidth variant="light">
-          Enviar e-mail
-        </Button>
-      </Modal>
+      <SupportChat opened={supportOpen} onClose={() => setSupportOpen(false)} />
     </>
   );
 }

@@ -440,3 +440,9 @@ enabled = true
 verify_jwt = false
 import_map = "./functions/create-sub-usuario/deno.json"
 entrypoint = "./functions/create-sub-usuario/index.ts"
+
+[functions.support-chat]
+enabled = true
+verify_jwt = false
+import_map = "./functions/support-chat/deno.json"
+entrypoint = "./functions/support-chat/index.ts"

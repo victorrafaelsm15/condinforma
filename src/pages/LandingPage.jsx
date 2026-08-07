@@ -24,7 +24,7 @@ export default function LandingPage() {
   }, []);
 
   return (
-    <div style={{ background: 'var(--navy-950)' }}>
+    <div className="landing-scope" style={{ background: 'var(--navy-950)' }}>
       <LandingHeader />
       <Hero />
       <ProblemSection />
