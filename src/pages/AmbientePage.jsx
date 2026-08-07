@@ -132,6 +132,27 @@ function ChecklistTab({ ambienteId }) {
   );
 }
 
+// Cores de cada aba (mesmo padrão "pill preenchida" dos botões de navegação
+// do topo): ativa usa a cor forte com texto branco, inativa usa uma versão
+// clara/suave da mesma cor. QR Codes foge à regra por pedido — bicolor
+// preto/branco dividido ao meio quando ativa (texto usa mix-blend-mode
+// "difference" pra ficar legível automaticamente nas duas metades).
+const TAB_COLORS = {
+  checklist: { activeBg: 'var(--green)', activeText: '#fff', inactiveBg: 'var(--green-light)', inactiveText: 'var(--green)' },
+  historico: { activeBg: '#6b7280', activeText: '#fff', inactiveBg: '#eef0f3', inactiveText: '#6b7280' },
+  ocorrencias: { activeBg: 'var(--red)', activeText: '#fff', inactiveBg: 'var(--red-light)', inactiveText: 'var(--red)' },
+};
+
+function getTabStyle(value, isActive) {
+  if (value === 'qrcode') {
+    return isActive
+      ? { background: 'linear-gradient(90deg, #10142c 50%, #fff 50%)', isolation: 'isolate', border: '1px solid var(--border)' }
+      : { background: '#eef0f3', color: '#6b7280' };
+  }
+  const c = TAB_COLORS[value];
+  return { background: isActive ? c.activeBg : c.inactiveBg, color: isActive ? c.activeText : c.inactiveText };
+}
+
 function QrCodeTab({ ambiente }) {
   return <AmbienteQrCards ambiente={ambiente} />;
 }
@@ -365,6 +386,7 @@ export default function AmbientePage() {
   const [editOpen, setEditOpen] = useState(false);
   const [editName, setEditName] = useState('');
   const [savingEdit, setSavingEdit] = useState(false);
+  const [activeTab, setActiveTab] = useState('checklist');
 
   const load = async () => {
     const data = await ambientesStore.getById(id);
@@ -409,11 +431,14 @@ export default function AmbientePage() {
       </Group>
 
       <Group gap={12} mb="lg" justify="space-between">
-        <Group gap={12}>
-          <span className="icon-tile" style={{ background: 'var(--blue-light)', width: 40, height: 40, borderRadius: 12 }}>
-            <ListChecks size={19} color="var(--blue)" />
+        <Group gap={10} style={{ background: 'var(--blue)', borderRadius: 999, padding: '8px 20px 8px 10px' }}>
+          <span style={{
+            width: 32, height: 32, borderRadius: '50%', background: 'rgba(255,255,255,0.2)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+          }}>
+            <ListChecks size={17} color="#fff" />
           </span>
-          <Text fw={800} size="1.6rem" className="font-display">{ambiente.name}</Text>
+          <Text fw={800} size="1.6rem" className="font-display" c="#fff">{ambiente.name}</Text>
         </Group>
         <ActionIcon variant="light" color="gray" radius="xl" size="lg" onClick={openEdit} aria-label="Editar ambiente">
           <Pencil size={17} />
@@ -431,17 +456,28 @@ export default function AmbientePage() {
       </Modal>
 
       <Tabs
-        defaultValue="checklist"
+        value={activeTab}
+        onChange={setActiveTab}
         styles={{
-          tab: { fontWeight: 600, fontSize: 14 },
-          list: { borderBottom: '1px solid var(--border)' },
+          tab: { fontWeight: 600, fontSize: 14, borderRadius: 999, border: 'none', padding: '9px 18px', transition: 'all 0.2s var(--ease)' },
+          list: { border: 'none', gap: 8, flexWrap: 'wrap' },
         }}
       >
         <Tabs.List>
-          <Tabs.Tab value="checklist" leftSection={<ClipboardList size={15} />}>Checklist</Tabs.Tab>
-          <Tabs.Tab value="qrcode" leftSection={<QrCode size={15} />}>QR Codes</Tabs.Tab>
-          <Tabs.Tab value="historico" leftSection={<History size={15} />}>Histórico</Tabs.Tab>
-          <Tabs.Tab value="ocorrencias" leftSection={<AlertTriangle size={15} />}>Ocorrências</Tabs.Tab>
+          <Tabs.Tab value="checklist" leftSection={<ClipboardList size={15} />} style={getTabStyle('checklist', activeTab === 'checklist')}>
+            Checklist
+          </Tabs.Tab>
+          <Tabs.Tab value="qrcode" style={getTabStyle('qrcode', activeTab === 'qrcode')}>
+            <Group gap={6} wrap="nowrap" style={activeTab === 'qrcode' ? { color: '#fff', mixBlendMode: 'difference' } : undefined}>
+              <QrCode size={15} /> QR Codes
+            </Group>
+          </Tabs.Tab>
+          <Tabs.Tab value="historico" leftSection={<History size={15} />} style={getTabStyle('historico', activeTab === 'historico')}>
+            Histórico
+          </Tabs.Tab>
+          <Tabs.Tab value="ocorrencias" leftSection={<AlertTriangle size={15} />} style={getTabStyle('ocorrencias', activeTab === 'ocorrencias')}>
+            Ocorrências
+          </Tabs.Tab>
         </Tabs.List>
         <Tabs.Panel value="checklist" pt="lg"><ChecklistTab ambienteId={id} /></Tabs.Panel>
         <Tabs.Panel value="qrcode" pt="lg"><QrCodeTab ambiente={ambiente} /></Tabs.Panel>
