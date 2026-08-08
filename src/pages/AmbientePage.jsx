@@ -12,6 +12,7 @@ import {
 import { ambientesStore, checklistItemsStore, execucoesStore, ocorrenciasStore, condominiosStore } from '../lib/stores';
 import AmbienteQrCards from '../components/admin/AmbienteQrCards';
 import { generateComunicadoPdf, downloadPdf, sharePdf } from '../lib/comunicado';
+import ConfirmDeleteModal from '../components/common/ConfirmDeleteModal';
 
 function ChecklistTab({ ambienteId, accountId }) {
   const [items, setItems] = useState([]);
@@ -182,14 +183,33 @@ function HistoryTab({ ambienteId, ambienteName, condominioName }) {
   const [generatingId, setGeneratingId] = useState(null);
   const [generatingPeriod, setGeneratingPeriod] = useState(false);
   const [generatingSelection, setGeneratingSelection] = useState(false);
+  const [deleting, setDeleting] = useState(null);
+  const [removing, setRemoving] = useState(false);
 
-  useEffect(() => {
+  const load = () => {
     setSelectedIds(new Set());
     execucoesStore.list({ ambiente_id: ambienteId }).then((data) => {
       setExecs(data);
       setLoading(false);
     });
-  }, [ambienteId]);
+  };
+
+  useEffect(load, [ambienteId]);
+
+  const handleDelete = async () => {
+    if (!deleting) return;
+    setRemoving(true);
+    try {
+      await execucoesStore.remove(deleting.id);
+      notifications.show({ color: 'green', message: 'Execução excluída.' });
+    } catch {
+      notifications.show({ color: 'red', message: 'Não foi possível excluir a execução.' });
+    } finally {
+      setRemoving(false);
+      setDeleting(null);
+      load();
+    }
+  };
 
   const toggleSelect = (id) => {
     setSelectedIds((prev) => {
@@ -321,6 +341,9 @@ function HistoryTab({ ambienteId, ambienteName, condominioName }) {
                       loading={generatingId === e.id}
                       onPick={(action) => handleExecucaoComunicado(e, action)}
                     />
+                    <ActionIcon variant="light" color="red" radius="md" onClick={() => setDeleting(e)} aria-label="Excluir execução">
+                      <Trash2 size={15} />
+                    </ActionIcon>
                   </Group>
                 </Group>
                 {e.free_text_note && (
@@ -334,6 +357,14 @@ function HistoryTab({ ambienteId, ambienteName, condominioName }) {
           })}
         </div>
       )}
+
+      <ConfirmDeleteModal
+        opened={!!deleting}
+        onClose={() => setDeleting(null)}
+        onConfirm={handleDelete}
+        itemLabel="esta execução"
+        loading={removing}
+      />
     </div>
   );
 }

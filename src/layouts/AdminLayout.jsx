@@ -14,7 +14,7 @@ const BASE_NAV_ITEMS = [
 ];
 
 const OWNER_NAV_ITEM = {
-  to: '/admin/assinantes', label: 'Assinantes', icon: Users, color: 'violet', match: (p) => p.startsWith('/admin/assinantes'),
+  to: '/admin/usuarios', label: 'Usuários', icon: Users, color: 'violet', match: (p) => p.startsWith('/admin/usuarios'),
 };
 
 export default function AdminLayout() {
@@ -59,24 +59,9 @@ export default function AdminLayout() {
           Cond-Informa
         </Link>
 
-        <nav className="admin-nav-full">
-          {navItems.map((item) => (
-            <Button
-              key={item.to}
-              component={Link}
-              to={item.to}
-              variant="filled"
-              color={item.color}
-              leftSection={<item.icon size={15} />}
-              style={isActive(item) ? { boxShadow: 'inset 0 0 0 2px rgba(255,255,255,0.55)' } : undefined}
-            >
-              {item.label}
-            </Button>
-          ))}
-          <Button variant="filled" color="gray" leftSection={<Settings size={14} />} onClick={() => setSettingsOpen(true)} ml={8}>
-            Configurações
-          </Button>
-        </nav>
+        <Button variant="filled" color="gray" leftSection={<Settings size={14} />} onClick={() => setSettingsOpen(true)} className="admin-settings-btn">
+          Configurações
+        </Button>
 
         <div className="admin-nav-mobile">
           <Menu shadow="md" width={220} position="bottom-end" withinPortal opened={mobileMenuOpen} onChange={setMobileMenuOpen}>
@@ -87,9 +72,9 @@ export default function AdminLayout() {
             </Menu.Target>
             <Menu.Dropdown>
               {/* Botões de verdade (não Menu.Item) pra herdar exatamente as
-                  mesmas cores de fundo preenchidas usadas no nav de desktop —
-                  a prop color do Menu.Item só tinge o texto, não preenche o
-                  fundo, então os itens apareciam sem cor nenhuma no celular. */}
+                  mesmas cores de fundo preenchidas usadas na sidebar de
+                  desktop — a prop color do Menu.Item só tinge o texto, não
+                  preenche o fundo. */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: 4 }}>
                 {navItems.map((item) => (
                   <Button
@@ -122,9 +107,30 @@ export default function AdminLayout() {
           </Menu>
         </div>
       </header>
-      <main style={{ padding: '32px 28px 60px', maxWidth: 1100, margin: '0 auto' }}>
-        <Outlet />
-      </main>
+
+      <div className="admin-body">
+        <aside className="admin-sidebar">
+          {navItems.map((item) => (
+            <Button
+              key={item.to}
+              component={Link}
+              to={item.to}
+              variant="filled"
+              color={item.color}
+              fullWidth
+              justify="flex-start"
+              size="md"
+              leftSection={<item.icon size={17} />}
+              style={isActive(item) ? { boxShadow: 'inset 0 0 0 2px rgba(255,255,255,0.55)' } : undefined}
+            >
+              {item.label}
+            </Button>
+          ))}
+        </aside>
+        <main className="admin-main">
+          <Outlet />
+        </main>
+      </div>
 
       <ConfiguracoesDrawer
         opened={settingsOpen}
@@ -134,12 +140,20 @@ export default function AdminLayout() {
       />
 
       <style>{`
-        .admin-nav-full { display: flex; gap: 8px; align-items: center; }
         .admin-nav-mobile { display: none; }
+        .admin-body { display: flex; align-items: flex-start; }
+        .admin-sidebar {
+          display: flex; flex-direction: column; gap: 8px; flex-shrink: 0;
+          width: 224px; padding: 20px 14px; position: sticky; top: 65px;
+          height: calc(100vh - 65px); overflow-y: auto;
+          border-right: 1px solid var(--border);
+        }
+        .admin-main { flex: 1; min-width: 0; padding: 32px 28px 60px; max-width: 1100px; }
         @media (max-width: 900px) {
           .admin-header { padding-left: 18px; padding-right: 18px; }
-          .admin-nav-full { display: none; }
+          .admin-sidebar { display: none; }
           .admin-nav-mobile { display: flex; }
+          .admin-settings-btn { display: none; }
         }
       `}</style>
     </div>

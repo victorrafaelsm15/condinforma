@@ -1,26 +1,33 @@
-// Edge Function pública: recebe os dados do formulário de assinatura do site,
-// cria (ou reaproveita) o cliente no Asaas, cria a assinatura mensal e devolve
-// a URL da página de pagamento (Pix, boleto ou cartão).
+// Edge Function pública: recebe os dados do formulário de assinatura do
+// site, cria (ou reaproveita) o cliente no Asaas e cria a assinatura.
 //
-// Chamada pelo navegador com a publishable/anon key (ver PricingSection.jsx).
+// Checkout transparente: o cliente nunca é redirecionado pro Asaas — pra
+// Pix devolvemos o QR Code (imagem + copia-e-cola) direto no JSON; pra
+// boleto devolvemos o link do PDF e a linha digitável; pra cartão os dados
+// são processados aqui, do lado do servidor, e o Asaas tenta cobrar na
+// hora (nunca expomos ASAAS_API_KEY nem processamos cartão no navegador).
+// A resposta só traz dados da cobrança do CLIENTE — nunca informações da
+// conta Asaas da plataforma (nome, CNPJ, endereço do dono do site).
+//
+// Chamada pelo navegador com a publishable/anon key (ver AssinaturaPage.jsx).
 // verify_jwt = false no config.toml — mas a função exige e valida, ELA
 // MESMA, o token de sessão do usuário logado (Authorization: Bearer), pra
 // saber a qual conta (account_id) vincular a assinatura. Sem isso, o
 // webhook não teria como saber qual conta liberar quando o pagamento cair.
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
-import { findOrCreateCustomer, createSubscription, getFirstPaymentLink } from '../_shared/asaas.ts';
+import { findOrCreateCustomer, createSubscription, getFirstPayment, getPixQrCode } from '../_shared/asaas.ts';
 import { corsHeaders, jsonResponse } from '../_shared/cors.ts';
 import { PLAN_PRICES } from '../_shared/plans.ts';
 import { validateAndApplyCoupon, incrementCouponUsage } from '../_shared/cupons.ts';
 
-const VALID_BILLING_TYPES = new Set(['PIX', 'CREDIT_CARD', 'BOLETO', 'UNDEFINED']);
+const VALID_BILLING_TYPES = new Set(['PIX', 'CREDIT_CARD', 'BOLETO']);
 
 function isValidEmail(email: string | undefined): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email || '');
 }
 
-function onlyDigits(value: string | undefined): string {
+function onlyDigits(value: string | undefined | null): string {
   return String(value || '').replace(/\D/g, '');
 }
 
@@ -50,7 +57,9 @@ Deno.serve(async (req: Request) => {
   }
   const accountId = userData.user.id;
 
-  const { planName, name, email, cpfCnpj, phone, billingType, couponCode } = await req.json().catch(() => ({}));
+  const {
+    planName, name, email, cpfCnpj, phone, billingType, couponCode, creditCard, cep, addressNumber,
+  } = await req.json().catch(() => ({}));
 
   const price = PLAN_PRICES[planName];
   if (!price) return jsonResponse({ error: 'Plano inválido.' }, 400);
@@ -61,10 +70,35 @@ Deno.serve(async (req: Request) => {
   if (cleanCpfCnpj.length !== 11 && cleanCpfCnpj.length !== 14) {
     return jsonResponse({ error: 'Informe um CPF (11 dígitos) ou CNPJ (14 dígitos) válido.' }, 400);
   }
-  if (onlyDigits(phone).length < 10) {
+  const cleanPhone = onlyDigits(phone);
+  if (cleanPhone.length < 10) {
     return jsonResponse({ error: 'Informe um telefone válido com DDD.' }, 400);
   }
-  const resolvedBillingType = VALID_BILLING_TYPES.has(billingType) ? billingType : 'UNDEFINED';
+  if (!VALID_BILLING_TYPES.has(billingType)) {
+    return jsonResponse({ error: 'Escolha uma forma de pagamento.' }, 400);
+  }
+
+  let creditCardPayload;
+  let creditCardHolderInfoPayload;
+  if (billingType === 'CREDIT_CARD') {
+    const cleanCep = onlyDigits(cep);
+    if (!creditCard?.number || !creditCard?.holderName || !creditCard?.expiryMonth || !creditCard?.expiryYear || !creditCard?.ccv) {
+      return jsonResponse({ error: 'Preencha todos os dados do cartão.' }, 400);
+    }
+    if (cleanCep.length !== 8 || !addressNumber?.trim()) {
+      return jsonResponse({ error: 'Informe o CEP e o número do endereço de cobrança.' }, 400);
+    }
+    creditCardPayload = {
+      holderName: creditCard.holderName,
+      number: onlyDigits(creditCard.number),
+      expiryMonth: creditCard.expiryMonth,
+      expiryYear: creditCard.expiryYear,
+      ccv: creditCard.ccv,
+    };
+    creditCardHolderInfoPayload = {
+      name, email, cpfCnpj: cleanCpfCnpj, postalCode: cleanCep, addressNumber: addressNumber.trim(), phone: cleanPhone,
+    };
+  }
 
   // Cupom é opcional — se informado, precisa ser válido. Não deixa a pessoa
   // continuar "sem querer" pagando o preço cheio por causa de um cupom
@@ -81,20 +115,23 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const customer = await findOrCreateCustomer({ name, email, cpfCnpj: cleanCpfCnpj, phone });
+    const customer = await findOrCreateCustomer({ name, email, cpfCnpj: cleanCpfCnpj, phone: cleanPhone });
 
     const subscription = await createSubscription({
       customerId: customer.id,
       value: finalValue,
       description: `Cond-Informa — Plano ${planName}`,
-      billingType: resolvedBillingType,
+      billingType,
+      creditCard: creditCardPayload,
+      creditCardHolderInfo: creditCardHolderInfoPayload,
+      remoteIp: req.headers.get('x-forwarded-for')?.split(',')[0]?.trim(),
       // "account_id:planName" — é assim que o webhook, ao receber o evento
       // de pagamento de volta do Asaas, sabe qual conta liberar e com qual
       // plano/limite, sem precisar adivinhar ou comparar valor pago.
       externalReference: `${accountId}:${planName}`,
     });
 
-    const paymentUrl = await getFirstPaymentLink(subscription.id);
+    const payment = await getFirstPayment(subscription.id);
 
     // Registra o assinante como "pendente" já de cara — o webhook depois
     // atualiza o status conforme os eventos de pagamento chegarem.
@@ -104,7 +141,7 @@ Deno.serve(async (req: Request) => {
       account_id: accountId,
       name,
       email,
-      phone,
+      phone: cleanPhone,
       cpf_cnpj: cleanCpfCnpj,
       plan_name: planName,
       status: 'pendente',
@@ -119,7 +156,35 @@ Deno.serve(async (req: Request) => {
 
     if (couponId) await incrementCouponUsage(supabaseAdmin, couponId);
 
-    return jsonResponse({ paymentUrl });
+    // Monta a resposta do checkout transparente — só o necessário pra
+    // renderizar o pagamento na própria tela, nada da conta da plataforma.
+    if (billingType === 'PIX') {
+      const pix = await getPixQrCode(payment.id);
+      return jsonResponse({
+        type: 'PIX',
+        value: finalValue,
+        qrCodeImage: pix.encodedImage,
+        copyPaste: pix.payload,
+        expirationDate: pix.expirationDate,
+      });
+    }
+    if (billingType === 'BOLETO') {
+      return jsonResponse({
+        type: 'BOLETO',
+        value: finalValue,
+        bankSlipUrl: payment.bankSlipUrl,
+        identificationField: payment.identificationField,
+        dueDate: payment.dueDate,
+      });
+    }
+    // CREDIT_CARD: o Asaas já tentou cobrar dentro da própria criação da
+    // assinatura — o status da primeira cobrança diz se aprovou ou não.
+    return jsonResponse({
+      type: 'CREDIT_CARD',
+      value: finalValue,
+      status: payment.status,
+      approved: payment.status === 'CONFIRMED' || payment.status === 'RECEIVED',
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error('Erro ao criar assinatura no Asaas:', message);

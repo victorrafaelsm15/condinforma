@@ -315,3 +315,52 @@ create table if not exists cupons (
 );
 create unique index if not exists cupons_codigo_upper_idx on cupons (upper(codigo));
 alter table cupons enable row level security;
+
+-- ============================================================
+-- Visão administrativa unificada de Usuários (accounts + sub_usuarios) pra
+-- accounts.role = 'owner' — ver supabase/usuarios_admin_migration.sql pro
+-- comentário completo. Sufixo "_platform_owner" pra não colidir com as
+-- policies "_owner_*" já existentes acima (que significam "a conta
+-- principal dona do registro", não o owner da plataforma).
+create policy "accounts_platform_owner_select" on accounts
+  for select to authenticated
+  using (exists (select 1 from accounts a where a.id = auth.uid() and a.role = 'owner'));
+
+create policy "accounts_platform_owner_update" on accounts
+  for update to authenticated
+  using (exists (select 1 from accounts a where a.id = auth.uid() and a.role = 'owner'))
+  with check (exists (select 1 from accounts a where a.id = auth.uid() and a.role = 'owner'));
+
+create policy "sub_usuarios_platform_owner_select" on sub_usuarios
+  for select to authenticated
+  using (exists (select 1 from accounts a where a.id = auth.uid() and a.role = 'owner'));
+
+create policy "sub_usuarios_platform_owner_delete" on sub_usuarios
+  for delete to authenticated
+  using (exists (select 1 from accounts a where a.id = auth.uid() and a.role = 'owner'));
+
+create policy "sub_usuario_condominios_platform_owner_all" on sub_usuario_condominios
+  for all to authenticated
+  using (exists (select 1 from accounts a where a.id = auth.uid() and a.role = 'owner'))
+  with check (exists (select 1 from accounts a where a.id = auth.uid() and a.role = 'owner'));
+
+-- Sem policy de SELECT geral em condominios pro owner (vazaria pro
+-- dashboard comum via consultas sem filtro) — function restrita em vez
+-- disso, só id/nome dos ids pedidos.
+create or replace function get_condominio_names_for_owner(ids text[])
+returns table (id text, name text)
+language sql stable security definer set search_path = public as $$
+  select c.id, c.name
+  from condominios c
+  where c.id = any(ids)
+    and exists (select 1 from accounts a where a.id = auth.uid() and a.role = 'owner');
+$$;
+
+create or replace function get_account_condominios_for_owner(target_account_id uuid)
+returns table (id text, name text)
+language sql stable security definer set search_path = public as $$
+  select c.id, c.name
+  from condominios c
+  where c.account_id = target_account_id
+    and exists (select 1 from accounts a where a.id = auth.uid() and a.role = 'owner');
+$$;

@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Button, TextInput, Text, Group, Modal, Loader, SimpleGrid, Breadcrumbs, Badge, ActionIcon } from '@mantine/core';
-import { Plus, DoorOpen, ChevronRight, Clock, LayoutGrid, ArrowLeft, Pencil, LayoutDashboard } from 'lucide-react';
+import { notifications } from '@mantine/notifications';
+import { Plus, DoorOpen, ChevronRight, Clock, LayoutGrid, ArrowLeft, Pencil, Trash2, LayoutDashboard } from 'lucide-react';
 import { condominiosStore, ambientesStore, execucoesStore } from '../lib/stores';
 import { getSession } from '../lib/authService';
 import { getSubUsuarioInfo } from '../lib/subUsuario';
+import ConfirmDeleteModal from '../components/common/ConfirmDeleteModal';
 
 export default function CondominioPage() {
   const { id } = useParams();
@@ -24,6 +26,9 @@ export default function CondominioPage() {
   const [editCondoOpen, setEditCondoOpen] = useState(false);
   const [editCondoName, setEditCondoName] = useState('');
   const [savingCondoEdit, setSavingCondoEdit] = useState(false);
+
+  const [deleting, setDeleting] = useState(null);
+  const [removing, setRemoving] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -92,6 +97,29 @@ export default function CondominioPage() {
     load();
   };
 
+  const openDelete = (e, ambiente) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDeleting(ambiente);
+  };
+
+  const handleDelete = async () => {
+    if (!deleting) return;
+    setRemoving(true);
+    try {
+      // Checklists, execuções e ocorrências desse ambiente já saem junto —
+      // "on delete cascade" no banco (ver schema.sql).
+      await ambientesStore.remove(deleting.id);
+      notifications.show({ color: 'green', message: `${deleting.name} excluído.` });
+    } catch {
+      notifications.show({ color: 'red', message: 'Não foi possível excluir o ambiente.' });
+    } finally {
+      setRemoving(false);
+      setDeleting(null);
+      load();
+    }
+  };
+
   if (loading) return <Group justify="center" py={60}><Loader color="brand" /></Group>;
 
   return (
@@ -147,6 +175,9 @@ export default function CondominioPage() {
                   <Group gap={4}>
                     <ActionIcon variant="light" color="gray" radius="xl" onClick={(e) => openEdit(e, a)} aria-label="Editar ambiente">
                       <Pencil size={15} />
+                    </ActionIcon>
+                    <ActionIcon variant="light" color="red" radius="xl" onClick={(e) => openDelete(e, a)} aria-label="Excluir ambiente">
+                      <Trash2 size={15} />
                     </ActionIcon>
                     <ChevronRight size={18} color="var(--text-faint)" />
                   </Group>
@@ -204,6 +235,14 @@ export default function CondominioPage() {
         />
         <Button fullWidth mt="lg" onClick={handleSaveCondoEdit} loading={savingCondoEdit}>Salvar</Button>
       </Modal>
+
+      <ConfirmDeleteModal
+        opened={!!deleting}
+        onClose={() => setDeleting(null)}
+        onConfirm={handleDelete}
+        itemLabel={deleting?.name}
+        loading={removing}
+      />
     </div>
   );
 }

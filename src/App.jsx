@@ -13,7 +13,7 @@ import QrCodesCondominioPage from './pages/QrCodesCondominioPage';
 import AmbientePage from './pages/AmbientePage';
 import OcorrenciasPage from './pages/OcorrenciasPage';
 import RelatoriosPage from './pages/RelatoriosPage';
-import AssinantesPage from './pages/AssinantesPage';
+import UsuariosPage from './pages/UsuariosPage';
 import ExecutarChecklistPage from './pages/ExecutarChecklistPage';
 import StatusPublicoPage from './pages/StatusPublicoPage';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -40,7 +40,7 @@ export default function App() {
           <Route path="/admin/ambientes/:id" element={<AmbientePage />} />
           <Route path="/admin/ocorrencias" element={<OcorrenciasPage />} />
           <Route path="/admin/relatorios" element={<RelatoriosPage />} />
-          <Route path="/admin/assinantes" element={<AssinantesPage />} />
+          <Route path="/admin/usuarios" element={<UsuariosPage />} />
         </Route>
       </Route>
 

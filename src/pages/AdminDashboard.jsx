@@ -2,10 +2,11 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button, TextInput, Text, Group, Modal, Loader, SimpleGrid, ActionIcon } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { Plus, Building2, ChevronRight, LayoutGrid, Pencil, Lock, ArrowRight } from 'lucide-react';
+import { Plus, Building2, ChevronRight, LayoutGrid, Pencil, Trash2, Lock, ArrowRight } from 'lucide-react';
 import { condominiosStore, ambientesStore, accountsStore } from '../lib/stores';
 import { getSession } from '../lib/authService';
 import { getSubUsuarioInfo } from '../lib/subUsuario';
+import ConfirmDeleteModal from '../components/common/ConfirmDeleteModal';
 
 const PLAN_LABELS = { start: 'Start', pro: 'Pro', business: 'Business' };
 
@@ -38,6 +39,9 @@ export default function AdminDashboard() {
   const [editing, setEditing] = useState(null);
   const [editName, setEditName] = useState('');
   const [savingEdit, setSavingEdit] = useState(false);
+
+  const [deleting, setDeleting] = useState(null);
+  const [removing, setRemoving] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -100,6 +104,29 @@ export default function AdminDashboard() {
     load();
   };
 
+  const openDelete = (e, condominio) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDeleting(condominio);
+  };
+
+  const handleDelete = async () => {
+    if (!deleting) return;
+    setRemoving(true);
+    try {
+      // Ambientes, checklists, execuções e ocorrências desse condomínio
+      // já saem junto — são "on delete cascade" no banco (ver schema.sql).
+      await condominiosStore.remove(deleting.id);
+      notifications.show({ color: 'green', message: `${deleting.name} excluído.` });
+    } catch {
+      notifications.show({ color: 'red', message: 'Não foi possível excluir o condomínio.' });
+    } finally {
+      setRemoving(false);
+      setDeleting(null);
+      load();
+    }
+  };
+
   return (
     <div>
       <Group justify="space-between" mb="xl" align="flex-start">
@@ -157,9 +184,14 @@ export default function AdminDashboard() {
                       cair no fallback silencioso de localStorage do
                       createStore quando o RLS recusar o update. */}
                   {!isSubUsuario && (
-                    <ActionIcon variant="light" color="gray" radius="xl" onClick={(e) => openEdit(e, c)} aria-label="Editar condomínio">
-                      <Pencil size={15} />
-                    </ActionIcon>
+                    <>
+                      <ActionIcon variant="light" color="gray" radius="xl" onClick={(e) => openEdit(e, c)} aria-label="Editar condomínio">
+                        <Pencil size={15} />
+                      </ActionIcon>
+                      <ActionIcon variant="light" color="red" radius="xl" onClick={(e) => openDelete(e, c)} aria-label="Excluir condomínio">
+                        <Trash2 size={15} />
+                      </ActionIcon>
+                    </>
                   )}
                   <ChevronRight size={18} color="var(--text-faint)" />
                 </Group>
@@ -201,6 +233,14 @@ export default function AdminDashboard() {
         />
         <Button fullWidth mt="lg" onClick={handleSaveEdit} loading={savingEdit}>Salvar</Button>
       </Modal>
+
+      <ConfirmDeleteModal
+        opened={!!deleting}
+        onClose={() => setDeleting(null)}
+        onConfirm={handleDelete}
+        itemLabel={deleting?.name}
+        loading={removing}
+      />
     </div>
   );
 }

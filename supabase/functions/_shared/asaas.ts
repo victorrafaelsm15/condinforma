@@ -55,41 +55,62 @@ export async function findOrCreateCustomer({ name, email, cpfCnpj, phone }: Cust
   });
 }
 
+type CreditCardInput = { holderName: string; number: string; expiryMonth: string; expiryYear: string; ccv: string };
+type CreditCardHolderInfoInput = { name: string; email: string; cpfCnpj: string; postalCode: string; addressNumber: string; phone: string };
+
 type SubscriptionInput = {
   customerId: string;
   value: number;
   description: string;
   externalReference: string;
   billingType?: string;
+  creditCard?: CreditCardInput;
+  creditCardHolderInfo?: CreditCardHolderInfoInput;
+  remoteIp?: string;
 };
 
-// Cria uma assinatura mensal. billingType "UNDEFINED" deixa o cliente escolher
-// Pix, boleto ou cartão na própria página de pagamento do Asaas — usado só se
-// nada for informado; a tela de assinatura já manda a escolha do cliente.
-export async function createSubscription({ customerId, value, description, externalReference, billingType }: SubscriptionInput) {
+// Cria uma assinatura mensal. Checkout transparente: quando billingType é
+// PIX/BOLETO/CREDIT_CARD (nunca "UNDEFINED"), o cliente paga sem sair do
+// nosso site — pra cartão, os dados vêm de creditCard/creditCardHolderInfo
+// e o Asaas tenta cobrar na hora, direto nesta chamada (sem redirecionar
+// pra lugar nenhum).
+export async function createSubscription({
+  customerId, value, description, externalReference, billingType, creditCard, creditCardHolderInfo, remoteIp,
+}: SubscriptionInput) {
   const nextDueDate = new Date();
   nextDueDate.setDate(nextDueDate.getDate() + 1);
 
-  return asaasFetch('/subscriptions', {
-    method: 'POST',
-    body: JSON.stringify({
-      customer: customerId,
-      billingType: billingType || 'UNDEFINED',
-      cycle: 'MONTHLY',
-      value,
-      description,
-      nextDueDate: nextDueDate.toISOString().slice(0, 10),
-      externalReference,
-    }),
-  });
+  const body: Record<string, unknown> = {
+    customer: customerId,
+    billingType: billingType || 'UNDEFINED',
+    cycle: 'MONTHLY',
+    value,
+    description,
+    nextDueDate: nextDueDate.toISOString().slice(0, 10),
+    externalReference,
+  };
+  if (billingType === 'CREDIT_CARD' && creditCard && creditCardHolderInfo) {
+    body.creditCard = creditCard;
+    body.creditCardHolderInfo = creditCardHolderInfo;
+    body.remoteIp = remoteIp || '0.0.0.0';
+  }
+
+  return asaasFetch('/subscriptions', { method: 'POST', body: JSON.stringify(body) });
 }
 
-// Pega o link de pagamento (invoiceUrl) da primeira cobrança gerada pela assinatura.
-export async function getFirstPaymentLink(subscriptionId: string): Promise<string> {
+// Primeira cobrança gerada pela assinatura — é dela que tiramos o QR Code
+// Pix, o boleto ou o resultado da cobrança no cartão, pra exibir tudo na
+// própria página (checkout transparente, sem redirecionar pro Asaas).
+export async function getFirstPayment(subscriptionId: string) {
   const payments = await asaasFetch(`/subscriptions/${subscriptionId}/payments`);
   const first = payments?.data?.[0];
   if (!first) throw new Error('Nenhuma cobrança encontrada para essa assinatura ainda.');
-  return first.invoiceUrl;
+  return first;
+}
+
+// QR Code Pix (imagem em base64 + código copia-e-cola) de uma cobrança.
+export async function getPixQrCode(paymentId: string) {
+  return asaasFetch(`/payments/${paymentId}/pixQrCode`);
 }
 
 // Cancela uma assinatura no Asaas — usado quando o cliente troca de plano,

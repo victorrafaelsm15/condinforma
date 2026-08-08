@@ -35,6 +35,52 @@ export async function listSubUsuarios(accountId) {
   }));
 }
 
+// Visão administrativa (só accounts.role = 'owner', via RLS — ver
+// supabase/usuarios_admin_migration.sql): TODOS os sub-usuários de TODAS as
+// contas, com o nome/e-mail da conta principal dona de cada um e os
+// condomínios liberados.
+//
+// Os nomes dos condomínios vêm de uma function SECURITY DEFINER restrita
+// (get_condominio_names_for_owner) — de propósito NÃO existe uma policy de
+// SELECT geral em "condominios" pro owner, pra não vazar os condomínios de
+// todas as contas pro dashboard comum dele (que consulta condominios sem
+// filtro nenhum, confiando 100% no RLS).
+export async function listAllSubUsuarios() {
+  const { data: subUsuarios, error } = await supabase
+    .from('sub_usuarios')
+    .select('*')
+    .order('created_at', { ascending: false });
+  if (error || !subUsuarios?.length) return [];
+
+  const accountIds = [...new Set(subUsuarios.map((s) => s.account_id))];
+  const [{ data: accounts }, { data: links }] = await Promise.all([
+    supabase.from('accounts').select('id, email, plan_name').in('id', accountIds),
+    supabase.from('sub_usuario_condominios').select('sub_usuario_id, condominio_id').in('sub_usuario_id', subUsuarios.map((s) => s.id)),
+  ]);
+  const accountMap = Object.fromEntries((accounts || []).map((a) => [a.id, a]));
+
+  const condoIds = [...new Set((links || []).map((l) => l.condominio_id))];
+  const { data: condoNames } = condoIds.length
+    ? await supabase.rpc('get_condominio_names_for_owner', { ids: condoIds })
+    : { data: [] };
+  const condoNameMap = Object.fromEntries((condoNames || []).map((c) => [c.id, c.name]));
+
+  return subUsuarios.map((s) => ({
+    ...s,
+    condominioIds: (links || []).filter((l) => l.sub_usuario_id === s.id).map((l) => l.condominio_id),
+    contaPrincipal: accountMap[s.account_id] || null,
+    condominioNames: (links || []).filter((l) => l.sub_usuario_id === s.id).map((l) => condoNameMap[l.condominio_id]).filter(Boolean),
+  }));
+}
+
+// Opções pra editar as permissões de um sub-usuário na aba global (todos os
+// condomínios da conta principal DELE, não só os já liberados).
+export async function getAccountCondominioOptions(accountId) {
+  const { data, error } = await supabase.rpc('get_account_condominios_for_owner', { target_account_id: accountId });
+  if (error) return [];
+  return data || [];
+}
+
 // Cria o sub-usuário via Edge Function (precisa da service role pra criar
 // o login com senha definida na hora — ver supabase/functions/create-sub-usuario).
 export async function createSubUsuario({ nome, email, password, condominioIds }) {

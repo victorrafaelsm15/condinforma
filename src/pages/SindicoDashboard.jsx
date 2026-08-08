@@ -7,16 +7,12 @@ import {
 } from 'lucide-react';
 import { condominiosStore, ambientesStore, execucoesStore, ocorrenciasStore } from '../lib/stores';
 
-// Critério de atraso — fácil de ajustar depois:
-// até ATRASO_HORAS: em dia (verde)
-// entre ATRASO_HORAS e MUITO_ATRASO_HORAS: atrasado (amarelo)
-// acima de MUITO_ATRASO_HORAS: muito atrasado (vermelho) — SÓ se o ambiente
-// tiver pelo menos uma ocorrência registrada; sem ocorrência nenhuma, mesmo
-// muito tempo sem execução (ou nunca executado) fica no máximo "atrasado",
-// já que atraso sozinho não confirma que há um problema real no ambiente.
-const ATRASO_HORAS = 48;
-const MUITO_ATRASO_HORAS = 96;
-
+// Critério de status: baseado só em ocorrência PENDENTE vinculada ao
+// ambiente — tempo desde a última execução não entra mais na conta. Um
+// ambiente nunca executado, mas sem nenhuma ocorrência pendente, é
+// considerado "em dia" (não há nada de errado registrado nele).
+// Sem ocorrência pendente: em dia. 1 ocorrência pendente: atrasado.
+// 2 ou mais: muito atrasado (quanto mais problemas em aberto, mais severo).
 const STATUS_STYLES = {
   verde: { color: 'var(--green)', bg: 'var(--green-light)', label: 'Em dia' },
   amarelo: { color: 'var(--amber)', bg: 'var(--amber-light)', label: 'Atrasado' },
@@ -27,10 +23,9 @@ function hoursSince(dateStr) {
   return (Date.now() - new Date(dateStr).getTime()) / 3_600_000;
 }
 
-function getStatus(lastExec, hasOcorrencia) {
-  const h = lastExec ? hoursSince(lastExec.created_at) : Infinity;
-  if (h <= ATRASO_HORAS) return 'verde';
-  if (h <= MUITO_ATRASO_HORAS || !hasOcorrencia) return 'amarelo';
+function getStatus(pendingCount) {
+  if (pendingCount === 0) return 'verde';
+  if (pendingCount === 1) return 'amarelo';
   return 'vermelho';
 }
 
@@ -90,11 +85,14 @@ export default function SindicoDashboard() {
 
       const execMap = Object.fromEntries(execEntries);
       const occMap = Object.fromEntries(occEntries);
-      const combined = ambientes.map((a) => ({
-        ambiente: a,
-        lastExec: execMap[a.id],
-        status: getStatus(execMap[a.id], (occMap[a.id] || []).length > 0),
-      }));
+      const combined = ambientes.map((a) => {
+        const pendentesAmbiente = (occMap[a.id] || []).filter((o) => o.status !== 'resolvido');
+        return {
+          ambiente: a,
+          lastExec: execMap[a.id],
+          status: getStatus(pendentesAmbiente.length),
+        };
+      });
       const statusOrder = { vermelho: 0, amarelo: 1, verde: 2 };
       combined.sort((a, b) => statusOrder[a.status] - statusOrder[b.status]);
 
