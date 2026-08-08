@@ -322,27 +322,39 @@ alter table cupons enable row level security;
 -- comentário completo. Sufixo "_platform_owner" pra não colidir com as
 -- policies "_owner_*" já existentes acima (que significam "a conta
 -- principal dona do registro", não o owner da plataforma).
+--
+-- "quem está logado é owner?" usa uma function SECURITY DEFINER
+-- (is_platform_owner()), nunca uma subquery inline em "accounts" — uma
+-- policy em accounts que consulta accounts de novo entra em "infinite
+-- recursion detected in policy for relation accounts". A function, sendo
+-- SECURITY DEFINER, ignora RLS por dentro e rompe o ciclo.
+create or replace function is_platform_owner()
+returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from accounts where id = auth.uid() and role = 'owner');
+$$;
+
 create policy "accounts_platform_owner_select" on accounts
   for select to authenticated
-  using (exists (select 1 from accounts a where a.id = auth.uid() and a.role = 'owner'));
+  using (is_platform_owner());
 
 create policy "accounts_platform_owner_update" on accounts
   for update to authenticated
-  using (exists (select 1 from accounts a where a.id = auth.uid() and a.role = 'owner'))
-  with check (exists (select 1 from accounts a where a.id = auth.uid() and a.role = 'owner'));
+  using (is_platform_owner())
+  with check (is_platform_owner());
 
 create policy "sub_usuarios_platform_owner_select" on sub_usuarios
   for select to authenticated
-  using (exists (select 1 from accounts a where a.id = auth.uid() and a.role = 'owner'));
+  using (is_platform_owner());
 
 create policy "sub_usuarios_platform_owner_delete" on sub_usuarios
   for delete to authenticated
-  using (exists (select 1 from accounts a where a.id = auth.uid() and a.role = 'owner'));
+  using (is_platform_owner());
 
 create policy "sub_usuario_condominios_platform_owner_all" on sub_usuario_condominios
   for all to authenticated
-  using (exists (select 1 from accounts a where a.id = auth.uid() and a.role = 'owner'))
-  with check (exists (select 1 from accounts a where a.id = auth.uid() and a.role = 'owner'));
+  using (is_platform_owner())
+  with check (is_platform_owner());
 
 -- Sem policy de SELECT geral em condominios pro owner (vazaria pro
 -- dashboard comum via consultas sem filtro) — function restrita em vez
@@ -352,8 +364,7 @@ returns table (id text, name text)
 language sql stable security definer set search_path = public as $$
   select c.id, c.name
   from condominios c
-  where c.id = any(ids)
-    and exists (select 1 from accounts a where a.id = auth.uid() and a.role = 'owner');
+  where c.id = any(ids) and is_platform_owner();
 $$;
 
 create or replace function get_account_condominios_for_owner(target_account_id uuid)
@@ -361,6 +372,5 @@ returns table (id text, name text)
 language sql stable security definer set search_path = public as $$
   select c.id, c.name
   from condominios c
-  where c.account_id = target_account_id
-    and exists (select 1 from accounts a where a.id = auth.uid() and a.role = 'owner');
+  where c.account_id = target_account_id and is_platform_owner();
 $$;
