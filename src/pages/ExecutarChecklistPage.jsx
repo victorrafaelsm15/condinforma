@@ -74,7 +74,7 @@ export default function ExecutarChecklistPage() {
     // do gestor. Por isso checamos a conexão ANTES de tentar, sem perder
     // nada do que já foi preenchido.
     if (!navigator.onLine) {
-      setSubmitError('Sem conexão com a internet. Suas respostas continuam preenchidas — tente confirmar de novo assim que o sinal voltar.');
+      setSubmitError('Sem conexão com a internet. Suas respostas continuam preenchidas. Tente confirmar de novo assim que o sinal voltar.');
       return;
     }
 
@@ -94,7 +94,7 @@ export default function ExecutarChecklistPage() {
       });
       setDone(true);
     } catch {
-      setSubmitError('Não foi possível confirmar agora. Suas respostas continuam preenchidas — tente novamente em instantes.');
+      setSubmitError('Não foi possível confirmar agora. Suas respostas continuam preenchidas. Tente novamente em instantes.');
     } finally {
       setSubmitting(false);
     }
@@ -217,7 +217,7 @@ export default function ExecutarChecklistPage() {
         )}
 
         <Textarea
-          placeholder="Observação / registro livre (opcional) — descreva algo que fez ou notou, mesmo fora do checklist"
+          placeholder="Observação / registro livre (opcional): descreva algo que fez ou notou, mesmo fora do checklist"
           value={freeTextNote}
           onChange={(e) => setFreeTextNote(e.currentTarget.value)}
           minRows={2}

@@ -68,7 +68,7 @@ export default function QrCodesCondominioPage() {
 
       <Group justify="space-between" align="flex-start" mb="lg" className="no-print" wrap="wrap">
         <div>
-          <Text fw={800} size="1.6rem">QR Codes — {condominio?.name}</Text>
+          <Text fw={800} size="1.6rem">QR Codes: {condominio?.name}</Text>
           <Text size="md" c="dimmed" mt={2}>Todos os ambientes em um só lugar, prontos pra reimprimir.</Text>
         </div>
         <Button leftSection={<Printer size={16} />} onClick={() => window.print()} disabled={!ambientes.length}>
@@ -93,7 +93,7 @@ export default function QrCodesCondominioPage() {
       )}
 
       <div className="print-title" style={{ display: 'none', marginBottom: 24 }}>
-        <Text fw={800} size="xl">{condominio?.name} — QR Codes dos ambientes</Text>
+        <Text fw={800} size="xl">{condominio?.name}: QR Codes dos ambientes</Text>
       </div>
 
       {ambientes.length ? (

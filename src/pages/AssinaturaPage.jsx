@@ -218,20 +218,20 @@ export default function AssinaturaPage() {
             <img src={`${import.meta.env.BASE_URL}logo-icon.png`} alt="" style={{ height: 32, width: 'auto' }} />
             Cond-Informa
           </Link>
-          <Text size="xs" fw={700} tt="uppercase" style={{ opacity: 0.7, letterSpacing: '0.06em' }}>Plano selecionado</Text>
-          <Text fw={800} size="1.8rem" className="font-display" mt={6}>{plan.name}</Text>
-          <Text size="sm" style={{ opacity: 0.72 }} mb={6}>{plan.tagline}</Text>
-          <Text fw={800} size="2rem" className="font-display" mb={22}>
-            R$ {plan.price}<span style={{ fontSize: 14, fontWeight: 500, opacity: 0.7 }}>/mês</span>
+          <Text size="sm" fw={700} tt="uppercase" style={{ opacity: 0.7, letterSpacing: '0.06em' }}>Plano selecionado</Text>
+          <Text fw={800} size="2.4rem" className="font-display" mt={8}>{plan.name}</Text>
+          <Text size="md" style={{ opacity: 0.75 }} mb={10}>{plan.tagline}</Text>
+          <Text fw={800} size="2.75rem" className="font-display" mb={28}>
+            R$ {plan.price}<span style={{ fontSize: 17, fontWeight: 500, opacity: 0.7 }}>/mês</span>
           </Text>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             {plan.features.map((f) => (
-              <div key={f} style={{ display: 'flex', gap: 8, fontSize: 13.5, alignItems: 'flex-start' }}>
+              <div key={f} style={{ display: 'flex', gap: 10, fontSize: 16, alignItems: 'flex-start' }}>
                 <span style={{
-                  flexShrink: 0, marginTop: 1, width: 17, height: 17, borderRadius: '50%',
+                  flexShrink: 0, marginTop: 1, width: 20, height: 20, borderRadius: '50%',
                   background: 'rgba(18,183,106,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}>
-                  <Check size={10} color="#5eead4" strokeWidth={3} />
+                  <Check size={12} color="#5eead4" strokeWidth={3} />
                 </span>
                 {f}
               </div>
@@ -256,7 +256,7 @@ export default function AssinaturaPage() {
               <Text size="sm" c="dimmed" mb="lg">
                 {session
                   ? `Você está trocando para o plano ${plan.name}.`
-                  : `Plano ${plan.name} — preencha seus dados para continuar.`}
+                  : `Plano ${plan.name}: preencha seus dados para continuar.`}
               </Text>
 
               <form onSubmit={handleSubmit(onSubmit)}>

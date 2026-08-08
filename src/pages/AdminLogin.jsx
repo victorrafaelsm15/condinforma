@@ -8,7 +8,7 @@ import InstallAppButton from '../components/common/InstallAppButton';
 
 function translateAuthError(message) {
   if (message?.includes('Invalid login credentials')) return 'E-mail ou senha incorretos.';
-  if (message?.includes('Email not confirmed')) return 'Confirme seu e-mail antes de entrar — verifique sua caixa de entrada.';
+  if (message?.includes('Email not confirmed')) return 'Confirme seu e-mail antes de entrar. Verifique sua caixa de entrada.';
   return message || 'Não foi possível entrar. Tente novamente.';
 }
 

@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react';
 import {
-  Text, Group, Loader, Badge, Tabs, ActionIcon, Modal, Select, NumberInput, Button, MultiSelect,
+  Text, Group, Loader, Badge, Tabs, ActionIcon, Modal, Select, NumberInput, Button, MultiSelect, TextInput, Switch,
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { Users, CreditCard, UserCog, Mail, Phone, IdCard, Pencil, Trash2 } from 'lucide-react';
+import { Users, CreditCard, UserCog, Mail, Phone, IdCard, Pencil, Trash2, Tag, Plus } from 'lucide-react';
 import { getSession } from '../lib/authService';
 import { accountsStore } from '../lib/stores';
 import { listAllAccounts, updateAccount, deleteAccount, listAssinantes, removeAssinante } from '../lib/adminAccounts';
 import { listAllSubUsuarios, updateSubUsuarioCondominios, removeSubUsuario, getAccountCondominioOptions } from '../lib/subUsuario';
+import { listCupons, createCupom, updateCupom, deleteCupom } from '../lib/adminCupons';
 import ConfirmDeleteModal from '../components/common/ConfirmDeleteModal';
 
 const PLAN_LABELS = { start: 'Start', pro: 'Pro', business: 'Business' };
@@ -285,6 +286,188 @@ function SubUsuariosTab() {
   );
 }
 
+const CUPOM_EMPTY_FORM = { codigo: '', tipo: 'percentual', valor: '', validade: '', limite_usos: '', ativo: true };
+
+function formatValor(cupom) {
+  return cupom.tipo === 'percentual' ? `${cupom.valor}%` : `R$ ${Number(cupom.valor).toFixed(2)}`;
+}
+
+function CuponsTab() {
+  const [loading, setLoading] = useState(true);
+  const [list, setList] = useState([]);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createForm, setCreateForm] = useState(CUPOM_EMPTY_FORM);
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState('');
+  const [editing, setEditing] = useState(null);
+  const [editForm, setEditForm] = useState(CUPOM_EMPTY_FORM);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [editError, setEditError] = useState('');
+  const [deleting, setDeleting] = useState(null);
+  const [removing, setRemoving] = useState(false);
+
+  const load = () => { setLoading(true); listCupons().then((data) => { setList(data); setLoading(false); }); };
+  useEffect(load, []);
+
+  const toPayload = (form) => ({
+    codigo: form.codigo.trim().toUpperCase(),
+    tipo: form.tipo,
+    valor: Number(form.valor),
+    validade: form.validade || null,
+    limite_usos: form.limite_usos === '' ? null : Number(form.limite_usos),
+    ativo: form.ativo,
+  });
+
+  const openCreate = () => {
+    setCreateForm(CUPOM_EMPTY_FORM);
+    setFormError('');
+    setCreateOpen(true);
+  };
+
+  const handleCreate = async () => {
+    if (!createForm.codigo.trim() || !createForm.valor) {
+      setFormError('Preencha ao menos o código e o valor do desconto.');
+      return;
+    }
+    setFormError('');
+    setSaving(true);
+    try {
+      await createCupom(toPayload(createForm));
+      notifications.show({ color: 'green', message: 'Cupom criado.' });
+      setCreateOpen(false);
+      load();
+    } catch (err) {
+      setFormError(err.message?.includes('duplicate') ? 'Já existe um cupom com esse código.' : (err.message || 'Não foi possível criar o cupom.'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const openEdit = (cupom) => {
+    setEditing(cupom);
+    setEditForm({
+      codigo: cupom.codigo,
+      tipo: cupom.tipo,
+      valor: String(cupom.valor),
+      validade: cupom.validade || '',
+      limite_usos: cupom.limite_usos == null ? '' : String(cupom.limite_usos),
+      ativo: cupom.ativo,
+    });
+    setEditError('');
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editForm.codigo.trim() || !editForm.valor) {
+      setEditError('Preencha ao menos o código e o valor do desconto.');
+      return;
+    }
+    setEditError('');
+    setSavingEdit(true);
+    try {
+      await updateCupom(editing.id, toPayload(editForm));
+      notifications.show({ color: 'green', message: 'Cupom atualizado.' });
+      setEditing(null);
+      load();
+    } catch (err) {
+      setEditError(err.message || 'Não foi possível atualizar o cupom.');
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    setRemoving(true);
+    try {
+      await deleteCupom(deleting.id);
+      notifications.show({ color: 'green', message: `Cupom ${deleting.codigo} excluído.` });
+    } catch {
+      notifications.show({ color: 'red', message: 'Não foi possível excluir esse cupom.' });
+    } finally {
+      setRemoving(false);
+      setDeleting(null);
+      load();
+    }
+  };
+
+  if (loading) return <Group justify="center" py={40}><Loader size="sm" color="brand" /></Group>;
+
+  const renderForm = (form, setForm, error) => (
+    <>
+      <TextInput label="Código" placeholder="Ex: BEMVINDO20" value={form.codigo} onChange={(e) => setForm((f) => ({ ...f, codigo: e.currentTarget.value }))} mb="sm" data-autofocus />
+      <Select
+        label="Tipo de desconto"
+        data={[{ value: 'percentual', label: 'Percentual (%)' }, { value: 'fixo', label: 'Valor fixo (R$)' }]}
+        value={form.tipo}
+        onChange={(v) => setForm((f) => ({ ...f, tipo: v }))}
+        mb="sm"
+      />
+      <NumberInput
+        label={form.tipo === 'percentual' ? 'Valor do desconto (%)' : 'Valor do desconto (R$)'}
+        min={0}
+        value={form.valor}
+        onChange={(v) => setForm((f) => ({ ...f, valor: v ?? '' }))}
+        mb="sm"
+      />
+      <TextInput label="Validade (opcional)" type="date" value={form.validade} onChange={(e) => setForm((f) => ({ ...f, validade: e.currentTarget.value }))} mb="sm" />
+      <NumberInput label="Limite de usos (opcional)" min={1} value={form.limite_usos} onChange={(v) => setForm((f) => ({ ...f, limite_usos: v ?? '' }))} mb="sm" />
+      <Switch label="Cupom ativo" checked={form.ativo} onChange={(e) => setForm((f) => ({ ...f, ativo: e.currentTarget.checked }))} mb="md" />
+      {error && <Text size="sm" c="red" mb="sm">{error}</Text>}
+    </>
+  );
+
+  return (
+    <div>
+      <Group justify="flex-end" mb="md">
+        <Button size="sm" leftSection={<Plus size={15} />} onClick={openCreate}>Novo cupom</Button>
+      </Group>
+
+      {!list.length ? (
+        <Text c="dimmed" size="sm">Nenhum cupom cadastrado ainda.</Text>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {list.map((c) => (
+            <div key={c.id} className="surface-card" style={{ padding: 16 }}>
+              <Group justify="space-between" align="flex-start" wrap="wrap" gap={10}>
+                <div>
+                  <Group gap={8}>
+                    <Text fw={700} size="sm" ff="monospace">{c.codigo}</Text>
+                    <Badge color="brand" variant="light">{formatValor(c)}</Badge>
+                    <Badge color={c.ativo ? 'green' : 'gray'} variant="light">{c.ativo ? 'Ativo' : 'Inativo'}</Badge>
+                  </Group>
+                  <Text size="xs" c="dimmed" mt={6}>
+                    {c.usos} uso(s){c.limite_usos != null ? ` de ${c.limite_usos}` : ''}
+                    {c.validade ? ` · válido até ${new Date(`${c.validade}T00:00:00`).toLocaleDateString('pt-BR')}` : ' · sem validade definida'}
+                  </Text>
+                </div>
+                <Group gap={4}>
+                  <ActionIcon variant="light" color="gray" radius="xl" onClick={() => openEdit(c)} aria-label="Editar cupom">
+                    <Pencil size={15} />
+                  </ActionIcon>
+                  <ActionIcon variant="light" color="red" radius="xl" onClick={() => setDeleting(c)} aria-label="Excluir cupom">
+                    <Trash2 size={15} />
+                  </ActionIcon>
+                </Group>
+              </Group>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <Modal opened={createOpen} onClose={() => setCreateOpen(false)} title="Novo cupom" centered>
+        {renderForm(createForm, setCreateForm, formError)}
+        <Button fullWidth onClick={handleCreate} loading={saving}>Criar cupom</Button>
+      </Modal>
+
+      <Modal opened={!!editing} onClose={() => setEditing(null)} title={`Editar ${editing?.codigo || ''}`} centered>
+        {renderForm(editForm, setEditForm, editError)}
+        <Button fullWidth onClick={handleSaveEdit} loading={savingEdit}>Salvar</Button>
+      </Modal>
+
+      <ConfirmDeleteModal opened={!!deleting} onClose={() => setDeleting(null)} onConfirm={handleDelete} itemLabel={`o cupom ${deleting?.codigo}`} loading={removing} />
+    </div>
+  );
+}
+
 export default function UsuariosPage() {
   const [loading, setLoading] = useState(true);
   const [authorized, setAuthorized] = useState(false);
@@ -329,10 +512,12 @@ export default function UsuariosPage() {
           <Tabs.Tab value="usuarios" leftSection={<Users size={15} />}>Usuários</Tabs.Tab>
           <Tabs.Tab value="assinantes" leftSection={<CreditCard size={15} />}>Assinantes</Tabs.Tab>
           <Tabs.Tab value="subusuarios" leftSection={<UserCog size={15} />}>Sub-usuários</Tabs.Tab>
+          <Tabs.Tab value="cupons" leftSection={<Tag size={15} />}>Cupons</Tabs.Tab>
         </Tabs.List>
         <Tabs.Panel value="usuarios"><UsuariosTab currentUserId={currentUserId} /></Tabs.Panel>
         <Tabs.Panel value="assinantes"><AssinantesTab /></Tabs.Panel>
         <Tabs.Panel value="subusuarios"><SubUsuariosTab /></Tabs.Panel>
+        <Tabs.Panel value="cupons"><CuponsTab /></Tabs.Panel>
       </Tabs>
     </div>
   );

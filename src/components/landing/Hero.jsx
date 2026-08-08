@@ -56,7 +56,7 @@ export default function Hero() {
             padding: 30, boxShadow: 'var(--shadow-lg)', position: 'relative', zIndex: 1,
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
-              <span className="font-display" style={{ fontWeight: 800, fontSize: 15.5, color: 'var(--text)', letterSpacing: '-0.01em' }}>Hall Social — Torre A</span>
+              <span className="font-display" style={{ fontWeight: 800, fontSize: 15.5, color: 'var(--text)', letterSpacing: '-0.01em' }}>Hall Social, Torre A</span>
               <span className="pill" style={{ background: 'var(--green-light)', color: 'var(--green)', fontSize: 11 }}>
                 Ambiente ativo
               </span>
@@ -82,7 +82,7 @@ export default function Hero() {
               <CheckCircle2 size={18} /> Checklist concluído
             </div>
             <p style={{ textAlign: 'center', fontSize: 12.5, color: 'var(--text-muted)', marginTop: 6, fontWeight: 500 }}>
-              Hall Social — 09:15
+              Hall Social, 09:15
             </p>
           </div>
 

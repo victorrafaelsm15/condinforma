@@ -54,7 +54,7 @@ export default function OcorrenciasPage() {
             <div key={o.id} className="surface-card" style={{ padding: 18 }}>
               <Group justify="space-between" align="flex-start">
                 <div style={{ flex: 1 }}>
-                  <Text size="sm" c="dimmed" fw={600}>{o.condominioName} — {o.ambienteName}</Text>
+                  <Text size="sm" c="dimmed" fw={600}>{o.condominioName}, {o.ambienteName}</Text>
                   <Text size="md" mt={4}>{o.description}</Text>
                   <Text size="sm" c="dimmed" mt={4}>{new Date(o.created_at).toLocaleString('pt-BR')}</Text>
                 </div>

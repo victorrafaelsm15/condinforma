@@ -41,7 +41,7 @@ export default function OcorrenciaForm({
     }
     setError('');
     if (!navigator.onLine) {
-      setError('Sem conexão com a internet. O texto continua preenchido — tente enviar de novo assim que o sinal voltar.');
+      setError('Sem conexão com a internet. O texto continua preenchido. Tente enviar de novo assim que o sinal voltar.');
       return;
     }
     setSending(true);
@@ -57,7 +57,7 @@ export default function OcorrenciaForm({
       });
       setSent(true);
     } catch {
-      setError('Não foi possível enviar agora. O texto continua preenchido — tente novamente em instantes.');
+      setError('Não foi possível enviar agora. O texto continua preenchido. Tente novamente em instantes.');
     } finally {
       setSending(false);
     }

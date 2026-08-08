@@ -1,12 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Button, TextInput, Text, Group, Modal, Loader, SimpleGrid, Breadcrumbs, Badge, ActionIcon } from '@mantine/core';
-import { notifications } from '@mantine/notifications';
-import { Plus, DoorOpen, ChevronRight, Clock, LayoutGrid, ArrowLeft, Pencil, Trash2, LayoutDashboard } from 'lucide-react';
+import { Plus, DoorOpen, ChevronRight, Clock, LayoutGrid, ArrowLeft, Pencil, LayoutDashboard } from 'lucide-react';
 import { condominiosStore, ambientesStore, execucoesStore } from '../lib/stores';
 import { getSession } from '../lib/authService';
 import { getSubUsuarioInfo } from '../lib/subUsuario';
-import ConfirmDeleteModal from '../components/common/ConfirmDeleteModal';
 
 export default function CondominioPage() {
   const { id } = useParams();
@@ -19,16 +17,9 @@ export default function CondominioPage() {
   const [newName, setNewName] = useState('');
   const [saving, setSaving] = useState(false);
 
-  const [editing, setEditing] = useState(null);
-  const [editName, setEditName] = useState('');
-  const [savingEdit, setSavingEdit] = useState(false);
-
   const [editCondoOpen, setEditCondoOpen] = useState(false);
   const [editCondoName, setEditCondoName] = useState('');
   const [savingCondoEdit, setSavingCondoEdit] = useState(false);
-
-  const [deleting, setDeleting] = useState(null);
-  const [removing, setRemoving] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -67,22 +58,6 @@ export default function CondominioPage() {
     load();
   };
 
-  const openEdit = (e, ambiente) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setEditing(ambiente);
-    setEditName(ambiente.name);
-  };
-
-  const handleSaveEdit = async () => {
-    if (!editName.trim() || !editing) return;
-    setSavingEdit(true);
-    await ambientesStore.update(editing.id, { name: editName.trim() });
-    setSavingEdit(false);
-    setEditing(null);
-    load();
-  };
-
   const openEditCondo = () => {
     setEditCondoName(condominio.name);
     setEditCondoOpen(true);
@@ -95,29 +70,6 @@ export default function CondominioPage() {
     setSavingCondoEdit(false);
     setEditCondoOpen(false);
     load();
-  };
-
-  const openDelete = (e, ambiente) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDeleting(ambiente);
-  };
-
-  const handleDelete = async () => {
-    if (!deleting) return;
-    setRemoving(true);
-    try {
-      // Checklists, execuções e ocorrências desse ambiente já saem junto —
-      // "on delete cascade" no banco (ver schema.sql).
-      await ambientesStore.remove(deleting.id);
-      notifications.show({ color: 'green', message: `${deleting.name} excluído.` });
-    } catch {
-      notifications.show({ color: 'red', message: 'Não foi possível excluir o ambiente.' });
-    } finally {
-      setRemoving(false);
-      setDeleting(null);
-      load();
-    }
   };
 
   if (loading) return <Group justify="center" py={60}><Loader color="brand" /></Group>;
@@ -172,15 +124,7 @@ export default function CondominioPage() {
                     </span>
                     <Text fw={700} size="md">{a.name}</Text>
                   </Group>
-                  <Group gap={4}>
-                    <ActionIcon variant="light" color="gray" radius="xl" onClick={(e) => openEdit(e, a)} aria-label="Editar ambiente">
-                      <Pencil size={15} />
-                    </ActionIcon>
-                    <ActionIcon variant="light" color="red" radius="xl" onClick={(e) => openDelete(e, a)} aria-label="Excluir ambiente">
-                      <Trash2 size={15} />
-                    </ActionIcon>
-                    <ChevronRight size={18} color="var(--text-faint)" />
-                  </Group>
+                  <ChevronRight size={18} color="var(--text-faint)" />
                 </Group>
                 <Group gap={6} mt={14}>
                   <Clock size={13} color="var(--text-muted)" />
@@ -208,22 +152,12 @@ export default function CondominioPage() {
       <Modal opened={modalOpen} onClose={() => setModalOpen(false)} title="Novo ambiente">
         <TextInput
           label="Nome do ambiente"
-          placeholder="Ex: Hall Social — Torre A"
+          placeholder="Ex: Hall Social, Torre A"
           value={newName}
           onChange={(e) => setNewName(e.currentTarget.value)}
           data-autofocus
         />
         <Button fullWidth mt="lg" onClick={handleCreate} loading={saving}>Criar</Button>
-      </Modal>
-
-      <Modal opened={!!editing} onClose={() => setEditing(null)} title="Editar ambiente">
-        <TextInput
-          label="Nome do ambiente"
-          value={editName}
-          onChange={(e) => setEditName(e.currentTarget.value)}
-          data-autofocus
-        />
-        <Button fullWidth mt="lg" onClick={handleSaveEdit} loading={savingEdit}>Salvar</Button>
       </Modal>
 
       <Modal opened={editCondoOpen} onClose={() => setEditCondoOpen(false)} title="Editar condomínio">
@@ -235,14 +169,6 @@ export default function CondominioPage() {
         />
         <Button fullWidth mt="lg" onClick={handleSaveCondoEdit} loading={savingCondoEdit}>Salvar</Button>
       </Modal>
-
-      <ConfirmDeleteModal
-        opened={!!deleting}
-        onClose={() => setDeleting(null)}
-        onConfirm={handleDelete}
-        itemLabel={deleting?.name}
-        loading={removing}
-      />
     </div>
   );
 }

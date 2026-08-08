@@ -28,7 +28,7 @@ export const steps = [
   },
   {
     title: 'Fixe o QR Code no ambiente',
-    text: 'Cada ambiente recebe seu próprio QR Code. O colaborador escaneia no local e acessa o checklist pelo celular — sem precisar de login.',
+    text: 'Cada ambiente recebe seu próprio QR Code. O colaborador escaneia no local e acessa o checklist pelo celular, sem precisar de login.',
   },
   {
     title: 'Acompanhe tudo pelo painel',
@@ -42,7 +42,7 @@ export const features = [
   { title: 'Transparência para moradores', text: 'O morador consulta o status da limpeza direto pelo QR Code do ambiente, sem precisar de login.' },
   { title: 'Ocorrências centralizadas', text: 'Problemas encontrados ficam registrados com foto e histórico organizado.' },
   { title: 'Relatórios para decisão', text: 'Indicadores da operação em relatórios simples e claros.' },
-  { title: 'Sem equipamento extra', text: 'Basta imprimir os QR Codes e usar pelo celular ou computador — nada para instalar.' },
+  { title: 'Sem equipamento extra', text: 'Basta imprimir os QR Codes e usar pelo celular ou computador, sem nada para instalar.' },
 ];
 
 export const useCases = [
@@ -196,7 +196,7 @@ export const termosSections = [
     number: '9',
     title: 'Proteção de dados pessoais',
     paragraphs: [
-      'O Cond-Informa realiza o tratamento de dados pessoais em conformidade com a Lei nº 13.709/2018 (Lei Geral de Proteção de Dados Pessoais — LGPD).',
+      'O Cond-Informa realiza o tratamento de dados pessoais em conformidade com a Lei nº 13.709/2018 (Lei Geral de Proteção de Dados Pessoais, LGPD).',
       'Os dados pessoais coletados (nome, e-mail, telefone, CPF/CNPJ e demais informações fornecidas no cadastro, na execução de checklists ou no registro de ocorrências) são utilizados exclusivamente para viabilizar a prestação do Serviço, comunicação com o Cliente, processamento de pagamentos e cumprimento de obrigações legais.',
       'O Cliente, seus Colaboradores e Moradores que interagem com a Plataforma possuem os direitos previstos no artigo 18 da LGPD, incluindo confirmação de tratamento, acesso, correção, anonimização, portabilidade e eliminação de dados pessoais, mediante solicitação ao canal de contato indicado no site.',
       'Fotos registradas nas execuções de checklist e ocorrências são armazenadas para fins de comprovação operacional e histórico, podendo o Cliente solicitar sua exclusão nos termos da legislação aplicável, ressalvadas hipóteses de guarda obrigatória por prazo legal.',
@@ -260,7 +260,7 @@ export const termosSections = [
 
 export const faqItems = [
   { q: 'Preciso instalar algum equipamento?', a: 'Não. Basta imprimir os QR Codes dos ambientes e usar o COND-INFORMA pelo celular ou computador.' },
-  { q: 'O colaborador precisa ter conhecimento técnico?', a: 'Não. Basta escanear o QR Code e marcar as tarefas concluídas — a interface é simples e direta.' },
+  { q: 'O colaborador precisa ter conhecimento técnico?', a: 'Não. Basta escanear o QR Code e marcar as tarefas concluídas. A interface é simples e direta.' },
   { q: 'O morador precisa criar conta para consultar o status?', a: 'Não. A página de status é pública e acessível diretamente pelo QR Code do ambiente.' },
   { q: 'Serve apenas para condomínios?', a: 'É ideal para condomínios, administradoras e equipes de limpeza ou zeladoria em geral.' },
   { q: 'Posso usar em mais de um condomínio?', a: 'Sim, os planos Pro e Business permitem gerenciar múltiplos condomínios na mesma conta.' },

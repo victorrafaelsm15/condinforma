@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
   Text, Group, Breadcrumbs, Loader, TextInput, Button, ActionIcon,
   Tabs, Badge, Image as MantineImage, Modal, Menu,
@@ -234,7 +234,7 @@ function HistoryTab({ ambienteId, ambienteName, condominioName }) {
       if (action === 'share') {
         const result = await sharePdf(doc, filename);
         if (result === 'downloaded') {
-          notifications.show({ color: 'blue', message: 'Seu navegador não suporta compartilhar arquivos — o PDF foi baixado.' });
+          notifications.show({ color: 'blue', message: 'Seu navegador não suporta compartilhar arquivos. O PDF foi baixado.' });
         }
       } else {
         downloadPdf(doc, filename);
@@ -413,6 +413,7 @@ function OccurrencesTab({ ambienteId }) {
 
 export default function AmbientePage() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [ambiente, setAmbiente] = useState(null);
   const [condominio, setCondominio] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -420,6 +421,8 @@ export default function AmbientePage() {
   const [editName, setEditName] = useState('');
   const [savingEdit, setSavingEdit] = useState(false);
   const [activeTab, setActiveTab] = useState('checklist');
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [removing, setRemoving] = useState(false);
 
   const load = async () => {
     const data = await ambientesStore.getById(id);
@@ -445,6 +448,21 @@ export default function AmbientePage() {
     setSavingEdit(false);
     setEditOpen(false);
     load();
+  };
+
+  const handleDelete = async () => {
+    setRemoving(true);
+    try {
+      // Checklists, execuções e ocorrências desse ambiente já saem junto:
+      // "on delete cascade" no banco (ver schema.sql).
+      await ambientesStore.remove(id);
+      notifications.show({ color: 'green', message: `${ambiente.name} excluído.` });
+      navigate(`/admin/condominios/${ambiente.condominio_id}`);
+    } catch {
+      notifications.show({ color: 'red', message: 'Não foi possível excluir o ambiente.' });
+      setRemoving(false);
+      setDeleteOpen(false);
+    }
   };
 
   if (loading) return <Group justify="center" py={60}><Loader color="brand" /></Group>;
@@ -473,9 +491,14 @@ export default function AmbientePage() {
           </span>
           <Text fw={800} size="1.6rem" className="font-display" c="#fff">{ambiente.name}</Text>
         </Group>
-        <ActionIcon variant="light" color="gray" radius="xl" size="lg" onClick={openEdit} aria-label="Editar ambiente">
-          <Pencil size={17} />
-        </ActionIcon>
+        <Group gap={8}>
+          <ActionIcon variant="light" color="gray" radius="xl" size="lg" onClick={openEdit} aria-label="Editar ambiente">
+            <Pencil size={17} />
+          </ActionIcon>
+          <ActionIcon variant="light" color="red" radius="xl" size="lg" onClick={() => setDeleteOpen(true)} aria-label="Excluir ambiente">
+            <Trash2 size={17} />
+          </ActionIcon>
+        </Group>
       </Group>
 
       <Modal opened={editOpen} onClose={() => setEditOpen(false)} title="Editar ambiente">
@@ -517,6 +540,14 @@ export default function AmbientePage() {
         <Tabs.Panel value="historico" pt="lg"><HistoryTab ambienteId={id} ambienteName={ambiente.name} condominioName={condominio?.name} /></Tabs.Panel>
         <Tabs.Panel value="ocorrencias" pt="lg"><OccurrencesTab ambienteId={id} /></Tabs.Panel>
       </Tabs>
+
+      <ConfirmDeleteModal
+        opened={deleteOpen}
+        onClose={() => setDeleteOpen(false)}
+        onConfirm={handleDelete}
+        itemLabel={ambiente.name}
+        loading={removing}
+      />
     </div>
   );
 }

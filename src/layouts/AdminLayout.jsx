@@ -24,6 +24,22 @@ export default function AdminLayout() {
   const [isSubUsuario, setIsSubUsuario] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  // Estado retraído/expandido da sidebar de desktop, lembrado entre
+  // visitas. Ao passar o mouse por cima retraída, expande temporariamente
+  // (sidebarHovered) sem mexer na preferência manual (sidebarExpanded).
+  const [sidebarExpanded, setSidebarExpanded] = useState(() => {
+    const saved = localStorage.getItem('admin-sidebar-expanded');
+    return saved === null ? true : saved === 'true';
+  });
+  const [sidebarHovered, setSidebarHovered] = useState(false);
+  const showSidebarLabels = sidebarExpanded || sidebarHovered;
+
+  const toggleSidebar = () => {
+    setSidebarExpanded((prev) => {
+      localStorage.setItem('admin-sidebar-expanded', String(!prev));
+      return !prev;
+    });
+  };
 
   useEffect(() => {
     (async () => {
@@ -109,7 +125,29 @@ export default function AdminLayout() {
       </header>
 
       <div className="admin-body">
-        <aside className="admin-sidebar">
+        {/* O "slot" reserva o espaço fixo (collapsed ou expanded, só via
+            clique) no layout flex. A sidebar em si é sticky e pode ficar
+            visualmente mais larga que o slot no hover (sem overflow:hidden
+            no pai), sobrepondo o conteúdo em vez de empurrá-lo, o que evita
+            o conteúdo "pulando" toda hora que o mouse passa por cima. */}
+        <div className="admin-sidebar-slot" style={{ width: sidebarExpanded ? 224 : 68 }}>
+          <aside
+            className={`admin-sidebar${showSidebarLabels ? '' : ' admin-sidebar--collapsed'}`}
+            onMouseEnter={() => !sidebarExpanded && setSidebarHovered(true)}
+            onMouseLeave={() => setSidebarHovered(false)}
+          >
+          <ActionIcon
+            variant="light"
+            color="gray"
+            radius="xl"
+            size="lg"
+            onClick={toggleSidebar}
+            aria-label={sidebarExpanded ? 'Recolher menu' : 'Expandir menu'}
+            className="admin-sidebar-toggle"
+            style={{ alignSelf: showSidebarLabels ? 'flex-end' : 'center' }}
+          >
+            <MenuIcon size={17} />
+          </ActionIcon>
           {navItems.map((item) => (
             <Button
               key={item.to}
@@ -118,15 +156,18 @@ export default function AdminLayout() {
               variant="filled"
               color={item.color}
               fullWidth
-              justify="flex-start"
+              justify={showSidebarLabels ? 'flex-start' : 'center'}
               size="md"
-              leftSection={<item.icon size={17} />}
+              px={showSidebarLabels ? undefined : 0}
+              leftSection={showSidebarLabels ? <item.icon size={17} /> : undefined}
+              title={showSidebarLabels ? undefined : item.label}
               style={isActive(item) ? { boxShadow: 'inset 0 0 0 2px rgba(255,255,255,0.55)' } : undefined}
             >
-              {item.label}
+              {showSidebarLabels ? item.label : <item.icon size={18} />}
             </Button>
           ))}
-        </aside>
+          </aside>
+        </div>
         <main className="admin-main">
           <Outlet />
         </main>
@@ -142,12 +183,18 @@ export default function AdminLayout() {
       <style>{`
         .admin-nav-mobile { display: none; }
         .admin-body { display: flex; align-items: flex-start; }
+        .admin-sidebar-slot { flex-shrink: 0; transition: width 0.16s var(--ease); }
         .admin-sidebar {
           display: flex; flex-direction: column; gap: 8px; flex-shrink: 0;
-          width: 224px; padding: 20px 14px; position: sticky; top: 65px;
-          height: calc(100vh - 65px); overflow-y: auto;
+          width: 224px; padding: 16px 14px; position: sticky; top: 65px;
+          height: calc(100vh - 65px); overflow-x: hidden; overflow-y: auto;
           border-right: 1px solid var(--border);
+          transition: width 0.16s var(--ease);
+          z-index: 40;
+          background: var(--bg);
         }
+        .admin-sidebar--collapsed { width: 68px; }
+        .admin-sidebar-toggle { flex-shrink: 0; margin-bottom: 4px; }
         .admin-main { flex: 1; min-width: 0; padding: 32px 28px 60px; max-width: 1100px; }
         @media (max-width: 900px) {
           .admin-header { padding-left: 18px; padding-right: 18px; }

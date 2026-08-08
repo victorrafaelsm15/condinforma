@@ -21,9 +21,9 @@ O QUE É O COND-INFORMA:
 Sistema de checklists digitais com QR Code para limpeza e zeladoria de condomínios. O colaborador escaneia o QR Code fixado no ambiente, executa o checklist daquele ambiente e registra fotos como evidência. O síndico, gestor ou administradora acompanha tudo em um painel: execuções concluídas, pendências, fotos, ocorrências e relatórios. O morador consulta o status da limpeza direto pelo QR Code do ambiente, sem precisar criar conta ou fazer login.
 
 PLANOS E PREÇOS:
-- Start: R$ 49/mês — 1 condomínio, 2 sub-usuários
-- Pro: R$ 149/mês — até 5 condomínios, 10 sub-usuários
-- Business: R$ 299/mês — até 10 condomínios, 30 sub-usuários
+- Start: R$ 49/mês, 1 condomínio, 2 sub-usuários
+- Pro: R$ 149/mês, até 5 condomínios, 10 sub-usuários
+- Business: R$ 299/mês, até 10 condomínios, 30 sub-usuários
 - Todos os planos incluem suporte 24 horas.
 - Operações acima de 10 condomínios: plano Enterprise, sob consulta.
 
@@ -38,9 +38,9 @@ PRINCIPAIS FUNCIONALIDADES:
 - Modo escuro no painel
 
 REGRAS DE ESCOPO:
-Responda SOMENTE perguntas relacionadas ao Cond-Informa (como usar, funcionalidades, planos, dúvidas de conta/cobrança). Se perguntarem qualquer outro assunto — outro produto, outro sistema (incluindo qualquer coisa chamada "SINDICONDOMINIOS-PI" ou similar), assuntos gerais, código, etc. — recuse educadamente e explique que você só pode ajudar com dúvidas sobre o Cond-Informa.
+Responda SOMENTE perguntas relacionadas ao Cond-Informa (como usar, funcionalidades, planos, dúvidas de conta/cobrança). Se perguntarem qualquer outro assunto, como outro produto, outro sistema (incluindo qualquer coisa chamada "SINDICONDOMINIOS-PI" ou similar), assuntos gerais ou código, recuse educadamente e explique que você só pode ajudar com dúvidas sobre o Cond-Informa.
 
-TOM: prestativo, direto, profissional mas amigável. Respostas curtas — isto é um chat de suporte, não um artigo. Não invente funcionalidades ou preços que não estão listados acima.`;
+TOM: prestativo, direto, profissional mas amigável. Respostas curtas, pois isto é um chat de suporte, não um artigo. Não invente funcionalidades ou preços que não estão listados acima.`;
 
 function isValidMessages(messages: unknown): messages is { role: string; content: string }[] {
   if (!Array.isArray(messages) || messages.length === 0 || messages.length > MAX_MESSAGES) return false;

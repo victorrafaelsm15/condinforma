@@ -374,3 +374,11 @@ language sql stable security definer set search_path = public as $$
   from condominios c
   where c.account_id = target_account_id and is_platform_owner();
 $$;
+
+-- Gerenciamento de cupons pelo owner (aba Cupons em Usuários) — cupons não
+-- tem nenhuma outra policy de propósito (só service role lê/valida na
+-- Edge Function subscribe), então só o owner ganha acesso direto aqui.
+create policy "cupons_platform_owner_all" on cupons
+  for all to authenticated
+  using (is_platform_owner())
+  with check (is_platform_owner());

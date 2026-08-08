@@ -69,7 +69,7 @@ export default function AdminSignup() {
             Crie sua conta e comece a organizar a limpeza e manutenção do seu condomínio
           </h1>
           <p style={{ opacity: 0.72, fontSize: 15, lineHeight: 1.6, maxWidth: 380, marginBottom: 36 }}>
-            Cada conta tem seus próprios condomínios, ambientes e dados — completamente
+            Cada conta tem seus próprios condomínios, ambientes e dados, completamente
             isolados de outros clientes.
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
