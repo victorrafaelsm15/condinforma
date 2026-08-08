@@ -1,25 +1,41 @@
 import { Link } from 'react-router-dom';
 import { Text, Button } from '@mantine/core';
 import { ArrowLeft } from 'lucide-react';
+import { termosSections } from '../data/landingContent';
 
 export default function TermosPage() {
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)', padding: '48px 24px' }}>
-      <div style={{ maxWidth: 720, margin: '0 auto' }}>
+      <div style={{ maxWidth: 760, margin: '0 auto' }}>
         <Button component={Link} to="/" variant="subtle" color="gray" leftSection={<ArrowLeft size={16} />} mb="lg">
           Voltar
         </Button>
-        <Text fw={800} size="1.8rem" className="font-display" mb="md">Termos de Uso</Text>
-        <Text c="dimmed" size="sm" mb="xl">Última atualização: {new Date().toLocaleDateString('pt-BR')}</Text>
-        <Text mb="md">
-          Estes Termos de Uso regem o acesso e uso da plataforma Cond-Informa. Ao criar uma conta
-          e assinar um dos planos, você concorda com as condições descritas aqui.
-        </Text>
-        <Text mb="md">
-          Esta página é um placeholder e será substituída pelo texto definitivo dos Termos de Uso
-          em breve. Em caso de dúvidas sobre o uso da plataforma, entre em contato pelo suporte
-          dentro do painel.
-        </Text>
+        <Text fw={800} size="1.8rem" className="font-display" mb={4}>Termos de Uso e Condições Gerais de Contratação</Text>
+        <Text c="dimmed" size="sm" mb="xl">Cond-Informa</Text>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
+          {termosSections.map((section) => (
+            <section key={section.number}>
+              <Text fw={800} size="md" className="font-display" mb={10} style={{ color: 'var(--text)' }}>
+                {section.number}. {section.title}
+              </Text>
+              {section.paragraphs?.map((p, i) => (
+                <Text key={i} size="sm" c="var(--text-muted)" mb={10} style={{ lineHeight: 1.7 }}>
+                  {p}
+                </Text>
+              ))}
+              {section.list && (
+                <ul style={{ margin: '0 0 10px', paddingLeft: 22 }}>
+                  {section.list.map((item, i) => (
+                    <li key={i} style={{ marginBottom: 6 }}>
+                      <Text size="sm" c="var(--text-muted)" style={{ lineHeight: 1.7 }}>{item}</Text>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          ))}
+        </div>
       </div>
     </div>
   );
