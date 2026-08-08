@@ -4,9 +4,14 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
-  // GitHub Pages serves this repo at /condinforma/, so only the production
-  // build needs the subpath prefix — local dev stays at the root.
-  const base = mode === 'production' ? '/condinforma/' : '/';
+  // GitHub Pages serves this repo at /condinforma/, so production builds
+  // need that subpath prefix — but Vercel (and any other host serving from
+  // the domain root) needs base "/", or every asset request 404s and the
+  // page never even mounts (blank white screen, no error boundary can help
+  // since React itself never loads). Vercel's build system always sets the
+  // VERCEL env var automatically, no manual config needed on their end.
+  const isVercel = Boolean(process.env.VERCEL);
+  const base = mode === 'production' && !isVercel ? '/condinforma/' : '/';
 
   return {
     base,
