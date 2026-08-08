@@ -1,68 +1,14 @@
-import { useState } from 'react';
-import { useForm } from 'react-hook-form';
-import { Button, Modal, TextInput, PasswordInput, Text } from '@mantine/core';
+import { useNavigate } from 'react-router-dom';
+import { Button } from '@mantine/core';
 import { Check } from 'lucide-react';
 import { plans } from '../../data/landingContent';
-import { signUp } from '../../lib/authService';
 import Reveal from './Reveal';
 
-function translateSignUpError(message) {
-  if (message?.includes('User already registered')) {
-    return 'Já existe uma conta com esse e-mail. Entre no painel pra assinar por lá, ou use outro e-mail.';
-  }
-  if (message?.includes('Password should be at least')) return 'A senha precisa ter pelo menos 6 caracteres.';
-  return message || 'Não foi possível criar sua conta. Tente novamente.';
-}
-
 export default function PricingSection() {
-  const [selectedPlan, setSelectedPlan] = useState(null);
-  const [errorMsg, setErrorMsg] = useState('');
-  const { register, handleSubmit, reset, watch, formState: { isSubmitting, errors } } = useForm();
+  const navigate = useNavigate();
 
-  const openModal = (planName) => {
-    setErrorMsg('');
-    reset();
-    setSelectedPlan(planName);
-  };
-
-  const onSubmit = async ({ name, email, cpfCnpj, phone, password }) => {
-    setErrorMsg('');
-    try {
-      // Cria a conta (Supabase Auth) primeiro — o cliente já sai daqui com
-      // login pronto, sem precisar de um segundo cadastro depois de pagar.
-      const { data: signUpData, error: signUpError } = await signUp(email, password);
-      if (signUpError) {
-        setErrorMsg(translateSignUpError(signUpError.message));
-        return;
-      }
-      if (!signUpData.session) {
-        setErrorMsg('Conta criada, mas seu e-mail precisa ser confirmado antes de assinar. Confirme e depois entre no painel para assinar por lá.');
-        return;
-      }
-
-      // Chama a Edge Function do Supabase diretamente (o site é estático no
-      // GitHub Pages — não tem "backend próprio" pra receber esse POST). A
-      // função valida esse token pra saber a qual conta vincular a
-      // assinatura — não confiamos num accountId solto no corpo do request.
-      const functionsUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/subscribe`;
-      const res = await fetch(functionsUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
-          Authorization: `Bearer ${signUpData.session.access_token}`,
-        },
-        body: JSON.stringify({ planName: selectedPlan, name, email, cpfCnpj, phone }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setErrorMsg(data.error || 'Não foi possível iniciar a assinatura. Tente novamente.');
-        return;
-      }
-      window.location.href = data.paymentUrl;
-    } catch {
-      setErrorMsg('Falha de conexão. Verifique sua internet e tente novamente.');
-    }
+  const goToSubscribe = (planName) => {
+    navigate(`/assinar?plano=${encodeURIComponent(planName)}`);
   };
 
   return (
@@ -139,7 +85,7 @@ export default function PricingSection() {
                     variant={plan.highlight ? 'white' : 'filled'}
                     color={plan.highlight ? 'dark' : 'brand'}
                     style={plan.highlight ? { boxShadow: '0 10px 30px rgba(0,0,0,0.25)' } : { boxShadow: 'var(--shadow-brand)' }}
-                    onClick={() => openModal(plan.name)}
+                    onClick={() => goToSubscribe(plan.name)}
                   >
                     Assinar {plan.name}
                   </Button>
@@ -163,61 +109,6 @@ export default function PricingSection() {
           .pricing-grid { grid-template-columns: 1fr !important; max-width: 420px; margin: 0 auto; }
         }
       `}</style>
-
-      <Modal opened={!!selectedPlan} onClose={() => setSelectedPlan(null)} title={`Assinar plano ${selectedPlan || ''}`} centered>
-        <form onSubmit={handleSubmit(onSubmit)}>
-          <TextInput
-            label="Nome completo"
-            placeholder="Seu nome"
-            mb="sm"
-            error={errors.name && 'Informe seu nome'}
-            {...register('name', { required: true })}
-          />
-          <TextInput
-            label="E-mail"
-            placeholder="voce@email.com"
-            mb="sm"
-            error={errors.email && 'Informe um e-mail válido'}
-            {...register('email', { required: true, pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/ })}
-          />
-          <TextInput
-            label="CPF ou CNPJ"
-            placeholder="Somente números"
-            mb="sm"
-            error={errors.cpfCnpj && 'Informe um CPF ou CNPJ válido'}
-            {...register('cpfCnpj', { required: true, minLength: 11 })}
-          />
-          <TextInput
-            label="Telefone (com DDD)"
-            placeholder="(00) 00000-0000"
-            mb="sm"
-            error={errors.phone && 'Informe um telefone válido'}
-            {...register('phone', { required: true, minLength: 10 })}
-          />
-          <PasswordInput
-            label="Crie uma senha"
-            placeholder="Mínimo 6 caracteres"
-            mb="sm"
-            error={errors.password && 'A senha precisa ter pelo menos 6 caracteres'}
-            {...register('password', { required: true, minLength: 6 })}
-          />
-          <PasswordInput
-            label="Confirmar senha"
-            placeholder="Repita a senha"
-            mb="md"
-            error={errors.confirmPassword && 'As senhas não coincidem'}
-            {...register('confirmPassword', { required: true, validate: (v) => v === watch('password') })}
-          />
-          {errorMsg && <Text c="red" size="sm" mb="sm">{errorMsg}</Text>}
-          <Text size="xs" c="dimmed" mb="md">
-            Essa senha já será o login do seu painel de gestor. Depois de criar a conta, você
-            será redirecionado para a página segura do Asaas para concluir o pagamento via Pix, boleto ou cartão.
-          </Text>
-          <Button type="submit" fullWidth loading={isSubmitting} className="btn-glow" style={{ boxShadow: 'var(--shadow-brand)' }}>
-            Continuar para pagamento
-          </Button>
-        </form>
-      </Modal>
     </section>
   );
 }

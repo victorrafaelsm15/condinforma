@@ -297,3 +297,21 @@ create policy "ocorrencias_subusuario_all" on ocorrencias
   for all to authenticated
   using (has_subusuario_access_via_ambiente(ambiente_id))
   with check (has_subusuario_access_via_ambiente(ambiente_id) and account_id = ambiente_owner_account(ambiente_id));
+
+-- ============================================================
+-- Cupons de desconto — ver supabase/cupons_migration.sql pro comentário
+-- completo. Sem policy nenhuma de propósito: só a service role (Edge
+-- Function subscribe) consegue ler/validar cupons.
+create table if not exists cupons (
+  id           uuid primary key default gen_random_uuid(),
+  codigo       text not null unique,
+  tipo         text not null check (tipo in ('percentual', 'fixo')),
+  valor        numeric not null check (valor > 0),
+  validade     date,
+  limite_usos  integer check (limite_usos is null or limite_usos > 0),
+  usos         integer not null default 0,
+  ativo        boolean not null default true,
+  created_at   timestamptz not null default now()
+);
+create unique index if not exists cupons_codigo_upper_idx on cupons (upper(codigo));
+alter table cupons enable row level security;

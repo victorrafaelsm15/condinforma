@@ -55,11 +55,18 @@ export async function findOrCreateCustomer({ name, email, cpfCnpj, phone }: Cust
   });
 }
 
-type SubscriptionInput = { customerId: string; value: number; description: string; externalReference: string };
+type SubscriptionInput = {
+  customerId: string;
+  value: number;
+  description: string;
+  externalReference: string;
+  billingType?: string;
+};
 
 // Cria uma assinatura mensal. billingType "UNDEFINED" deixa o cliente escolher
-// Pix, boleto ou cartão na própria página de pagamento do Asaas.
-export async function createSubscription({ customerId, value, description, externalReference }: SubscriptionInput) {
+// Pix, boleto ou cartão na própria página de pagamento do Asaas — usado só se
+// nada for informado; a tela de assinatura já manda a escolha do cliente.
+export async function createSubscription({ customerId, value, description, externalReference, billingType }: SubscriptionInput) {
   const nextDueDate = new Date();
   nextDueDate.setDate(nextDueDate.getDate() + 1);
 
@@ -67,7 +74,7 @@ export async function createSubscription({ customerId, value, description, exter
     method: 'POST',
     body: JSON.stringify({
       customer: customerId,
-      billingType: 'UNDEFINED',
+      billingType: billingType || 'UNDEFINED',
       cycle: 'MONTHLY',
       value,
       description,
@@ -83,4 +90,10 @@ export async function getFirstPaymentLink(subscriptionId: string): Promise<strin
   const first = payments?.data?.[0];
   if (!first) throw new Error('Nenhuma cobrança encontrada para essa assinatura ainda.');
   return first.invoiceUrl;
+}
+
+// Cancela uma assinatura no Asaas — usado quando o cliente troca de plano,
+// pra não deixar a assinatura antiga cobrando em paralelo com a nova.
+export async function cancelSubscription(subscriptionId: string) {
+  return asaasFetch(`/subscriptions/${subscriptionId}`, { method: 'DELETE' });
 }

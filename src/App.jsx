@@ -3,6 +3,9 @@ import AdminLayout from './layouts/AdminLayout';
 import LandingPage from './pages/LandingPage';
 import AdminLogin from './pages/AdminLogin';
 import AdminSignup from './pages/AdminSignup';
+import AssinaturaPage from './pages/AssinaturaPage';
+import TermosPage from './pages/TermosPage';
+import PrivacidadePage from './pages/PrivacidadePage';
 import AdminDashboard from './pages/AdminDashboard';
 import CondominioPage from './pages/CondominioPage';
 import SindicoDashboard from './pages/SindicoDashboard';
@@ -22,6 +25,12 @@ export default function App() {
 
       <Route path="/admin/login" element={<AdminLogin />} />
       <Route path="/admin/signup" element={<AdminSignup />} />
+      {/* Pública mas sensível à sessão: funciona tanto pra quem ainda não
+          tem conta (cria conta + assina) quanto pra cliente já logado
+          trocando de plano pelas Configurações — ver AssinaturaPage.jsx. */}
+      <Route path="/assinar" element={<AssinaturaPage />} />
+      <Route path="/termos" element={<TermosPage />} />
+      <Route path="/privacidade" element={<PrivacidadePage />} />
       <Route element={<ProtectedRoute />}>
         <Route element={<AdminLayout />}>
           <Route path="/admin" element={<AdminDashboard />} />

@@ -10,7 +10,10 @@ import { condominiosStore, ambientesStore, execucoesStore, ocorrenciasStore } fr
 // Critério de atraso — fácil de ajustar depois:
 // até ATRASO_HORAS: em dia (verde)
 // entre ATRASO_HORAS e MUITO_ATRASO_HORAS: atrasado (amarelo)
-// acima de MUITO_ATRASO_HORAS ou nunca executado: muito atrasado (vermelho)
+// acima de MUITO_ATRASO_HORAS: muito atrasado (vermelho) — SÓ se o ambiente
+// tiver pelo menos uma ocorrência registrada; sem ocorrência nenhuma, mesmo
+// muito tempo sem execução (ou nunca executado) fica no máximo "atrasado",
+// já que atraso sozinho não confirma que há um problema real no ambiente.
 const ATRASO_HORAS = 48;
 const MUITO_ATRASO_HORAS = 96;
 
@@ -24,11 +27,10 @@ function hoursSince(dateStr) {
   return (Date.now() - new Date(dateStr).getTime()) / 3_600_000;
 }
 
-function getStatus(lastExec) {
-  if (!lastExec) return 'vermelho';
-  const h = hoursSince(lastExec.created_at);
+function getStatus(lastExec, hasOcorrencia) {
+  const h = lastExec ? hoursSince(lastExec.created_at) : Infinity;
   if (h <= ATRASO_HORAS) return 'verde';
-  if (h <= MUITO_ATRASO_HORAS) return 'amarelo';
+  if (h <= MUITO_ATRASO_HORAS || !hasOcorrencia) return 'amarelo';
   return 'vermelho';
 }
 
@@ -82,21 +84,23 @@ export default function SindicoDashboard() {
         })),
         Promise.all(ambientes.map(async (a) => {
           const occs = await ocorrenciasStore.list({ ambiente_id: a.id });
-          return occs.filter((o) => o.status !== 'resolvido').map((o) => ({ ...o, ambienteName: a.name }));
+          return [a.id, occs.map((o) => ({ ...o, ambienteName: a.name }))];
         })),
       ]);
 
       const execMap = Object.fromEntries(execEntries);
+      const occMap = Object.fromEntries(occEntries);
       const combined = ambientes.map((a) => ({
         ambiente: a,
         lastExec: execMap[a.id],
-        status: getStatus(execMap[a.id]),
+        status: getStatus(execMap[a.id], (occMap[a.id] || []).length > 0),
       }));
       const statusOrder = { vermelho: 0, amarelo: 1, verde: 2 };
       combined.sort((a, b) => statusOrder[a.status] - statusOrder[b.status]);
 
       setRows(combined);
-      setOcorrencias(occEntries.flat().sort((a, b) => new Date(b.created_at) - new Date(a.created_at)));
+      const pendentes = Object.values(occMap).flat().filter((o) => o.status !== 'resolvido');
+      setOcorrencias(pendentes.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)));
       setLoading(false);
     };
     load();

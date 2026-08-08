@@ -1,15 +1,18 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Text, Group, Loader, ActionIcon, Breadcrumbs, Button } from '@mantine/core';
-import { ArrowLeft, Printer, DoorOpen, LayoutGrid } from 'lucide-react';
+import { ArrowLeft, Printer, DoorOpen, LayoutGrid, ChevronDown, ChevronUp } from 'lucide-react';
 import { condominiosStore, ambientesStore } from '../lib/stores';
 import AmbienteQrCards from '../components/admin/AmbienteQrCards';
+
+const PAGE_SIZE = 3;
 
 export default function QrCodesCondominioPage() {
   const { id } = useParams();
   const [loading, setLoading] = useState(true);
   const [condominio, setCondominio] = useState(null);
   const [ambientes, setAmbientes] = useState([]);
+  const [showAll, setShowAll] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -53,8 +56,12 @@ export default function QrCodesCondominioPage() {
 
       {ambientes.length ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
-          {ambientes.map((a) => (
-            <div key={a.id} className="qr-print-block" style={{ pageBreakInside: 'avoid' }}>
+          {ambientes.map((a, i) => (
+            <div
+              key={a.id}
+              className={i >= PAGE_SIZE ? 'qr-print-block qr-extra' : 'qr-print-block'}
+              style={{ pageBreakInside: 'avoid', display: i >= PAGE_SIZE && !showAll ? 'none' : undefined }}
+            >
               <Group gap={10} mb={12}>
                 <span className="icon-tile" style={{ background: 'var(--blue-light)', width: 32, height: 32, borderRadius: 10 }}>
                   <DoorOpen size={16} color="var(--blue)" />
@@ -64,6 +71,17 @@ export default function QrCodesCondominioPage() {
               <AmbienteQrCards ambiente={a} />
             </div>
           ))}
+          {ambientes.length > PAGE_SIZE && (
+            <Button
+              variant="subtle"
+              color="gray"
+              onClick={() => setShowAll((v) => !v)}
+              leftSection={showAll ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+              className="no-print"
+            >
+              {showAll ? 'Ver menos' : `Ver mais ambientes (${ambientes.length - PAGE_SIZE})`}
+            </Button>
+          )}
         </div>
       ) : (
         <div className="surface-card" style={{ textAlign: 'center', padding: '56px 24px' }}>
@@ -81,6 +99,9 @@ export default function QrCodesCondominioPage() {
           .admin-nav-link, header { display: none !important; }
           main { padding: 0 !important; max-width: 100% !important; }
           .qr-print-block { break-inside: avoid; margin-bottom: 24px; }
+          /* "Imprimir todos" sempre sai completo, mesmo com "Ver mais" ainda
+             recolhido na tela — a paginação é só uma conveniência visual. */
+          .qr-extra { display: block !important; }
         }
       `}</style>
     </div>

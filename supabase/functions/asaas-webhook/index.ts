@@ -11,6 +11,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { corsHeaders, jsonResponse } from '../_shared/cors.ts';
 import { PLAN_LIMITS, SUB_USUARIO_LIMITS } from '../_shared/plans.ts';
+import { cancelSubscription } from '../_shared/asaas.ts';
 
 // Eventos que fazem a assinatura contar como "em dia".
 const ACTIVE_EVENTS = new Set(['PAYMENT_CONFIRMED', 'PAYMENT_RECEIVED']);
@@ -102,6 +103,32 @@ Deno.serve(async (req: Request) => {
           updated_at: new Date().toISOString(),
         }).eq('id', accountId);
         if (accError) console.error('Erro ao ativar plano na conta:', accError.message);
+
+        // Troca de plano (upgrade/downgrade): a conta só deve ter UMA
+        // assinatura cobrando por vez. Cancela no Asaas qualquer outra
+        // assinatura "ativa" dessa mesma conta pra não cobrar duas ao mesmo
+        // tempo — não bloqueia o fluxo principal se algo aqui falhar.
+        if (subscriptionId) {
+          const { data: outras } = await supabaseAdmin
+            .from('assinantes')
+            .select('asaas_subscription_id')
+            .eq('account_id', accountId)
+            .eq('status', 'ativo')
+            .neq('asaas_subscription_id', subscriptionId);
+          for (const outra of outras || []) {
+            try {
+              await cancelSubscription(outra.asaas_subscription_id);
+              await supabaseAdmin.from('assinantes')
+                .update({ status: 'cancelado', last_event: 'PLAN_CHANGED', updated_at: new Date().toISOString() })
+                .eq('asaas_subscription_id', outra.asaas_subscription_id);
+            } catch (cancelErr) {
+              console.error(
+                `Erro ao cancelar assinatura antiga ${outra.asaas_subscription_id} após troca de plano:`,
+                cancelErr instanceof Error ? cancelErr.message : cancelErr,
+              );
+            }
+          }
+        }
       } else if (status === 'inativo') {
         // Mantém plan_name/condominio_limit intactos — se a pessoa
         // regularizar o pagamento depois, a configuração não se perde.

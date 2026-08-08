@@ -12,6 +12,9 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 import { findOrCreateCustomer, createSubscription, getFirstPaymentLink } from '../_shared/asaas.ts';
 import { corsHeaders, jsonResponse } from '../_shared/cors.ts';
 import { PLAN_PRICES } from '../_shared/plans.ts';
+import { validateAndApplyCoupon, incrementCouponUsage } from '../_shared/cupons.ts';
+
+const VALID_BILLING_TYPES = new Set(['PIX', 'CREDIT_CARD', 'BOLETO', 'UNDEFINED']);
 
 function isValidEmail(email: string | undefined): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email || '');
@@ -47,7 +50,7 @@ Deno.serve(async (req: Request) => {
   }
   const accountId = userData.user.id;
 
-  const { planName, name, email, cpfCnpj, phone } = await req.json().catch(() => ({}));
+  const { planName, name, email, cpfCnpj, phone, billingType, couponCode } = await req.json().catch(() => ({}));
 
   const price = PLAN_PRICES[planName];
   if (!price) return jsonResponse({ error: 'Plano inválido.' }, 400);
@@ -61,14 +64,30 @@ Deno.serve(async (req: Request) => {
   if (onlyDigits(phone).length < 10) {
     return jsonResponse({ error: 'Informe um telefone válido com DDD.' }, 400);
   }
+  const resolvedBillingType = VALID_BILLING_TYPES.has(billingType) ? billingType : 'UNDEFINED';
+
+  // Cupom é opcional — se informado, precisa ser válido. Não deixa a pessoa
+  // continuar "sem querer" pagando o preço cheio por causa de um cupom
+  // digitado errado: erro específico, sem criar nada no Asaas ainda.
+  let finalValue = price;
+  let couponId: string | null = null;
+  if (couponCode?.trim()) {
+    const result = await validateAndApplyCoupon(supabaseAdmin, couponCode, price);
+    if (!result.ok) {
+      return jsonResponse({ error: result.message, field: 'coupon' }, 400);
+    }
+    finalValue = result.finalValue;
+    couponId = result.couponId;
+  }
 
   try {
     const customer = await findOrCreateCustomer({ name, email, cpfCnpj: cleanCpfCnpj, phone });
 
     const subscription = await createSubscription({
       customerId: customer.id,
-      value: price,
+      value: finalValue,
       description: `Cond-Informa — Plano ${planName}`,
+      billingType: resolvedBillingType,
       // "account_id:planName" — é assim que o webhook, ao receber o evento
       // de pagamento de volta do Asaas, sabe qual conta liberar e com qual
       // plano/limite, sem precisar adivinhar ou comparar valor pago.
@@ -97,6 +116,8 @@ Deno.serve(async (req: Request) => {
       console.error('Erro ao gravar assinante no Supabase:', dbError.message);
       // Não bloqueia o fluxo do cliente por causa disso — o webhook tenta de novo depois.
     }
+
+    if (couponId) await incrementCouponUsage(supabaseAdmin, couponId);
 
     return jsonResponse({ paymentUrl });
   } catch (err) {

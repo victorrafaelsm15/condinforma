@@ -3,6 +3,7 @@ import { Drawer, Text, Switch, Button, Group, Divider, useMantineColorScheme } f
 import { useMediaQuery } from '@mantine/hooks';
 import { Moon, Sun, Headphones, LogOut } from 'lucide-react';
 import SubUsuariosSection from './SubUsuariosSection';
+import PlanoSection from './PlanoSection';
 import SupportChat from '../SupportChat';
 
 export default function ConfiguracoesDrawer({ opened, onClose, onLogout, isSubUsuario }) {
@@ -21,6 +22,8 @@ export default function ConfiguracoesDrawer({ opened, onClose, onLogout, isSubUs
         {!isSubUsuario && (
           <>
             <SubUsuariosSection />
+            <Divider my="lg" />
+            <PlanoSection />
             <Divider my="lg" />
           </>
         )}
