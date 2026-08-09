@@ -2,10 +2,8 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Drawer, Text, Switch, Button, Group, Divider, useMantineColorScheme } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
-import { Moon, Sun, Headphones, LogOut, Compass } from 'lucide-react';
-import SubUsuariosSection from './SubUsuariosSection';
+import { Moon, Sun, Headphones, LogOut, Compass, ShieldCheck } from 'lucide-react';
 import PlanoSection from './PlanoSection';
-import AuditLogSection from './AuditLogSection';
 import PushToggleSection from './PushToggleSection';
 import SupportChat from '../SupportChat';
 
@@ -20,18 +18,30 @@ export default function ConfiguracoesDrawer({ opened, onClose, onLogout, isSubUs
   return (
     <>
       <Drawer opened={opened} onClose={onClose} position="right" size={isMobile ? '100%' : '25%'} title="Configurações" padding="lg">
-        {/* Sub-usuário não gerencia sub-usuários nem enxerga configurações
-            de plano/pagamento — só a conta principal vê esta seção. */}
+        {/* Sub-usuários e Auditoria viraram itens próprios da sidebar
+            esquerda — só Plano continua aqui (sub-usuário não gerencia
+            plano/pagamento da conta principal). */}
         {!isSubUsuario && (
           <>
-            <SubUsuariosSection />
-            <Divider my="lg" />
             <PlanoSection />
-            <Divider my="lg" />
-            <AuditLogSection />
             <Divider my="lg" />
           </>
         )}
+
+        <Button
+          component={Link}
+          to="/admin/seguranca"
+          variant="light"
+          color="gray"
+          fullWidth
+          leftSection={<ShieldCheck size={16} />}
+          onClick={onClose}
+          mb="lg"
+        >
+          Segurança
+        </Button>
+
+        <Divider mb="lg" />
 
         <PushToggleSection />
 

@@ -4,7 +4,7 @@ import {
   Text, Group, Button, Modal, TextInput, PasswordInput, MultiSelect, Badge, ActionIcon, Loader,
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { UserPlus, Pencil, Trash2, Users, TrendingUp, ArrowRight } from 'lucide-react';
+import { UserPlus, Pencil, Trash2, TrendingUp, ArrowRight } from 'lucide-react';
 import { getSession } from '../../lib/authService';
 import { accountsStore, condominiosStore } from '../../lib/stores';
 import { listSubUsuarios, createSubUsuario, updateSubUsuarioCondominios, removeSubUsuario } from '../../lib/subUsuario';
@@ -29,7 +29,6 @@ export default function SubUsuariosSection() {
   const [editing, setEditing] = useState(null);
   const [editCondominioIds, setEditCondominioIds] = useState([]);
   const [savingEdit, setSavingEdit] = useState(false);
-  const [showAll, setShowAll] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -119,21 +118,17 @@ export default function SubUsuariosSection() {
     }
   };
 
-  if (loading) return <Group justify="center" py={30}><Loader size="sm" color="brand" /></Group>;
+  if (loading) return <Group justify="center" py={60}><Loader color="brand" /></Group>;
 
   return (
     <div>
-      <Group justify="space-between" mb={10}>
-        <Group gap={8}>
-          <Users size={16} color="var(--blue)" />
-          <Text fw={700} size="sm">Sub-usuários</Text>
-        </Group>
-        <Button size="xs" leftSection={<UserPlus size={14} />} onClick={openCreate} disabled={atLimit}>
-          Novo
+      <Group justify="flex-end" mb="lg">
+        <Button leftSection={<UserPlus size={16} />} onClick={openCreate} disabled={atLimit} className="btn-glow" style={{ boxShadow: 'var(--shadow-brand)' }}>
+          Novo sub-usuário
         </Button>
       </Group>
 
-      <Text size="xs" c="dimmed" mb={12}>
+      <Text size="sm" c="dimmed" mb={12}>
         {isOwner ? 'Conta sem limite de sub-usuários.' : `${subUsuarios.length} de ${limit} sub-usuário(s) do plano${account?.plan_name ? ` ${PLAN_LABELS[account.plan_name] || account.plan_name}` : ''}.`}
       </Text>
 
@@ -161,8 +156,8 @@ export default function SubUsuariosSection() {
 
       {subUsuarios.length ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {(showAll ? subUsuarios : subUsuarios.slice(0, 3)).map((sub) => (
-            <div key={sub.id} className="surface-card" style={{ padding: 12 }}>
+          {subUsuarios.map((sub) => (
+            <div key={sub.id} className="surface-card" style={{ padding: 14 }}>
               <Group justify="space-between" align="flex-start" wrap="nowrap">
                 <div style={{ minWidth: 0 }}>
                   <Text size="sm" fw={600} truncate>{sub.nome}</Text>
@@ -190,20 +185,7 @@ export default function SubUsuariosSection() {
           ))}
         </div>
       ) : (
-        <Text size="xs" c="dimmed">Nenhum sub-usuário criado ainda.</Text>
-      )}
-
-      {subUsuarios.length > 3 && (
-        <Button
-          variant="subtle"
-          color="gray"
-          size="xs"
-          fullWidth
-          mt={8}
-          onClick={() => setShowAll((v) => !v)}
-        >
-          {showAll ? 'Ver menos' : `Ver mais sub-usuários (${subUsuarios.length - 3})`}
-        </Button>
+        <Text size="sm" c="dimmed">Nenhum sub-usuário criado ainda.</Text>
       )}
 
       <Modal opened={createOpen} onClose={() => setCreateOpen(false)} title="Novo sub-usuário" centered>

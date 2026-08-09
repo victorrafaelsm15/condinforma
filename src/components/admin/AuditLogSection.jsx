@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Text, Group, Loader, Badge, Select } from '@mantine/core';
-import { History } from 'lucide-react';
 import { getSession } from '../../lib/authService';
 import { listAuditLog } from '../../lib/auditLog';
 import { listSubUsuarios } from '../../lib/subUsuario';
@@ -81,15 +80,10 @@ export default function AuditLogSection() {
     return actorNames[entry.auth_user_id] || 'Sub-usuário';
   };
 
-  if (loading) return <Group justify="center" py={30}><Loader size="sm" color="brand" /></Group>;
+  if (loading) return <Group justify="center" py={60}><Loader color="brand" /></Group>;
 
   return (
     <div>
-      <Group gap={8} mb={10}>
-        <History size={16} color="var(--blue)" />
-        <Text fw={700} size="sm">Auditoria</Text>
-      </Group>
-
       {entries.length ? (
         <>
           <Select
@@ -98,10 +92,11 @@ export default function AuditLogSection() {
             value={actionFilter}
             onChange={setActionFilter}
             clearable
-            size="xs"
-            mb={12}
+            size="sm"
+            mb="lg"
+            style={{ maxWidth: 320 }}
           />
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 360, overflowY: 'auto' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {filtered.map((entry) => {
               const summary = summarizeDetails(entry);
               return (

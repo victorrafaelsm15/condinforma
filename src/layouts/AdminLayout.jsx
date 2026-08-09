@@ -1,21 +1,36 @@
 import { useEffect, useState } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { Button, ActionIcon, Menu } from '@mantine/core';
-import { Settings, Building2, AlertTriangle, BarChart3, Users, Menu as MenuIcon } from 'lucide-react';
+import {
+  Settings, Building2, AlertTriangle, BarChart3, Users, Menu as MenuIcon, QrCode, UserPlus, History,
+} from 'lucide-react';
 import { signOut, getSession } from '../lib/authService';
 import { accountsStore } from '../lib/stores';
 import { getSubUsuarioInfo } from '../lib/subUsuario';
 import ConfiguracoesDrawer from '../components/admin/ConfiguracoesDrawer';
 import PushPermissionBanner from '../components/admin/PushPermissionBanner';
 
+// Nenhum item da sidebar tem cor própria (de propósito — substitui
+// qualquer pedido antigo de cor individual por item): ícone e texto
+// sempre usam var(--text), só o item ativo ganha um fundo neutro
+// (var(--bg-soft)) pra indicar estado, sem tingir nada.
 const BASE_NAV_ITEMS = [
-  { to: '/admin', label: 'Condomínios', icon: Building2, color: 'brand', match: (p) => p === '/admin' || p.startsWith('/admin/condominios') },
-  { to: '/admin/ocorrencias', label: 'Ocorrências', icon: AlertTriangle, color: 'red', match: (p) => p.startsWith('/admin/ocorrencias') },
-  { to: '/admin/relatorios', label: 'Relatórios', icon: BarChart3, color: 'yellow', match: (p) => p.startsWith('/admin/relatorios') },
+  { to: '/admin', label: 'Condomínios', icon: Building2, match: (p) => p === '/admin' || p.startsWith('/admin/condominios') },
+  { to: '/admin/qrcodes', label: 'QR Codes', icon: QrCode, match: (p) => p.startsWith('/admin/qrcodes') || /^\/admin\/condominios\/[^/]+\/qrcodes/.test(p) },
+  { to: '/admin/ocorrencias', label: 'Ocorrências', icon: AlertTriangle, match: (p) => p.startsWith('/admin/ocorrencias') },
+  { to: '/admin/relatorios', label: 'Relatórios', icon: BarChart3, match: (p) => p.startsWith('/admin/relatorios') },
+];
+
+// Sub-usuário nunca gerencia outros sub-usuários nem vê a auditoria da
+// conta principal — mesmo critério que já existia dentro do Drawer de
+// Configurações, só que agora como itens de sidebar em vez de seções.
+const PRINCIPAL_NAV_ITEMS = [
+  { to: '/admin/sub-usuarios', label: 'Sub-usuários', icon: UserPlus, match: (p) => p.startsWith('/admin/sub-usuarios') },
+  { to: '/admin/auditoria', label: 'Auditoria', icon: History, match: (p) => p.startsWith('/admin/auditoria') },
 ];
 
 const OWNER_NAV_ITEM = {
-  to: '/admin/usuarios', label: 'Usuários', icon: Users, color: 'violet', match: (p) => p.startsWith('/admin/usuarios'),
+  to: '/admin/usuarios', label: 'Usuários', icon: Users, match: (p) => p.startsWith('/admin/usuarios'),
 };
 
 export default function AdminLayout() {
@@ -55,7 +70,11 @@ export default function AdminLayout() {
     })();
   }, []);
 
-  const navItems = isOwner ? [...BASE_NAV_ITEMS, OWNER_NAV_ITEM] : BASE_NAV_ITEMS;
+  const navItems = [
+    ...BASE_NAV_ITEMS,
+    ...(!isSubUsuario ? PRINCIPAL_NAV_ITEMS : []),
+    ...(isOwner ? [OWNER_NAV_ITEM] : []),
+  ];
 
   const handleLogout = async () => {
     await signOut();
@@ -88,37 +107,26 @@ export default function AdminLayout() {
               </ActionIcon>
             </Menu.Target>
             <Menu.Dropdown>
-              {/* Botões de verdade (não Menu.Item) pra herdar exatamente as
-                  mesmas cores de fundo preenchidas usadas na sidebar de
-                  desktop — a prop color do Menu.Item só tinge o texto, não
-                  preenche o fundo. */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: 4 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: 4 }}>
                 {navItems.map((item) => (
-                  <Button
+                  <Link
                     key={item.to}
-                    component={Link}
                     to={item.to}
-                    variant="filled"
-                    color={item.color}
-                    fullWidth
-                    justify="flex-start"
-                    leftSection={<item.icon size={15} />}
                     onClick={() => setMobileMenuOpen(false)}
-                    style={isActive(item) ? { boxShadow: 'inset 0 0 0 2px rgba(255,255,255,0.55)' } : undefined}
+                    className={`admin-nav-item${isActive(item) ? ' admin-nav-item--active' : ''}`}
                   >
-                    {item.label}
-                  </Button>
+                    <item.icon size={16} />
+                    <span>{item.label}</span>
+                  </Link>
                 ))}
-                <Button
-                  variant="filled"
-                  color="gray"
-                  fullWidth
-                  justify="flex-start"
-                  leftSection={<Settings size={15} />}
+                <button
+                  type="button"
+                  className="admin-nav-item"
                   onClick={() => { setMobileMenuOpen(false); setSettingsOpen(true); }}
                 >
-                  Configurações
-                </Button>
+                  <Settings size={16} />
+                  <span>Configurações</span>
+                </button>
               </div>
             </Menu.Dropdown>
           </Menu>
@@ -152,22 +160,15 @@ export default function AdminLayout() {
             <MenuIcon size={17} />
           </ActionIcon>
           {navItems.map((item) => (
-            <Button
+            <Link
               key={item.to}
-              component={Link}
               to={item.to}
-              variant="filled"
-              color={item.color}
-              fullWidth
-              justify={showSidebarLabels ? 'flex-start' : 'center'}
-              size="md"
-              px={showSidebarLabels ? undefined : 0}
-              leftSection={showSidebarLabels ? <item.icon size={17} /> : undefined}
               title={showSidebarLabels ? undefined : item.label}
-              style={isActive(item) ? { boxShadow: 'inset 0 0 0 2px rgba(255,255,255,0.55)' } : undefined}
+              className={`admin-nav-item${isActive(item) ? ' admin-nav-item--active' : ''}${showSidebarLabels ? '' : ' admin-nav-item--collapsed'}`}
             >
-              {showSidebarLabels ? item.label : <item.icon size={18} />}
-            </Button>
+              <item.icon size={showSidebarLabels ? 17 : 18} />
+              {showSidebarLabels && <span>{item.label}</span>}
+            </Link>
           ))}
           </aside>
         </div>
@@ -198,6 +199,24 @@ export default function AdminLayout() {
         }
         .admin-sidebar--collapsed { width: 68px; }
         .admin-sidebar-toggle { flex-shrink: 0; margin-bottom: 4px; }
+        /* Item de navegação sem cor própria — ícone/texto sempre var(--text),
+           só um fundo neutro (var(--bg-soft)) indica hover/ativo. Mesma
+           classe serve pros Link da sidebar de desktop e do menu mobile, e
+           pro <button> de "Configurações" no mobile (reset de aparência
+           nativa de botão pra ficar idêntico aos Links ao lado). */
+        .admin-nav-item {
+          display: flex; align-items: center; gap: 10px;
+          padding: 10px 12px; border-radius: 10px;
+          color: var(--text); text-decoration: none;
+          font-weight: 600; font-size: 14px; font-family: inherit;
+          border: none; background: transparent; cursor: pointer;
+          width: 100%; text-align: left; flex-shrink: 0;
+          transition: background 0.15s var(--ease);
+        }
+        .admin-nav-item svg { flex-shrink: 0; }
+        .admin-nav-item:hover { background: var(--bg-soft); }
+        .admin-nav-item--active { background: var(--bg-soft); }
+        .admin-nav-item--collapsed { justify-content: center; padding: 10px 0; }
         .admin-main { flex: 1; min-width: 0; padding: 32px 28px 60px; max-width: 1100px; }
         @media (max-width: 900px) {
           .admin-header { padding-left: 18px; padding-right: 18px; }

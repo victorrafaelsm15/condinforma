@@ -14,6 +14,10 @@ import AmbientePage from './pages/AmbientePage';
 import OcorrenciasPage from './pages/OcorrenciasPage';
 import RelatoriosPage from './pages/RelatoriosPage';
 import UsuariosPage from './pages/UsuariosPage';
+import SubUsuariosPage from './pages/SubUsuariosPage';
+import AuditoriaPage from './pages/AuditoriaPage';
+import SegurancaPage from './pages/SegurancaPage';
+import QrCodesPickerPage from './pages/QrCodesPickerPage';
 import ExecutarChecklistPage from './pages/ExecutarChecklistPage';
 import StatusPublicoPage from './pages/StatusPublicoPage';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -37,9 +41,13 @@ export default function App() {
           <Route path="/admin/condominios/:id" element={<CondominioPage />} />
           <Route path="/admin/condominios/:id/dashboard" element={<SindicoDashboard />} />
           <Route path="/admin/condominios/:id/qrcodes" element={<QrCodesCondominioPage />} />
+          <Route path="/admin/qrcodes" element={<QrCodesPickerPage />} />
           <Route path="/admin/ambientes/:id" element={<AmbientePage />} />
           <Route path="/admin/ocorrencias" element={<OcorrenciasPage />} />
           <Route path="/admin/relatorios" element={<RelatoriosPage />} />
+          <Route path="/admin/sub-usuarios" element={<SubUsuariosPage />} />
+          <Route path="/admin/auditoria" element={<AuditoriaPage />} />
+          <Route path="/admin/seguranca" element={<SegurancaPage />} />
           <Route path="/admin/usuarios" element={<UsuariosPage />} />
         </Route>
       </Route>
