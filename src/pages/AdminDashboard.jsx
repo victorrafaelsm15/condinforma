@@ -309,6 +309,8 @@ export default function AdminDashboard() {
           opened={wizardOpen}
           onClose={() => setWizardOpen(false)}
           accountId={account.id}
+          accountStatus={account.status}
+          accountRole={account.role}
           hasCondominio={condominios.length > 0}
           firstCondominio={condominios[0] || null}
           onCondominioCreated={load}

@@ -204,6 +204,13 @@ export default function AdminLayout() {
           .admin-sidebar { display: none; }
           .admin-nav-mobile { display: flex; }
           .admin-settings-btn { display: none; }
+          /* .admin-sidebar-slot reserva a largura (224px/68px) via style
+             inline controlado por JS (sidebarExpanded), que a media query
+             acima não alcança — sem isto, o slot continua ocupando esse
+             espaço mesmo com a sidebar escondida, espremendo o <main> numa
+             faixa estreita e empurrando o conteúdo pra fora da tela. */
+          .admin-sidebar-slot { display: none; }
+          .admin-main { padding: 20px 16px 40px; }
         }
       `}</style>
     </div>

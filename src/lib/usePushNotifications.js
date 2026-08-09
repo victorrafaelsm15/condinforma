@@ -33,7 +33,12 @@ export function usePushNotifications() {
       await subscribeToPush(session.user.id);
       setSubscribed(true);
       return true;
-    } catch {
+    } catch (err) {
+      // Não relançamos pra não quebrar o banner/toggle que chamou — mas
+      // loga de verdade (não engole em silêncio), porque isso costuma ser
+      // rede/push service instável, útil pra diagnosticar reclamações de
+      // "não recebo notificação" olhando o console do navegador da pessoa.
+      console.error('Falha ao criar inscrição push:', err);
       return false;
     }
   }, [supported]);

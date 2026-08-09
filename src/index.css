@@ -219,6 +219,16 @@ img { max-width: 100%; display: block; }
   .section-pad { padding: 64px 0; }
 }
 
+/* O header da landing é sticky (~72px) — sem scroll-margin-top, o
+   scrollIntoView("#planos"/"#como-funciona"/"#faq") alinha o topo exato
+   da seção com o topo da viewport, deixando o título colado embaixo do
+   header (ou parcialmente escondido atrás dele). Cobre tanto o clique
+   direto (scrollToSection) quanto o scroll pós-navegação vindo de fora
+   (?scrollTo=planos, usado pelos avisos de limite do painel). */
+.landing-scope section[id] {
+  scroll-margin-top: 96px;
+}
+
 .grid-fade-mask {
   background-image:
     linear-gradient(to right, rgba(23,35,94,0.055) 1px, transparent 1px),
