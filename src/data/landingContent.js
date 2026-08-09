@@ -229,13 +229,23 @@ export const termosSections = [
   },
   {
     number: '13',
+    title: 'Retenção e exclusão de dados após cancelamento ou inadimplência',
+    paragraphs: [
+      'Conforme a Cláusula 5, o não pagamento na data de vencimento ou o cancelamento da assinatura suspendem imediatamente o acesso às funcionalidades administrativas da Conta (cadastro e gestão de condomínios, ambientes, checklists e sub-usuários), sem apagar nenhum dado já registrado e sem interromper o funcionamento dos QR Codes já publicados (execução de checklist pelo Colaborador e registro de status/ocorrências pelo Morador continuam disponíveis normalmente).',
+      'Caso a pendência não seja regularizada, o Cond-Informa enviará avisos ao Cliente aos 15 (quinze) e aos 3 (três) dias que antecedem o prazo final abaixo, para que a situação seja regularizada e nenhum dado seja perdido.',
+      'Decorridos 90 (noventa) dias consecutivos de inadimplência ou cancelamento não regularizado, todos os dados vinculados à Conta — condomínios, ambientes, checklists, execuções, ocorrências, fotos e sub-usuários — serão excluídos de forma permanente e irreversível dos sistemas do Cond-Informa, não sendo possível sua recuperação após esse prazo.',
+      'A regularização do pagamento a qualquer momento antes do prazo final descrito acima restabelece integralmente o acesso e mantém todos os dados intactos, sem necessidade de novo cadastro.',
+    ],
+  },
+  {
+    number: '14',
     title: 'Alterações destes Termos',
     paragraphs: [
       'O Cond-Informa poderá alterar estes Termos a qualquer tempo, visando adequação legal, regulatória ou evolução da Plataforma. Alterações relevantes serão comunicadas ao Cliente com antecedência razoável, por e-mail ou aviso na própria Plataforma. A continuidade do uso após a vigência das alterações caracteriza aceitação tácita das novas condições.',
     ],
   },
   {
-    number: '14',
+    number: '15',
     title: 'Disposições gerais',
     paragraphs: [
       'Caso qualquer disposição destes Termos seja considerada nula ou inaplicável, as demais disposições permanecerão em pleno vigor e efeito.',
@@ -243,14 +253,14 @@ export const termosSections = [
     ],
   },
   {
-    number: '15',
+    number: '16',
     title: 'Legislação aplicável e foro',
     paragraphs: [
       `Estes Termos são regidos pelas leis da República Federativa do Brasil. Fica eleito o foro da Comarca de ${legalInfo.cidadeUf}, com renúncia expressa a qualquer outro, por mais privilegiado que seja, para dirimir eventuais controvérsias oriundas destes Termos, ressalvado o direito do Cliente, quando enquadrado como consumidor, de optar pelo foro de seu domicílio, nos termos do Código de Defesa do Consumidor.`,
     ],
   },
   {
-    number: '16',
+    number: '17',
     title: 'Contato',
     paragraphs: [
       `Dúvidas, solicitações ou exercício de direitos previstos na LGPD podem ser encaminhados para: ${legalInfo.emailContato} ou através do canal de suporte disponível na própria Plataforma.`,

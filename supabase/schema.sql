@@ -196,10 +196,15 @@ create policy "accounts_update_own" on accounts
   using (id = auth.uid())
   with check (id = auth.uid());
 
+-- auth.role() <> 'service_role' é essencial: sem essa isenção, o
+-- asaas-webhook (que atualiza plan_name/status/etc via service role
+-- depois de um pagamento) ficaria bloqueado pelo próprio trigger.
+-- Redefinida de novo mais abaixo, junto do bloco de retenção/exclusão,
+-- pra incluir mais 3 colunas que só existem a partir dali.
 create or replace function protect_account_sensitive_columns()
 returns trigger language plpgsql security definer set search_path = public as $$
 begin
-  if not is_platform_owner() then
+  if auth.role() <> 'service_role' and not is_platform_owner() then
     if new.plan_name is distinct from old.plan_name
       or new.status is distinct from old.status
       or new.condominio_limit is distinct from old.condominio_limit
@@ -503,3 +508,107 @@ alter table push_subscriptions enable row level security;
 create policy "push_subscriptions_owner_all" on push_subscriptions
   for all to authenticated
   using (account_id = auth.uid()) with check (account_id = auth.uid());
+
+-- ============================================================
+-- Bloqueio de conta inativa (pagamento pendente/cancelado) e exclusão
+-- automática após 90 dias — ver supabase/retention_migration.sql pro
+-- comentário completo e pro agendamento via pg_cron (que precisa da URL
+-- do projeto e de um secret preenchidos à mão, por isso não está aqui).
+alter table accounts add column if not exists inactive_since timestamptz;
+alter table accounts add column if not exists deletion_warning_15d_sent_at timestamptz;
+alter table accounts add column if not exists deletion_warning_3d_sent_at timestamptz;
+
+-- Redefine protect_account_sensitive_columns (declarada mais acima) pra
+-- também proteger essas 3 colunas novas, agora que já existem.
+create or replace function protect_account_sensitive_columns()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if auth.role() <> 'service_role' and not is_platform_owner() then
+    if new.plan_name is distinct from old.plan_name
+      or new.status is distinct from old.status
+      or new.condominio_limit is distinct from old.condominio_limit
+      or new.sub_usuario_limit is distinct from old.sub_usuario_limit
+      or new.role is distinct from old.role
+      or new.asaas_customer_id is distinct from old.asaas_customer_id
+      or new.inactive_since is distinct from old.inactive_since
+      or new.deletion_warning_15d_sent_at is distinct from old.deletion_warning_15d_sent_at
+      or new.deletion_warning_3d_sent_at is distinct from old.deletion_warning_3d_sent_at
+    then
+      raise exception 'Você não tem permissão para alterar esses campos da conta.' using errcode = '42501';
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
+create table if not exists account_deletions (
+  id              uuid primary key default gen_random_uuid(),
+  account_id      uuid not null,
+  email           text,
+  reason          text not null,
+  inactive_since  timestamptz,
+  deleted_at      timestamptz not null default now()
+);
+alter table account_deletions enable row level security;
+
+create or replace function is_account_active(target_account_id uuid)
+returns boolean language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1 from accounts
+    where id = target_account_id and (status = 'ativo' or role = 'owner')
+  );
+$$;
+
+create or replace function block_writes_when_inactive()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare
+  v_account_id uuid;
+begin
+  if auth.role() <> 'authenticated' then
+    if TG_OP = 'DELETE' then return old; end if;
+    return new;
+  end if;
+
+  v_account_id := coalesce(new.account_id, old.account_id);
+  if not is_account_active(v_account_id) then
+    raise exception 'Sua assinatura está inativa. Regularize o pagamento para voltar a gerenciar seus condomínios.' using errcode = 'CI002';
+  end if;
+
+  if TG_OP = 'DELETE' then return old; end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_block_inactive_condominios on condominios;
+create trigger trg_block_inactive_condominios
+  before insert or update or delete on condominios
+  for each row execute function block_writes_when_inactive();
+
+drop trigger if exists trg_block_inactive_ambientes on ambientes;
+create trigger trg_block_inactive_ambientes
+  before insert or update or delete on ambientes
+  for each row execute function block_writes_when_inactive();
+
+drop trigger if exists trg_block_inactive_checklist_items on checklist_items;
+create trigger trg_block_inactive_checklist_items
+  before insert or update or delete on checklist_items
+  for each row execute function block_writes_when_inactive();
+
+drop trigger if exists trg_block_inactive_sub_usuarios on sub_usuarios;
+create trigger trg_block_inactive_sub_usuarios
+  before insert or update or delete on sub_usuarios
+  for each row execute function block_writes_when_inactive();
+
+drop trigger if exists trg_block_inactive_execucoes on execucoes;
+create trigger trg_block_inactive_execucoes
+  before insert or update or delete on execucoes
+  for each row execute function block_writes_when_inactive();
+
+drop trigger if exists trg_block_inactive_ocorrencias on ocorrencias;
+create trigger trg_block_inactive_ocorrencias
+  before insert or update or delete on ocorrencias
+  for each row execute function block_writes_when_inactive();
+
+insert into storage.buckets (id, name, public)
+values ('data-backups', 'data-backups', false)
+on conflict (id) do nothing;

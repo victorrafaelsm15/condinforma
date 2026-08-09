@@ -34,16 +34,23 @@ create policy "accounts_update_own" on accounts
   using (id = auth.uid())
   with check (id = auth.uid());
 
+-- auth.role() <> 'service_role' é essencial aqui: sem essa isenção, o
+-- asaas-webhook (que atualiza plan_name/status/etc via service role
+-- depois de um pagamento) fica bloqueado pelo próprio trigger — bug real
+-- que já aconteceu, ver supabase/hotfix_accounts_trigger_service_role.sql.
 create or replace function protect_account_sensitive_columns()
 returns trigger language plpgsql security definer set search_path = public as $$
 begin
-  if not is_platform_owner() then
+  if auth.role() <> 'service_role' and not is_platform_owner() then
     if new.plan_name is distinct from old.plan_name
       or new.status is distinct from old.status
       or new.condominio_limit is distinct from old.condominio_limit
       or new.sub_usuario_limit is distinct from old.sub_usuario_limit
       or new.role is distinct from old.role
       or new.asaas_customer_id is distinct from old.asaas_customer_id
+      or new.inactive_since is distinct from old.inactive_since
+      or new.deletion_warning_15d_sent_at is distinct from old.deletion_warning_15d_sent_at
+      or new.deletion_warning_3d_sent_at is distinct from old.deletion_warning_3d_sent_at
     then
       raise exception 'Você não tem permissão para alterar esses campos da conta.' using errcode = '42501';
     end if;

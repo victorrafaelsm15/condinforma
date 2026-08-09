@@ -111,8 +111,10 @@ export default function OcorrenciaForm({
             variant="subtle"
             color="red"
             fullWidth
+            size="md"
             leftSection={<AlertTriangle size={15} />}
             onClick={() => setExpanded(true)}
+            style={{ minHeight: 44 }}
           >
             {triggerLabel}
           </Button>
@@ -127,7 +129,7 @@ export default function OcorrenciaForm({
             <Text size="xs" style={{ color: '#92620a' }} mb={10}>
               Ainda não confirmada pelo servidor. Será enviada automaticamente assim que a conexão voltar.
             </Text>
-            <Button size="xs" variant="light" onClick={handleRetryNow} loading={retrying}>
+            <Button size="sm" variant="light" onClick={handleRetryNow} loading={retrying} style={{ minHeight: 40 }}>
               Tentar enviar agora
             </Button>
           </div>
@@ -144,19 +146,24 @@ export default function OcorrenciaForm({
           {askReporterName && (
             <Group grow mb="sm" gap="sm">
               <TextInput
-                placeholder="Seu nome (opcional)"
+                label="Seu nome"
+                placeholder="Opcional"
                 value={reporterName}
                 onChange={(e) => setReporterName(e.currentTarget.value)}
+                styles={{ input: { minHeight: 44 } }}
               />
               <TextInput
-                placeholder="Unidade / Apto (opcional)"
+                label="Unidade / Apto"
+                placeholder="Opcional"
                 value={reporterUnidade}
                 onChange={(e) => setReporterUnidade(e.currentTarget.value)}
+                styles={{ input: { minHeight: 44 } }}
               />
             </Group>
           )}
           <Textarea
-            placeholder="Descreva o problema encontrado"
+            label="Descreva o problema encontrado"
+            placeholder="O que você viu?"
             value={description}
             onChange={(e) => setDescription(e.currentTarget.value)}
             minRows={3}
@@ -164,15 +171,23 @@ export default function OcorrenciaForm({
           />
           <FileButton onChange={async (f) => setPhoto(f ? await fileToBase64(f) : null)} accept="image/*">
             {(props) => (
-              <Button {...props} variant="light" leftSection={<Camera size={16} />} fullWidth mb="sm">
+              <Button
+                {...props}
+                variant="light"
+                leftSection={<Camera size={16} />}
+                fullWidth
+                mb="sm"
+                size="md"
+                aria-label={photo ? 'Foto anexada. Toque para trocar a foto' : 'Anexar foto, opcional'}
+              >
                 {photo ? 'Foto anexada ✓' : 'Anexar foto (opcional)'}
               </Button>
             )}
           </FileButton>
-          <Button fullWidth color="red" onClick={handleSend} loading={sending}>
+          <Button fullWidth color="red" size="md" onClick={handleSend} loading={sending} style={{ minHeight: 44 }}>
             Enviar ocorrência
           </Button>
-          {error && <Text size="sm" c="red" fw={600} mt={10} ta="center">{error}</Text>}
+          {error && <Text role="alert" size="sm" c="red" fw={600} mt={10} ta="center">{error}</Text>}
         </motion.div>
       )}
     </AnimatePresence>

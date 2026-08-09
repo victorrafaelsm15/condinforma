@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
-  Text, Checkbox, Button, TextInput, Textarea, Loader, FileButton, Group, Progress, Image as MantineImage,
+  Text, Checkbox, Button, TextInput, Textarea, Loader, FileButton, Group, Progress, Image as MantineImage, Badge,
 } from '@mantine/core';
 import { CheckCircle2, Camera, Building2, WifiOff, CloudUpload, AlertTriangle } from 'lucide-react';
 import { ambientesStore, checklistItemsStore, ocorrenciasStore } from '../lib/stores';
@@ -188,7 +188,7 @@ export default function ExecutarChecklistPage() {
           <Text size="sm" mt={12} style={{ color: '#92620a' }}>
             Sua execução ainda não foi confirmada pelo servidor. Ela será enviada automaticamente assim que a conexão voltar — você pode fechar o app com segurança, nada será perdido.
           </Text>
-          <Button mt="xl" variant="light" fullWidth onClick={handleRetryNow} loading={retrying}>
+          <Button mt="xl" variant="light" fullWidth size="md" onClick={handleRetryNow} loading={retrying} style={{ minHeight: 44 }}>
             Tentar enviar agora
           </Button>
         </motion.div>
@@ -225,7 +225,7 @@ export default function ExecutarChecklistPage() {
           ) : (
             <Text size="xs" c="dimmed" mt={10}>Registro livre enviado</Text>
           )}
-          <Button mt="xl" variant="light" fullWidth onClick={() => window.location.reload()}>Executar novamente</Button>
+          <Button mt="xl" variant="light" fullWidth size="md" onClick={() => window.location.reload()} style={{ minHeight: 44 }}>Executar novamente</Button>
         </motion.div>
       </div>
     );
@@ -242,10 +242,14 @@ export default function ExecutarChecklistPage() {
         </Group>
 
         {!isOnline && (
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', marginBottom: 16,
-            background: 'var(--amber-light)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 12,
-          }}>
+          <div
+            role="status"
+            aria-live="polite"
+            style={{
+              display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', marginBottom: 16,
+              background: 'var(--amber-light)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 12,
+            }}
+          >
             <WifiOff size={17} color="var(--amber)" style={{ flexShrink: 0 }} />
             <Text size="sm" fw={600} style={{ color: '#92620a' }}>
               Sem conexão agora. Você pode marcar as tarefas normalmente, mas a confirmação só é enviada quando a internet voltar.
@@ -263,7 +267,13 @@ export default function ExecutarChecklistPage() {
                 <Text size="xs" fw={700} c="dimmed">Progresso</Text>
                 <Text size="xs" fw={700} c={progressPct === 100 ? 'green' : 'dimmed'}>{completedCount}/{items.length}</Text>
               </Group>
-              <Progress value={progressPct} color={progressPct === 100 ? 'green' : 'brand'} radius="xl" size={8} />
+              <Progress
+                value={progressPct}
+                color={progressPct === 100 ? 'green' : 'brand'}
+                radius="xl"
+                size={8}
+                aria-label={`Progresso do checklist: ${completedCount} de ${items.length} tarefas concluídas`}
+              />
             </div>
           )}
         </div>
@@ -279,16 +289,29 @@ export default function ExecutarChecklistPage() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {pendingOcorrencias.map((o) => (
                 <div key={o.id} style={{ padding: 12, borderRadius: 10, background: 'var(--red-light)' }}>
+                  <Badge size="sm" color="red" variant="light" mb={6}>Pendente</Badge>
                   <Text size="sm">{o.description}</Text>
                   {reporterLabel(o) && <Text size="xs" c="dimmed" mt={4}>{reporterLabel(o)}</Text>}
-                  {o.photo && <MantineImage src={o.photo} radius="md" mt={8} h={120} w={120} fit="cover" />}
+                  {o.photo && (
+                    <MantineImage
+                      src={o.photo}
+                      alt={`Foto anexada à ocorrência: ${o.description}`}
+                      radius="md"
+                      mt={8}
+                      h={120}
+                      w={120}
+                      fit="cover"
+                    />
+                  )}
                   <Button
-                    size="xs"
+                    size="sm"
                     variant="light"
                     color="green"
                     mt={10}
                     onClick={() => handleResolveOcorrencia(o.id)}
                     loading={resolvingId === o.id}
+                    aria-label={`Marcar ocorrência "${o.description}" como resolvida`}
+                    style={{ minHeight: 40 }}
                   >
                     Marcar como resolvido
                   </Button>
@@ -299,22 +322,30 @@ export default function ExecutarChecklistPage() {
         )}
 
         <TextInput
-          placeholder="Seu nome (opcional)"
+          label="Seu nome"
+          placeholder="Opcional"
           value={executedBy}
           onChange={(e) => setExecutedBy(e.currentTarget.value)}
           mb="lg"
+          styles={{ input: { minHeight: 44 } }}
         />
 
         {items.length ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
             {items.map((item, i) => {
               const isDone = !!checked[item.id];
+              const inputId = `checklist-item-${item.id}`;
               return (
-                <div
+                // <label> nativo em vez de <div onClick> — clicar em
+                // qualquer parte da linha, tocar com a tela suja/luvas, ou
+                // navegar por Tab + Espaço no checkbox já funciona sozinho
+                // (associação label/input nativa do navegador), sem
+                // precisar de nenhum JS extra de teclado.
+                <label
                   key={item.id}
+                  htmlFor={inputId}
                   className={`surface-card checklist-row ${isDone ? 'checklist-row--done' : ''}`}
-                  style={{ padding: '14px 16px', cursor: 'pointer' }}
-                  onClick={() => toggleItem(item.id)}
+                  style={{ padding: '14px 16px', cursor: 'pointer', display: 'block' }}
                 >
                   <Group justify="space-between" wrap="nowrap">
                     <Group gap={12} wrap="nowrap">
@@ -329,9 +360,17 @@ export default function ExecutarChecklistPage() {
                         {item.task}
                       </Text>
                     </Group>
-                    <Checkbox checked={isDone} onChange={() => toggleItem(item.id)} onClick={(e) => e.stopPropagation()} color="green" />
+                    <Checkbox
+                      id={inputId}
+                      checked={isDone}
+                      onChange={() => toggleItem(item.id)}
+                      color="green"
+                      size="md"
+                      aria-label={item.task}
+                      styles={{ input: { cursor: 'pointer' } }}
+                    />
                   </Group>
-                </div>
+                </label>
               );
             })}
           </div>
@@ -340,7 +379,8 @@ export default function ExecutarChecklistPage() {
         )}
 
         <Textarea
-          placeholder="Observação / registro livre (opcional): descreva algo que fez ou notou, mesmo fora do checklist"
+          label="Observação / registro livre"
+          placeholder="Descreva algo que fez ou notou, mesmo fora do checklist (opcional)"
           value={freeTextNote}
           onChange={(e) => setFreeTextNote(e.currentTarget.value)}
           minRows={2}
@@ -349,7 +389,15 @@ export default function ExecutarChecklistPage() {
 
         <FileButton onChange={handlePhoto} accept="image/*">
           {(props) => (
-            <Button {...props} variant="light" leftSection={<Camera size={16} />} fullWidth mb="md">
+            <Button
+              {...props}
+              variant="light"
+              leftSection={<Camera size={16} />}
+              fullWidth
+              mb="md"
+              size="md"
+              aria-label={photo ? 'Foto anexada. Toque para trocar a foto' : 'Anexar foto, opcional'}
+            >
               {photo ? 'Foto anexada ✓' : 'Anexar foto (opcional)'}
             </Button>
           )}
@@ -361,12 +409,12 @@ export default function ExecutarChecklistPage() {
           onClick={handleSubmit}
           loading={submitting}
           className="btn-glow"
-          style={{ boxShadow: 'var(--shadow-brand)' }}
+          style={{ boxShadow: 'var(--shadow-brand)', minHeight: 48 }}
         >
           Confirmar execução
         </Button>
         {submitError && (
-          <Text size="sm" c="red" fw={600} mt={10} ta="center">{submitError}</Text>
+          <Text role="alert" size="sm" c="red" fw={600} mt={10} ta="center">{submitError}</Text>
         )}
 
         <div style={{ marginTop: 28, borderTop: '1px solid var(--border)', paddingTop: 20 }}>

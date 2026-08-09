@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
-import { Button, ActionIcon, Menu } from '@mantine/core';
+import { Button, ActionIcon, Menu, Text, Group, Loader } from '@mantine/core';
 import {
-  Settings, Building2, AlertTriangle, BarChart3, Users, Menu as MenuIcon, QrCode, UserPlus, History,
+  Settings, Building2, AlertTriangle, BarChart3, Users, Menu as MenuIcon, QrCode, UserPlus, History, Lock, LogOut,
 } from 'lucide-react';
 import { signOut, getSession } from '../lib/authService';
 import { accountsStore } from '../lib/stores';
@@ -38,6 +38,8 @@ export default function AdminLayout() {
   const location = useLocation();
   const [isOwner, setIsOwner] = useState(false);
   const [isSubUsuario, setIsSubUsuario] = useState(false);
+  const [blocked, setBlocked] = useState(false);
+  const [checkingAccess, setCheckingAccess] = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   // Estado retraído/expandido da sidebar de desktop, lembrado entre
@@ -60,13 +62,18 @@ export default function AdminLayout() {
   useEffect(() => {
     (async () => {
       const session = await getSession();
-      if (!session) return;
+      if (!session) { setCheckingAccess(false); return; }
       const subInfo = await getSubUsuarioInfo(session.user.id);
       setIsSubUsuario(!!subInfo);
-      if (!subInfo) {
-        const account = await accountsStore.getById(session.user.id);
-        setIsOwner(account?.role === 'owner');
-      }
+      // O bloqueio depende do status da conta PRINCIPAL, mesmo pra
+      // sub-usuário — o acesso dele é inteiramente derivado da assinatura
+      // de quem o convidou, então se ela está inativa, ele fica bloqueado
+      // igual, sem ter conta própria pra verificar.
+      const relevantAccountId = subInfo ? subInfo.account_id : session.user.id;
+      const account = await accountsStore.getById(relevantAccountId);
+      if (!subInfo) setIsOwner(account?.role === 'owner');
+      setBlocked(account?.role !== 'owner' && account?.status === 'inativo');
+      setCheckingAccess(false);
     })();
   }, []);
 
@@ -133,8 +140,41 @@ export default function AdminLayout() {
         </div>
       </header>
 
-      <PushPermissionBanner />
+      {!blocked && <PushPermissionBanner />}
 
+      {checkingAccess ? (
+        <Group justify="center" py={100}><Loader color="brand" /></Group>
+      ) : blocked ? (
+        <div style={{ maxWidth: 480, margin: '60px auto', padding: '0 20px' }}>
+          <div className="surface-card" style={{ padding: '40px 32px', textAlign: 'center' }}>
+            <div style={{
+              width: 64, height: 64, borderRadius: '50%', background: 'var(--amber-light)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px',
+            }}>
+              <Lock size={30} color="var(--amber)" />
+            </div>
+            <Text fw={800} size="lg">Assinatura inativa</Text>
+            <Text size="sm" c="dimmed" mt={10}>
+              Sua assinatura está inativa (pagamento pendente ou cancelada). O painel administrativo fica bloqueado
+              até a regularização, mas a execução de checklists e o registro de ocorrências pelo QR Code continuam
+              funcionando normalmente — nada do que já foi feito é perdido.
+            </Text>
+            <Button
+              component={Link}
+              to="/?scrollTo=planos"
+              mt="xl"
+              fullWidth
+              className="btn-glow"
+              style={{ boxShadow: 'var(--shadow-brand)' }}
+            >
+              Ver planos e regularizar
+            </Button>
+            <Button mt="sm" fullWidth variant="subtle" color="gray" leftSection={<LogOut size={15} />} onClick={handleLogout}>
+              Sair
+            </Button>
+          </div>
+        </div>
+      ) : (
       <div className="admin-body">
         {/* O "slot" reserva o espaço fixo (collapsed ou expanded, só via
             clique) no layout flex. A sidebar em si é sticky e pode ficar
@@ -176,6 +216,7 @@ export default function AdminLayout() {
           <Outlet />
         </main>
       </div>
+      )}
 
       <ConfiguracoesDrawer
         opened={settingsOpen}

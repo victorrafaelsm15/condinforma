@@ -84,6 +84,11 @@ Deno.serve(async (req: Request) => {
           sub_usuario_limit: SUB_USUARIO_LIMITS[planKey] ?? 0,
           status: 'ativo',
           asaas_customer_id: customerId,
+          // Volta a pagar: zera a contagem de inatividade e os avisos de
+          // exclusão já enviados — se cair de novo depois, começa do zero.
+          inactive_since: null,
+          deletion_warning_15d_sent_at: null,
+          deletion_warning_3d_sent_at: null,
           updated_at: new Date().toISOString(),
         }).eq('id', accountId);
         if (accError) console.error('Erro ao ativar plano na conta:', accError.message);
@@ -127,10 +132,18 @@ Deno.serve(async (req: Request) => {
       } else if (status === 'inativo') {
         // Mantém plan_name/condominio_limit intactos — se a pessoa
         // regularizar o pagamento depois, a configuração não se perde.
-        const { error: accError } = await supabaseAdmin.from('accounts').update({
-          status: 'inativo',
-          updated_at: new Date().toISOString(),
-        }).eq('id', accountId);
+        //
+        // inactive_since só é gravado na PRIMEIRA vez que a conta cai pra
+        // inativo — reentregas do mesmo evento (retry do Asaas) não podem
+        // reiniciar a contagem dos 90 dias até a exclusão automática
+        // (data-retention-sweep), senão uma conta inadimplente que nunca
+        // regulariza, mas cujo evento é reentregue de vez em quando, nunca
+        // acumularia os 90 dias.
+        const { data: beforeAccount } = await supabaseAdmin.from('accounts').select('inactive_since').eq('id', accountId).maybeSingle();
+        const update: Record<string, unknown> = { status: 'inativo', updated_at: new Date().toISOString() };
+        if (!beforeAccount?.inactive_since) update.inactive_since = new Date().toISOString();
+
+        const { error: accError } = await supabaseAdmin.from('accounts').update(update).eq('id', accountId);
         if (accError) console.error('Erro ao inativar conta:', accError.message);
       }
     }

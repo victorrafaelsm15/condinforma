@@ -289,6 +289,13 @@ img { max-width: 100%; display: block; }
   transition: background 0.2s var(--ease), border-color 0.2s var(--ease), transform 0.2s var(--ease);
 }
 .checklist-row:hover { border-color: var(--border-strong); }
+/* Foco pelo teclado (Tab até o checkbox nativo dentro do <label>) destaca
+   a linha inteira, não só o quadradinho do checkbox — mais fácil de achar
+   navegando só por teclado. */
+.checklist-row:focus-within {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
 .checklist-row--done {
   background: var(--green-light) !important;
   border-color: rgba(18, 183, 106, 0.28) !important;

@@ -458,3 +458,15 @@ enabled = true
 verify_jwt = false
 import_map = "./functions/notify-ocorrencia/deno.json"
 entrypoint = "./functions/notify-ocorrencia/index.ts"
+
+[functions.data-backup-export]
+enabled = true
+verify_jwt = false
+import_map = "./functions/data-backup-export/deno.json"
+entrypoint = "./functions/data-backup-export/index.ts"
+
+[functions.data-retention-sweep]
+enabled = true
+verify_jwt = false
+import_map = "./functions/data-retention-sweep/deno.json"
+entrypoint = "./functions/data-retention-sweep/index.ts"
