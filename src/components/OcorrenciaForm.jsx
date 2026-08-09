@@ -29,6 +29,7 @@ export default function OcorrenciaForm({
   const [expanded, setExpanded] = useState(false);
   const [description, setDescription] = useState('');
   const [reporterName, setReporterName] = useState('');
+  const [reporterUnidade, setReporterUnidade] = useState('');
   const [photo, setPhoto] = useState(null);
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
@@ -73,6 +74,7 @@ export default function OcorrenciaForm({
       status: 'pendente',
       reported_by_role: reportedByRole,
       reporter_name: askReporterName && reporterName.trim() ? reporterName.trim() : null,
+      reporter_unidade: askReporterName && reporterUnidade.trim() ? reporterUnidade.trim() : null,
     };
 
     setSending(true);
@@ -140,12 +142,18 @@ export default function OcorrenciaForm({
         <motion.div key="form" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
           <Text fw={700} size="sm" mb="sm">Registrar ocorrência</Text>
           {askReporterName && (
-            <TextInput
-              placeholder="Nome / Unidade (opcional)"
-              value={reporterName}
-              onChange={(e) => setReporterName(e.currentTarget.value)}
-              mb="sm"
-            />
+            <Group grow mb="sm" gap="sm">
+              <TextInput
+                placeholder="Seu nome (opcional)"
+                value={reporterName}
+                onChange={(e) => setReporterName(e.currentTarget.value)}
+              />
+              <TextInput
+                placeholder="Unidade / Apto (opcional)"
+                value={reporterUnidade}
+                onChange={(e) => setReporterUnidade(e.currentTarget.value)}
+              />
+            </Group>
           )}
           <Textarea
             placeholder="Descreva o problema encontrado"

@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Text, Checkbox, Button, TextInput, Textarea, Loader, FileButton, Group, Progress } from '@mantine/core';
-import { CheckCircle2, Camera, Building2, WifiOff, CloudUpload } from 'lucide-react';
-import { ambientesStore, checklistItemsStore } from '../lib/stores';
+import {
+  Text, Checkbox, Button, TextInput, Textarea, Loader, FileButton, Group, Progress, Image as MantineImage,
+} from '@mantine/core';
+import { CheckCircle2, Camera, Building2, WifiOff, CloudUpload, AlertTriangle } from 'lucide-react';
+import { ambientesStore, checklistItemsStore, ocorrenciasStore } from '../lib/stores';
 import { enqueue, syncQueue, isPending, subscribeQueue, generateRecordId } from '../lib/offlineQueue';
+import { reporterLabel } from '../lib/ocorrenciaDisplay';
 import OcorrenciaForm from '../components/OcorrenciaForm';
 
 function fileToBase64(file) {
@@ -32,6 +35,8 @@ export default function ExecutarChecklistPage() {
   const [pendingLocal, setPendingLocal] = useState(false);
   const [queuedRecordId, setQueuedRecordId] = useState(null);
   const [retrying, setRetrying] = useState(false);
+  const [pendingOcorrencias, setPendingOcorrencias] = useState([]);
+  const [resolvingId, setResolvingId] = useState(null);
 
   useEffect(() => {
     const goOnline = () => setIsOnline(true);
@@ -69,7 +74,28 @@ export default function ExecutarChecklistPage() {
       setItems(checklist.sort((a, b) => (a.order_index || 0) - (b.order_index || 0)));
       setLoading(false);
     });
+    loadPendingOcorrencias();
   }, [id]);
+
+  // O colaborador que vai executar o checklist é provavelmente quem vai
+  // resolver o problema fisicamente ali — sem isso ele só via a lista de
+  // tarefas, sem nenhum aviso de que já existe uma ocorrência aberta
+  // nesse mesmo ambiente.
+  const loadPendingOcorrencias = () => {
+    ocorrenciasStore.list({ ambiente_id: id, status: 'pendente' }).then(setPendingOcorrencias);
+  };
+
+  const handleResolveOcorrencia = async (ocorrenciaId) => {
+    setResolvingId(ocorrenciaId);
+    try {
+      await ocorrenciasStore.update(ocorrenciaId, { status: 'resolvido' });
+      setPendingOcorrencias((prev) => prev.filter((o) => o.id !== ocorrenciaId));
+    } catch {
+      // silencioso — o item continua na lista, a pessoa pode tentar de novo
+    } finally {
+      setResolvingId(null);
+    }
+  };
 
   const toggleItem = (itemId) => {
     setChecked((prev) => ({ ...prev, [itemId]: !prev[itemId] }));
@@ -241,6 +267,36 @@ export default function ExecutarChecklistPage() {
             </div>
           )}
         </div>
+
+        {!!pendingOcorrencias.length && (
+          <div className="surface-card" style={{ padding: 20, marginBottom: 18, borderColor: 'rgba(239,68,68,0.25)' }}>
+            <Group gap={8} mb={12}>
+              <AlertTriangle size={17} color="var(--red)" />
+              <Text fw={700} size="sm">
+                {pendingOcorrencias.length === 1 ? '1 ocorrência pendente neste ambiente' : `${pendingOcorrencias.length} ocorrências pendentes neste ambiente`}
+              </Text>
+            </Group>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {pendingOcorrencias.map((o) => (
+                <div key={o.id} style={{ padding: 12, borderRadius: 10, background: 'var(--red-light)' }}>
+                  <Text size="sm">{o.description}</Text>
+                  {reporterLabel(o) && <Text size="xs" c="dimmed" mt={4}>{reporterLabel(o)}</Text>}
+                  {o.photo && <MantineImage src={o.photo} radius="md" mt={8} h={120} w={120} fit="cover" />}
+                  <Button
+                    size="xs"
+                    variant="light"
+                    color="green"
+                    mt={10}
+                    onClick={() => handleResolveOcorrencia(o.id)}
+                    loading={resolvingId === o.id}
+                  >
+                    Marcar como resolvido
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <TextInput
           placeholder="Seu nome (opcional)"

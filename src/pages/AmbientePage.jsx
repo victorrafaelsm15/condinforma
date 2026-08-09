@@ -13,6 +13,7 @@ import { ambientesStore, checklistItemsStore, execucoesStore, ocorrenciasStore, 
 import AmbienteQrCards from '../components/admin/AmbienteQrCards';
 import { generateComunicadoPdf, downloadPdf, sharePdf } from '../lib/comunicado';
 import { logAudit } from '../lib/auditLog';
+import { reporterLabel } from '../lib/ocorrenciaDisplay';
 import ConfirmDeleteModal from '../components/common/ConfirmDeleteModal';
 
 function ChecklistTab({ ambienteId, accountId }) {
@@ -401,7 +402,10 @@ function OccurrencesTab({ ambienteId }) {
           <Group justify="space-between" align="flex-start">
             <div style={{ flex: 1 }}>
               <Text size="sm">{o.description}</Text>
-              <Text size="xs" c="dimmed" mt={4}>{new Date(o.created_at).toLocaleString('pt-BR')}</Text>
+              <Text size="xs" c="dimmed" mt={4}>
+                {new Date(o.created_at).toLocaleString('pt-BR')}
+                {reporterLabel(o) && ` · ${reporterLabel(o)}`}
+              </Text>
             </div>
             <Badge color={o.status === 'resolvido' ? 'green' : 'red'} variant="light">{o.status}</Badge>
           </Group>

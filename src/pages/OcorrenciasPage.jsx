@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Text, Group, Loader, Badge, Button, Image as MantineImage } from '@mantine/core';
 import { AlertTriangle } from 'lucide-react';
 import { ocorrenciasStore, ambientesStore, condominiosStore } from '../lib/stores';
+import { reporterLabel } from '../lib/ocorrenciaDisplay';
 
 export default function OcorrenciasPage() {
   const [list, setList] = useState([]);
@@ -56,7 +57,10 @@ export default function OcorrenciasPage() {
                 <div style={{ flex: 1 }}>
                   <Text size="sm" c="dimmed" fw={600}>{o.condominioName}, {o.ambienteName}</Text>
                   <Text size="md" mt={4}>{o.description}</Text>
-                  <Text size="sm" c="dimmed" mt={4}>{new Date(o.created_at).toLocaleString('pt-BR')}</Text>
+                  <Text size="sm" c="dimmed" mt={4}>
+                    {new Date(o.created_at).toLocaleString('pt-BR')}
+                    {reporterLabel(o) && ` · ${reporterLabel(o)}`}
+                  </Text>
                 </div>
                 <Badge color={o.status === 'resolvido' ? 'green' : 'red'} variant="light">{o.status}</Badge>
               </Group>

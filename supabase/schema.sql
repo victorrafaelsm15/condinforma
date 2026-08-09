@@ -66,6 +66,7 @@ create table if not exists ocorrencias (
   status            text not null default 'pendente',
   reported_by_role  text check (reported_by_role is null or reported_by_role in ('colaborador', 'morador')),
   reporter_name     text,
+  reporter_unidade  text,
   created_at        timestamptz not null default now()
 );
 create index if not exists ocorrencias_ambiente_id_idx on ocorrencias(ambiente_id);
@@ -111,6 +112,41 @@ create policy "ocorrencias_owner_all" on ocorrencias
   using (account_id = auth.uid()) with check (account_id = auth.uid());
 create policy "ocorrencias_public_insert" on ocorrencias
   for insert to anon with check (true);
+create policy "ocorrencias_public_select" on ocorrencias
+  for select to anon using (true);
+
+-- UPDATE público restrito por trigger — ver comentário completo em
+-- ocorrencias_reporter_migration.sql. Sem o trigger, "using(true) with
+-- check(true)" deixaria qualquer visitante reescrever qualquer campo de
+-- qualquer ocorrência, não só marcar a que ele está vendo como resolvida.
+create policy "ocorrencias_public_update" on ocorrencias
+  for update to anon using (true) with check (true);
+
+create or replace function protect_ocorrencia_public_update()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if auth.role() = 'anon' then
+    if new.status is distinct from 'resolvido'
+      or new.description is distinct from old.description
+      or new.photo is distinct from old.photo
+      or new.account_id is distinct from old.account_id
+      or new.ambiente_id is distinct from old.ambiente_id
+      or new.reported_by_role is distinct from old.reported_by_role
+      or new.reporter_name is distinct from old.reporter_name
+      or new.reporter_unidade is distinct from old.reporter_unidade
+      or new.created_at is distinct from old.created_at
+    then
+      raise exception 'Só é permitido marcar a ocorrência como resolvida.' using errcode = '42501';
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_protect_ocorrencia_public_update on ocorrencias;
+create trigger trg_protect_ocorrencia_public_update
+  before update on ocorrencias
+  for each row execute function protect_ocorrencia_public_update();
 
 -- ============================================================
 -- Limites de uso por plano — ver comentário completo em
