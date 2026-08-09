@@ -14,7 +14,7 @@ const PLAN_LABELS = { start: 'Start', pro: 'Pro', business: 'Business' };
 
 function getBlockedMessage(account, condominiosCount) {
   if (!account) return '';
-  if (account.role === 'owner') return ''; // conta dona da plataforma: sem limite
+  if (account.role === 'owner' || account.bypass_limits) return ''; // conta dona da plataforma ou com isenção individual: sem limite
   if (account.status === 'inativo') {
     return 'Sua assinatura está inativa (pagamento pendente). Regularize o pagamento para voltar a cadastrar condomínios.';
   }
@@ -34,7 +34,7 @@ function getBlockedMessage(account, condominiosCount) {
 // novo (ex.: excluir um condomínio) ou já estiver bloqueada (nesse caso
 // getBlockedMessage acima já cobre o aviso).
 function getNearLimitMessage(account, condominiosCount) {
-  if (!account || account.role === 'owner') return '';
+  if (!account || account.role === 'owner' || account.bypass_limits) return '';
   if (account.status !== 'ativo') return '';
   const limit = account.condominio_limit || 0;
   if (limit <= 0 || condominiosCount >= limit) return '';

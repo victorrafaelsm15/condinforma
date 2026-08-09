@@ -72,7 +72,7 @@ export default function AdminLayout() {
       const relevantAccountId = subInfo ? subInfo.account_id : session.user.id;
       const account = await accountsStore.getById(relevantAccountId);
       if (!subInfo) setIsOwner(account?.role === 'owner');
-      setBlocked(account?.role !== 'owner' && account?.status === 'inativo');
+      setBlocked(account?.role !== 'owner' && !account?.bypass_limits && account?.status === 'inativo');
       setCheckingAccess(false);
     })();
   }, []);

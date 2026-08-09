@@ -48,13 +48,13 @@ export default function SubUsuariosSection() {
   useEffect(() => { load(); }, []);
 
   const limit = account?.sub_usuario_limit || 0;
-  const isOwner = account?.role === 'owner';
-  const atLimit = !isOwner && subUsuarios.length >= limit;
+  const unlimitedAccess = account?.role === 'owner' || !!account?.bypass_limits;
+  const atLimit = !unlimitedAccess && subUsuarios.length >= limit;
   // Aviso preventivo: falta exatamente 1 sub-usuário pra bater o limite do
   // plano — não bloqueia nada, só avisa. Some sozinho se atLimit já
   // cobrir (bloqueado) ou se a conta se afastar do limite (ex.: remover
   // um sub-usuário).
-  const nearLimit = !isOwner && !atLimit && limit > 0 && limit - subUsuarios.length === 1;
+  const nearLimit = !unlimitedAccess && !atLimit && limit > 0 && limit - subUsuarios.length === 1;
   const condoOptions = condominios.map((c) => ({ value: c.id, label: c.name }));
 
   const openCreate = () => {
@@ -129,7 +129,7 @@ export default function SubUsuariosSection() {
       </Group>
 
       <Text size="sm" c="dimmed" mb={12}>
-        {isOwner ? 'Conta sem limite de sub-usuários.' : `${subUsuarios.length} de ${limit} sub-usuário(s) do plano${account?.plan_name ? ` ${PLAN_LABELS[account.plan_name] || account.plan_name}` : ''}.`}
+        {unlimitedAccess ? 'Conta sem limite de sub-usuários.' : `${subUsuarios.length} de ${limit} sub-usuário(s) do plano${account?.plan_name ? ` ${PLAN_LABELS[account.plan_name] || account.plan_name}` : ''}.`}
       </Text>
 
       {atLimit && (

@@ -162,6 +162,7 @@ create table if not exists accounts (
   role                  text not null default 'customer' check (role in ('customer', 'owner')),
   asaas_customer_id     text,
   onboarding_completed  boolean not null default false,
+  bypass_limits         boolean not null default false,
   created_at            timestamptz not null default now(),
   updated_at            timestamptz not null default now()
 );
@@ -211,6 +212,7 @@ begin
       or new.sub_usuario_limit is distinct from old.sub_usuario_limit
       or new.role is distinct from old.role
       or new.asaas_customer_id is distinct from old.asaas_customer_id
+      or new.bypass_limits is distinct from old.bypass_limits
     then
       raise exception 'Você não tem permissão para alterar esses campos da conta.' using errcode = '42501';
     end if;
@@ -231,10 +233,12 @@ declare
   v_status text;
   v_limit  integer;
   v_count  integer;
+  v_bypass boolean;
 begin
-  select role, status, condominio_limit into v_role, v_status, v_limit from accounts where id = new.account_id;
-  -- Conta dona da plataforma: acesso ilimitado, sem depender de assinatura.
-  if v_role = 'owner' then
+  select role, status, condominio_limit, bypass_limits into v_role, v_status, v_limit, v_bypass from accounts where id = new.account_id;
+  -- Conta dona da plataforma ou com isenção individual de limite: acesso
+  -- ilimitado, sem depender de assinatura.
+  if v_role = 'owner' or v_bypass then
     return new;
   end if;
   if v_status is null or v_status <> 'ativo' then
@@ -327,12 +331,13 @@ create policy "sub_usuario_condominios_self_select" on sub_usuario_condominios
 create or replace function check_subusuario_limit()
 returns trigger language plpgsql security definer set search_path = public as $$
 declare
-  v_role  text;
-  v_limit integer;
-  v_count integer;
+  v_role   text;
+  v_limit  integer;
+  v_count  integer;
+  v_bypass boolean;
 begin
-  select role, sub_usuario_limit into v_role, v_limit from accounts where id = new.account_id;
-  if v_role = 'owner' then
+  select role, sub_usuario_limit, bypass_limits into v_role, v_limit, v_bypass from accounts where id = new.account_id;
+  if v_role = 'owner' or v_bypass then
     return new;
   end if;
   select count(*) into v_count from sub_usuarios where account_id = new.account_id;
@@ -533,6 +538,7 @@ begin
       or new.inactive_since is distinct from old.inactive_since
       or new.deletion_warning_15d_sent_at is distinct from old.deletion_warning_15d_sent_at
       or new.deletion_warning_3d_sent_at is distinct from old.deletion_warning_3d_sent_at
+      or new.bypass_limits is distinct from old.bypass_limits
     then
       raise exception 'Você não tem permissão para alterar esses campos da conta.' using errcode = '42501';
     end if;
@@ -555,7 +561,7 @@ create or replace function is_account_active(target_account_id uuid)
 returns boolean language sql stable security definer set search_path = public as $$
   select exists (
     select 1 from accounts
-    where id = target_account_id and (status = 'ativo' or role = 'owner')
+    where id = target_account_id and (status = 'ativo' or role = 'owner' or bypass_limits)
   );
 $$;
 
