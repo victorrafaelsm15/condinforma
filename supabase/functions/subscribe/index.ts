@@ -20,16 +20,7 @@ import { findOrCreateCustomer, createSubscription, getFirstPayment, getPixQrCode
 import { corsHeaders, jsonResponse } from '../_shared/cors.ts';
 import { PLAN_PRICES } from '../_shared/plans.ts';
 import { validateAndApplyCoupon, incrementCouponUsage } from '../_shared/cupons.ts';
-
-const VALID_BILLING_TYPES = new Set(['PIX', 'CREDIT_CARD', 'BOLETO']);
-
-function isValidEmail(email: string | undefined): boolean {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email || '');
-}
-
-function onlyDigits(value: string | undefined | null): string {
-  return String(value || '').replace(/\D/g, '');
-}
+import { validateSubscribeInput, onlyDigits } from '../_shared/subscribeValidation.ts';
 
 const supabaseAdmin = createClient(
   Deno.env.get('SUPABASE_URL') ?? '',
@@ -61,33 +52,20 @@ Deno.serve(async (req: Request) => {
     planName, name, email, cpfCnpj, phone, billingType, couponCode, creditCard, cep, addressNumber,
   } = await req.json().catch(() => ({}));
 
-  const price = PLAN_PRICES[planName];
-  if (!price) return jsonResponse({ error: 'Plano inválido.' }, 400);
-  if (!name?.trim()) return jsonResponse({ error: 'Informe seu nome.' }, 400);
-  if (!isValidEmail(email)) return jsonResponse({ error: 'Informe um e-mail válido.' }, 400);
+  const validation = validateSubscribeInput(
+    { planName, name, email, cpfCnpj, phone, billingType, cep, addressNumber, creditCard },
+    PLAN_PRICES,
+  );
+  if (!validation.ok) return jsonResponse({ error: validation.error }, 400);
 
+  const price = PLAN_PRICES[planName];
   const cleanCpfCnpj = onlyDigits(cpfCnpj);
-  if (cleanCpfCnpj.length !== 11 && cleanCpfCnpj.length !== 14) {
-    return jsonResponse({ error: 'Informe um CPF (11 dígitos) ou CNPJ (14 dígitos) válido.' }, 400);
-  }
   const cleanPhone = onlyDigits(phone);
-  if (cleanPhone.length < 10) {
-    return jsonResponse({ error: 'Informe um telefone válido com DDD.' }, 400);
-  }
-  if (!VALID_BILLING_TYPES.has(billingType)) {
-    return jsonResponse({ error: 'Escolha uma forma de pagamento.' }, 400);
-  }
 
   let creditCardPayload;
   let creditCardHolderInfoPayload;
   if (billingType === 'CREDIT_CARD') {
     const cleanCep = onlyDigits(cep);
-    if (!creditCard?.number || !creditCard?.holderName || !creditCard?.expiryMonth || !creditCard?.expiryYear || !creditCard?.ccv) {
-      return jsonResponse({ error: 'Preencha todos os dados do cartão.' }, 400);
-    }
-    if (cleanCep.length !== 8 || !addressNumber?.trim()) {
-      return jsonResponse({ error: 'Informe o CEP e o número do endereço de cobrança.' }, 400);
-    }
     creditCardPayload = {
       holderName: creditCard.holderName,
       number: onlyDigits(creditCard.number),

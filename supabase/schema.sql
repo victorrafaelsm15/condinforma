@@ -382,3 +382,35 @@ create policy "cupons_platform_owner_all" on cupons
   for all to authenticated
   using (is_platform_owner())
   with check (is_platform_owner());
+
+-- ============================================================
+-- Trilha de auditoria de ações administrativas — ver
+-- supabase/audit_log_migration.sql pro comentário completo.
+create table if not exists audit_log (
+  id            uuid primary key default gen_random_uuid(),
+  account_id    uuid not null references auth.users(id) on delete cascade,
+  auth_user_id  uuid references auth.users(id) on delete set null,
+  action        text not null,
+  entity_type   text,
+  entity_id     text,
+  details       jsonb,
+  created_at    timestamptz not null default now()
+);
+create index if not exists audit_log_account_id_idx on audit_log(account_id, created_at desc);
+
+alter table audit_log enable row level security;
+
+create policy "audit_log_owner_select" on audit_log
+  for select to authenticated
+  using (account_id = auth.uid());
+
+create policy "audit_log_insert" on audit_log
+  for insert to authenticated
+  with check (
+    account_id = auth.uid()
+    or exists (
+      select 1 from sub_usuarios su
+      where su.auth_user_id = auth.uid() and su.account_id = audit_log.account_id
+    )
+    or is_platform_owner()
+  );

@@ -12,18 +12,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 import { corsHeaders, jsonResponse } from '../_shared/cors.ts';
 import { PLAN_LIMITS, SUB_USUARIO_LIMITS } from '../_shared/plans.ts';
 import { cancelSubscription } from '../_shared/asaas.ts';
-
-// Eventos que fazem a assinatura contar como "em dia".
-const ACTIVE_EVENTS = new Set(['PAYMENT_CONFIRMED', 'PAYMENT_RECEIVED']);
-// Eventos que derrubam o acesso do assinante.
-const INACTIVE_EVENTS = new Set([
-  'PAYMENT_OVERDUE',
-  'PAYMENT_DELETED',
-  'PAYMENT_REFUNDED',
-  'PAYMENT_REFUND_REQUESTED',
-  'SUBSCRIPTION_DELETED',
-  'SUBSCRIPTION_INACTIVATED',
-]);
+import { resolveStatusFromEvent, parseExternalReference, shouldLogPlanChange } from '../_shared/webhookLogic.ts';
 
 const supabaseAdmin = createClient(
   Deno.env.get('SUPABASE_URL') ?? '',
@@ -51,24 +40,12 @@ Deno.serve(async (req: Request) => {
     return jsonResponse({ received: true });
   }
 
-  let status: string | null = null;
-  if (ACTIVE_EVENTS.has(event)) status = 'ativo';
-  else if (INACTIVE_EVENTS.has(event)) status = 'inativo';
+  const status = resolveStatusFromEvent(event);
 
   const subscriptionId = payment.subscription;
   const customerId = payment.customer;
 
-  // externalReference foi gravado no formato "account_id:planName" na
-  // criação da assinatura (ver subscribe/index.ts) — é o único jeito do
-  // webhook, que só recebe dados do Asaas, saber qual conta liberar.
-  const externalRef: string | undefined = payment.externalReference;
-  let accountId: string | null = null;
-  let planKey: string | null = null;
-  if (externalRef?.includes(':')) {
-    const sep = externalRef.indexOf(':');
-    accountId = externalRef.slice(0, sep);
-    planKey = externalRef.slice(sep + 1).toLowerCase();
-  }
+  const { accountId, planKey } = parseExternalReference(payment.externalReference);
 
   try {
     if (subscriptionId) {
@@ -94,6 +71,13 @@ Deno.serve(async (req: Request) => {
     // libera/bloqueia o uso real do app, via o trigger de condominios.
     if (accountId) {
       if (status === 'ativo' && planKey && PLAN_LIMITS[planKey] != null) {
+        // Lê o plano ANTES de atualizar, só pra saber se isso é uma troca de
+        // verdade (loga auditoria) ou uma reconfirmação do mesmo evento que
+        // o Asaas já mandou antes (retry) — idempotente: entrega duplicada
+        // não deve gerar entrada duplicada no histórico.
+        const { data: beforeAccount } = await supabaseAdmin.from('accounts').select('plan_name').eq('id', accountId).maybeSingle();
+        const previousPlan = beforeAccount?.plan_name ?? null;
+
         const { error: accError } = await supabaseAdmin.from('accounts').update({
           plan_name: planKey,
           condominio_limit: PLAN_LIMITS[planKey],
@@ -103,6 +87,17 @@ Deno.serve(async (req: Request) => {
           updated_at: new Date().toISOString(),
         }).eq('id', accountId);
         if (accError) console.error('Erro ao ativar plano na conta:', accError.message);
+        else if (shouldLogPlanChange(previousPlan, planKey)) {
+          const { error: auditError } = await supabaseAdmin.from('audit_log').insert({
+            account_id: accountId,
+            auth_user_id: null,
+            action: 'plano.alterado',
+            entity_type: 'account',
+            entity_id: accountId,
+            details: { antes: previousPlan, depois: planKey, evento: event },
+          });
+          if (auditError) console.error('Erro ao gravar auditoria de troca de plano:', auditError.message);
+        }
 
         // Troca de plano (upgrade/downgrade): a conta só deve ter UMA
         // assinatura cobrando por vez. Cancela no Asaas qualquer outra

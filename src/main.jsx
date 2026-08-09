@@ -14,6 +14,7 @@ import ErrorBoundary from './components/ErrorBoundary.jsx';
 import MissingEnvScreen from './components/MissingEnvScreen.jsx';
 import { registerSW } from 'virtual:pwa-register';
 import { checkInstallLaunchRedirect } from './lib/installPrompt';
+import { initAutoSync } from './lib/offlineQueue';
 
 const root = createRoot(document.getElementById('root'));
 
@@ -33,6 +34,13 @@ if (missingVars.length) {
   if ('serviceWorker' in navigator) {
     registerSW({ immediate: true });
   }
+
+  // Sincroniza a fila offline de execuções/ocorrências pendentes assim que
+  // o app abre — cobre o caso do colaborador confirmar sem sinal, fechar o
+  // app, e só voltar a ter conexão bem depois (Background Sync real é
+  // registrado por item em offlineQueue.enqueue(), isto aqui é o fallback
+  // que funciona mesmo em navegadores sem suporte a Background Sync).
+  initAutoSync();
 
   // Antes do HashRouter ler a URL: se o ícone instalado veio do botão da
   // página de login, já troca o hash pra lá — a landing page nunca renderiza.

@@ -5,6 +5,7 @@ import { Plus, DoorOpen, ChevronRight, Clock, LayoutGrid, ArrowLeft, Pencil, Lay
 import { condominiosStore, ambientesStore, execucoesStore } from '../lib/stores';
 import { getSession } from '../lib/authService';
 import { getSubUsuarioInfo } from '../lib/subUsuario';
+import { logAudit } from '../lib/auditLog';
 
 export default function CondominioPage() {
   const { id } = useParams();
@@ -51,7 +52,8 @@ export default function CondominioPage() {
     // account_id copiado explicitamente do condomínio (não da sessão): quem
     // está criando pode ser um sub-usuário, cujo próprio account_id não é
     // o dono real do condomínio.
-    await ambientesStore.create({ condominio_id: id, name: newName.trim(), account_id: condominio.account_id });
+    const created = await ambientesStore.create({ condominio_id: id, name: newName.trim(), account_id: condominio.account_id });
+    logAudit({ action: 'ambiente.criado', entityType: 'ambiente', entityId: created.id, details: { name: created.name, condominio: condominio.name } });
     setNewName('');
     setModalOpen(false);
     setSaving(false);
@@ -66,7 +68,9 @@ export default function CondominioPage() {
   const handleSaveCondoEdit = async () => {
     if (!editCondoName.trim()) return;
     setSavingCondoEdit(true);
+    const oldName = condominio.name;
     await condominiosStore.update(id, { name: editCondoName.trim() });
+    logAudit({ action: 'condominio.editado', entityType: 'condominio', entityId: id, details: { antes: oldName, depois: editCondoName.trim() } });
     setSavingCondoEdit(false);
     setEditCondoOpen(false);
     load();

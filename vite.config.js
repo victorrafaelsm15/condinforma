@@ -19,6 +19,13 @@ export default defineConfig(({ mode }) => {
       react(),
       VitePWA({
         registerType: 'autoUpdate',
+        // injectManifest (em vez de generateSW): precisa de um service
+        // worker escrito à mão (src/sw.js) pra poder ouvir o evento "sync"
+        // da Background Sync API, usado pela fila offline de execuções/
+        // ocorrências — o modo generateSW anterior não permite isso.
+        strategies: 'injectManifest',
+        srcDir: 'src',
+        filename: 'sw.js',
         includeAssets: ['favicon.svg', 'icons.svg', 'apple-touch-icon.png'],
         manifest: {
           name: 'Cond-Informa',
@@ -37,41 +44,23 @@ export default defineConfig(({ mode }) => {
             { src: 'pwa-maskable-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
           ],
         },
-        workbox: {
-          // App shell (JS/CSS/ícones/HTML) é pré-cacheado no build e servido
-          // direto do cache (cache-first) — é o comportamento padrão do
-          // Workbox pra assets do precache manifest.
+        // Precache do app shell e o resto do runtime caching (Supabase
+        // network-first, Google Fonts cache-first) ficam escritos à mão em
+        // src/sw.js — só o glob do que entra no precache manifest continua
+        // configurado aqui.
+        injectManifest: {
           globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
-          navigateFallback: `${base}index.html`,
-          runtimeCaching: [
-            {
-              // Chamadas ao Supabase (dados de condomínios/ambientes/checklists/
-              // execuções): tenta a rede primeiro (dado tem que estar
-              // atualizado quando há conexão), com fallback pro cache se
-              // ficar offline ou a rede demorar demais.
-              urlPattern: ({ url }) => url.hostname.endsWith('.supabase.co'),
-              handler: 'NetworkFirst',
-              options: {
-                cacheName: 'supabase-data',
-                networkTimeoutSeconds: 6,
-                expiration: { maxEntries: 200, maxAgeSeconds: 60 * 60 * 24 * 3 },
-                cacheableResponse: { statuses: [0, 200] },
-              },
-            },
-            {
-              // Fontes do Google Fonts usadas no design.
-              urlPattern: ({ url }) => url.hostname === 'fonts.googleapis.com' || url.hostname === 'fonts.gstatic.com',
-              handler: 'CacheFirst',
-              options: {
-                cacheName: 'google-fonts',
-                expiration: { maxEntries: 20, maxAgeSeconds: 60 * 60 * 24 * 365 },
-                cacheableResponse: { statuses: [0, 200] },
-              },
-            },
-          ],
+          // vite-plugin-pwa SEMPRE registra o service worker de produção
+          // como script clássico (não módulo), mesmo com injectManifest —
+          // "es" (o default) deixa `import.meta` sobrando no bundle, que é
+          // sintaxe inválida fora de um módulo e quebra o registro
+          // silenciosamente (ServiceWorker script evaluation failed).
+          // "iife" faz o Rollup substituir isso por um shim compatível.
+          rollupFormat: 'iife',
         },
         devOptions: {
           enabled: false,
+          type: 'module',
         },
       }),
     ],

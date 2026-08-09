@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Text, Checkbox, Button, TextInput, Textarea, Loader, FileButton, Group, Progress } from '@mantine/core';
-import { CheckCircle2, Camera, Building2, WifiOff } from 'lucide-react';
-import { ambientesStore, checklistItemsStore, execucoesStore } from '../lib/stores';
+import { CheckCircle2, Camera, Building2, WifiOff, CloudUpload } from 'lucide-react';
+import { ambientesStore, checklistItemsStore } from '../lib/stores';
+import { enqueue, syncQueue, isPending, subscribeQueue, generateRecordId } from '../lib/offlineQueue';
 import OcorrenciaForm from '../components/OcorrenciaForm';
 
 function fileToBase64(file) {
@@ -28,6 +29,9 @@ export default function ExecutarChecklistPage() {
   const [submitError, setSubmitError] = useState('');
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [freeTextNote, setFreeTextNote] = useState('');
+  const [pendingLocal, setPendingLocal] = useState(false);
+  const [queuedRecordId, setQueuedRecordId] = useState(null);
+  const [retrying, setRetrying] = useState(false);
 
   useEffect(() => {
     const goOnline = () => setIsOnline(true);
@@ -39,6 +43,22 @@ export default function ExecutarChecklistPage() {
       window.removeEventListener('offline', goOffline);
     };
   }, []);
+
+  // Enquanto a execução ficar "pendente de envio" na fila local, escuta
+  // qualquer sincronização (evento online, intervalo periódico, Background
+  // Sync do service worker) pra saber assim que o servidor confirmar de
+  // verdade, mesmo que o colaborador continue com a página aberta.
+  useEffect(() => {
+    if (!queuedRecordId) return undefined;
+    const unsubscribe = subscribeQueue(async () => {
+      const stillPending = await isPending(queuedRecordId);
+      if (!stillPending) {
+        setPendingLocal(false);
+        setDone(true);
+      }
+    });
+    return unsubscribe;
+  }, [queuedRecordId]);
 
   useEffect(() => {
     Promise.all([
@@ -67,41 +87,88 @@ export default function ExecutarChecklistPage() {
   const handleSubmit = async () => {
     setSubmitError('');
 
-    // O checklistItemsStore (createStore.js) cai silenciosamente pra
-    // localStorage se a chamada ao Supabase falhar — ótimo pra quando o
-    // Supabase não está configurado, mas ruim aqui: sem internet, o
-    // colaborador veria "concluído" mesmo sem a execução chegar no painel
-    // do gestor. Por isso checamos a conexão ANTES de tentar, sem perder
-    // nada do que já foi preenchido.
-    if (!navigator.onLine) {
-      setSubmitError('Sem conexão com a internet. Suas respostas continuam preenchidas. Tente confirmar de novo assim que o sinal voltar.');
-      return;
-    }
+    // Salva na fila local (IndexedDB) ANTES de tentar enviar — é o que
+    // garante que a execução não se perde se o colaborador confirmar numa
+    // área sem sinal (elevador, subsolo, garagem) e a conexão cair na hora
+    // do envio. O createStore.js genérico não serve aqui: ele cai
+    // silenciosamente pro localStorage em qualquer erro de rede e devolve
+    // um "sucesso" fake que nunca chega no painel do gestor.
+    const record = {
+      id: generateRecordId(),
+      created_at: new Date().toISOString(),
+      ambiente_id: id,
+      // Sem sessão logada nesta página pública — o dono do registro é
+      // copiado do próprio ambiente, não detectado por auth.
+      account_id: ambiente.account_id,
+      executed_by: executedBy || 'Colaborador',
+      completed_count: completedCount,
+      total_count: items.length,
+      items: items.map((i) => ({ task: i.task, done: !!checked[i.id] })),
+      photo,
+      free_text_note: freeTextNote.trim() || null,
+    };
 
     setSubmitting(true);
     try {
-      await execucoesStore.create({
-        ambiente_id: id,
-        // Sem sessão logada nesta página pública — o dono do registro é
-        // copiado do próprio ambiente, não detectado por auth.
-        account_id: ambiente.account_id,
-        executed_by: executedBy || 'Colaborador',
-        completed_count: completedCount,
-        total_count: items.length,
-        items: items.map((i) => ({ task: i.task, done: !!checked[i.id] })),
-        photo,
-        free_text_note: freeTextNote.trim() || null,
-      });
-      setDone(true);
+      await enqueue('execucao', record);
+      setQueuedRecordId(record.id);
+      await syncQueue();
+      const stillPending = await isPending(record.id);
+      if (stillPending) setPendingLocal(true);
+      else setDone(true);
     } catch {
-      setSubmitError('Não foi possível confirmar agora. Suas respostas continuam preenchidas. Tente novamente em instantes.');
+      setSubmitError('Não foi possível salvar sua execução neste dispositivo. Tente confirmar novamente.');
     } finally {
       setSubmitting(false);
     }
   };
 
+  const handleRetryNow = async () => {
+    setRetrying(true);
+    await syncQueue();
+    const stillPending = queuedRecordId ? await isPending(queuedRecordId) : false;
+    if (!stillPending) {
+      setPendingLocal(false);
+      setDone(true);
+    }
+    setRetrying(false);
+  };
+
   if (loading) return <Group justify="center" py={80}><Loader color="brand" /></Group>;
   if (!ambiente) return <Text ta="center" py={80}>Ambiente não encontrado.</Text>;
+
+  // Salvo localmente mas ainda NÃO confirmado pelo servidor — de propósito
+  // não usa o mesmo visual de sucesso da tela "done" abaixo, pra não
+  // sugerir que já chegou no painel do gestor quando na verdade só está
+  // guardado neste aparelho, esperando a conexão voltar.
+  if (pendingLocal) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)' }}>
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+          className="surface-card"
+          style={{ maxWidth: 400, margin: '0 20px', padding: '48px 32px', textAlign: 'center' }}
+        >
+          <div style={{
+            width: 76, height: 76, borderRadius: '50%', background: 'var(--amber-light)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px',
+          }}>
+            <CloudUpload size={38} color="var(--amber)" />
+          </div>
+          <Text fw={800} size="lg">Salvo neste dispositivo</Text>
+          <Text c="dimmed" size="sm" mt={4}>{ambiente.name}</Text>
+          <Text size="sm" mt={12} style={{ color: '#92620a' }}>
+            Sua execução ainda não foi confirmada pelo servidor. Ela será enviada automaticamente assim que a conexão voltar — você pode fechar o app com segurança, nada será perdido.
+          </Text>
+          <Button mt="xl" variant="light" fullWidth onClick={handleRetryNow} loading={retrying}>
+            Tentar enviar agora
+          </Button>
+        </motion.div>
+      </div>
+    );
+  }
 
   if (done) {
     return (

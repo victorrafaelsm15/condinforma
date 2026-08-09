@@ -12,6 +12,7 @@ import {
 import { ambientesStore, checklistItemsStore, execucoesStore, ocorrenciasStore, condominiosStore } from '../lib/stores';
 import AmbienteQrCards from '../components/admin/AmbienteQrCards';
 import { generateComunicadoPdf, downloadPdf, sharePdf } from '../lib/comunicado';
+import { logAudit } from '../lib/auditLog';
 import ConfirmDeleteModal from '../components/common/ConfirmDeleteModal';
 
 function ChecklistTab({ ambienteId, accountId }) {
@@ -34,13 +35,15 @@ function ChecklistTab({ ambienteId, accountId }) {
     if (!newTask.trim()) return;
     // account_id copiado do ambiente (não da sessão) — quem cria pode ser
     // um sub-usuário, cujo próprio account_id não é o dono real do ambiente.
-    await checklistItemsStore.create({ ambiente_id: ambienteId, task: newTask.trim(), order_index: items.length, account_id: accountId });
+    const created = await checklistItemsStore.create({ ambiente_id: ambienteId, task: newTask.trim(), order_index: items.length, account_id: accountId });
+    logAudit({ action: 'checklist.item_criado', entityType: 'checklist_item', entityId: created.id, details: { task: created.task } });
     setNewTask('');
     load();
   };
 
-  const handleRemove = async (id) => {
+  const handleRemove = async (id, task) => {
     await checklistItemsStore.remove(id);
+    logAudit({ action: 'checklist.item_excluido', entityType: 'checklist_item', entityId: id, details: { task } });
     load();
   };
 
@@ -56,7 +59,9 @@ function ChecklistTab({ ambienteId, accountId }) {
 
   const saveEdit = async () => {
     if (!editValue.trim()) return;
+    const before = items.find((i) => i.id === editingId);
     await checklistItemsStore.update(editingId, { task: editValue.trim() });
+    logAudit({ action: 'checklist.item_editado', entityType: 'checklist_item', entityId: editingId, details: { antes: before?.task, depois: editValue.trim() } });
     setEditingId(null);
     setEditValue('');
     load();
@@ -107,7 +112,7 @@ function ChecklistTab({ ambienteId, accountId }) {
                       <ActionIcon color="gray" variant="light" radius="md" onClick={() => startEdit(item)} aria-label="Editar tarefa">
                         <Pencil size={15} />
                       </ActionIcon>
-                      <ActionIcon color="red" variant="light" radius="md" onClick={() => handleRemove(item.id)} aria-label="Remover tarefa">
+                      <ActionIcon color="red" variant="light" radius="md" onClick={() => handleRemove(item.id, item.task)} aria-label="Remover tarefa">
                         <Trash2 size={15} />
                       </ActionIcon>
                     </>
@@ -201,6 +206,7 @@ function HistoryTab({ ambienteId, ambienteName, condominioName }) {
     setRemoving(true);
     try {
       await execucoesStore.remove(deleting.id);
+      logAudit({ action: 'execucao.excluida', entityType: 'execucao', entityId: deleting.id, details: { executed_by: deleting.executed_by, created_at: deleting.created_at } });
       notifications.show({ color: 'green', message: 'Execução excluída.' });
     } catch {
       notifications.show({ color: 'red', message: 'Não foi possível excluir a execução.' });
@@ -444,7 +450,9 @@ export default function AmbientePage() {
   const handleSaveEdit = async () => {
     if (!editName.trim()) return;
     setSavingEdit(true);
+    const oldName = ambiente.name;
     await ambientesStore.update(id, { name: editName.trim() });
+    logAudit({ action: 'ambiente.editado', entityType: 'ambiente', entityId: id, details: { antes: oldName, depois: editName.trim() } });
     setSavingEdit(false);
     setEditOpen(false);
     load();
@@ -456,6 +464,7 @@ export default function AmbientePage() {
       // Checklists, execuções e ocorrências desse ambiente já saem junto:
       // "on delete cascade" no banco (ver schema.sql).
       await ambientesStore.remove(id);
+      logAudit({ action: 'ambiente.excluido', entityType: 'ambiente', entityId: id, details: { name: ambiente.name } });
       notifications.show({ color: 'green', message: `${ambiente.name} excluído.` });
       navigate(`/admin/condominios/${ambiente.condominio_id}`);
     } catch {

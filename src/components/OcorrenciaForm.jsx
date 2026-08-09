@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Text, Button, Textarea, TextInput, FileButton } from '@mantine/core';
-import { Camera, AlertTriangle } from 'lucide-react';
-import { ocorrenciasStore } from '../lib/stores';
+import { Text, Button, Textarea, TextInput, FileButton, Group } from '@mantine/core';
+import { Camera, AlertTriangle, CloudUpload } from 'lucide-react';
+import { enqueue, syncQueue, isPending, subscribeQueue, generateRecordId } from '../lib/offlineQueue';
 
 function fileToBase64(file) {
   return new Promise((resolve, reject) => {
@@ -32,7 +32,26 @@ export default function OcorrenciaForm({
   const [photo, setPhoto] = useState(null);
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
+  const [pendingLocal, setPendingLocal] = useState(false);
+  const [queuedRecordId, setQueuedRecordId] = useState(null);
+  const [retrying, setRetrying] = useState(false);
   const [error, setError] = useState('');
+
+  // Igual ao ExecutarChecklistPage: enquanto a ocorrência estiver
+  // "pendente de envio" na fila local, escuta qualquer sincronização
+  // (evento online, intervalo periódico, Background Sync) pra virar
+  // "enviado" assim que o servidor confirmar de verdade.
+  useEffect(() => {
+    if (!queuedRecordId) return undefined;
+    const unsubscribe = subscribeQueue(async () => {
+      const stillPending = await isPending(queuedRecordId);
+      if (!stillPending) {
+        setPendingLocal(false);
+        setSent(true);
+      }
+    });
+    return unsubscribe;
+  }, [queuedRecordId]);
 
   const handleSend = async () => {
     if (!description.trim()) {
@@ -40,27 +59,46 @@ export default function OcorrenciaForm({
       return;
     }
     setError('');
-    if (!navigator.onLine) {
-      setError('Sem conexão com a internet. O texto continua preenchido. Tente enviar de novo assim que o sinal voltar.');
-      return;
-    }
+
+    // Salva na fila local (IndexedDB) ANTES de tentar enviar — mesma
+    // lógica da execução de checklist, pra não perder o registro se a
+    // conexão cair no momento do envio.
+    const record = {
+      id: generateRecordId(),
+      created_at: new Date().toISOString(),
+      ambiente_id: ambienteId,
+      account_id: accountId,
+      description: description.trim(),
+      photo,
+      status: 'pendente',
+      reported_by_role: reportedByRole,
+      reporter_name: askReporterName && reporterName.trim() ? reporterName.trim() : null,
+    };
+
     setSending(true);
     try {
-      await ocorrenciasStore.create({
-        ambiente_id: ambienteId,
-        account_id: accountId,
-        description: description.trim(),
-        photo,
-        status: 'pendente',
-        reported_by_role: reportedByRole,
-        reporter_name: askReporterName && reporterName.trim() ? reporterName.trim() : null,
-      });
-      setSent(true);
+      await enqueue('ocorrencia', record);
+      setQueuedRecordId(record.id);
+      await syncQueue();
+      const stillPending = await isPending(record.id);
+      if (stillPending) setPendingLocal(true);
+      else setSent(true);
     } catch {
-      setError('Não foi possível enviar agora. O texto continua preenchido. Tente novamente em instantes.');
+      setError('Não foi possível salvar sua ocorrência neste dispositivo. Tente novamente.');
     } finally {
       setSending(false);
     }
+  };
+
+  const handleRetryNow = async () => {
+    setRetrying(true);
+    await syncQueue();
+    const stillPending = queuedRecordId ? await isPending(queuedRecordId) : false;
+    if (!stillPending) {
+      setPendingLocal(false);
+      setSent(true);
+    }
+    setRetrying(false);
   };
 
   return (
@@ -76,6 +114,21 @@ export default function OcorrenciaForm({
           >
             {triggerLabel}
           </Button>
+        </motion.div>
+      ) : pendingLocal ? (
+        <motion.div key="pending" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
+          <div className="surface-card" style={{ padding: 16, textAlign: 'center', background: 'var(--amber-light)', borderColor: 'rgba(245,158,11,0.3)' }}>
+            <Group justify="center" gap={8} mb={4}>
+              <CloudUpload size={16} color="var(--amber)" />
+              <Text size="sm" fw={700} style={{ color: '#92620a' }}>Salva neste dispositivo</Text>
+            </Group>
+            <Text size="xs" style={{ color: '#92620a' }} mb={10}>
+              Ainda não confirmada pelo servidor. Será enviada automaticamente assim que a conexão voltar.
+            </Text>
+            <Button size="xs" variant="light" onClick={handleRetryNow} loading={retrying}>
+              Tentar enviar agora
+            </Button>
+          </div>
         </motion.div>
       ) : sent ? (
         <motion.div key="sent" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>

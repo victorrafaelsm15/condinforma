@@ -6,6 +6,7 @@ import { Plus, Building2, ChevronRight, LayoutGrid, Pencil, Trash2, Lock, ArrowR
 import { condominiosStore, ambientesStore, accountsStore } from '../lib/stores';
 import { getSession } from '../lib/authService';
 import { getSubUsuarioInfo } from '../lib/subUsuario';
+import { logAudit } from '../lib/auditLog';
 import ConfirmDeleteModal from '../components/common/ConfirmDeleteModal';
 
 const PLAN_LABELS = { start: 'Start', pro: 'Pro', business: 'Business' };
@@ -74,7 +75,8 @@ export default function AdminDashboard() {
     if (!newName.trim()) return;
     setSaving(true);
     try {
-      await condominiosStore.create({ name: newName.trim() });
+      const created = await condominiosStore.create({ name: newName.trim() });
+      logAudit({ action: 'condominio.criado', entityType: 'condominio', entityId: created.id, details: { name: created.name } });
       setNewName('');
       setModalOpen(false);
       load();
@@ -98,7 +100,9 @@ export default function AdminDashboard() {
   const handleSaveEdit = async () => {
     if (!editName.trim() || !editing) return;
     setSavingEdit(true);
+    const oldName = editing.name;
     await condominiosStore.update(editing.id, { name: editName.trim() });
+    logAudit({ action: 'condominio.editado', entityType: 'condominio', entityId: editing.id, details: { antes: oldName, depois: editName.trim() } });
     setSavingEdit(false);
     setEditing(null);
     load();
@@ -117,6 +121,7 @@ export default function AdminDashboard() {
       // Ambientes, checklists, execuções e ocorrências desse condomínio
       // já saem junto — são "on delete cascade" no banco (ver schema.sql).
       await condominiosStore.remove(deleting.id);
+      logAudit({ action: 'condominio.excluido', entityType: 'condominio', entityId: deleting.id, details: { name: deleting.name } });
       notifications.show({ color: 'green', message: `${deleting.name} excluído.` });
     } catch {
       notifications.show({ color: 'red', message: 'Não foi possível excluir o condomínio.' });

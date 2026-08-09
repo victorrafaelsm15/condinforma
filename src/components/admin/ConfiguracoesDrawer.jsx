@@ -4,6 +4,7 @@ import { useMediaQuery } from '@mantine/hooks';
 import { Moon, Sun, Headphones, LogOut } from 'lucide-react';
 import SubUsuariosSection from './SubUsuariosSection';
 import PlanoSection from './PlanoSection';
+import AuditLogSection from './AuditLogSection';
 import SupportChat from '../SupportChat';
 
 export default function ConfiguracoesDrawer({ opened, onClose, onLogout, isSubUsuario }) {
@@ -24,6 +25,8 @@ export default function ConfiguracoesDrawer({ opened, onClose, onLogout, isSubUs
             <SubUsuariosSection />
             <Divider my="lg" />
             <PlanoSection />
+            <Divider my="lg" />
+            <AuditLogSection />
             <Divider my="lg" />
           </>
         )}

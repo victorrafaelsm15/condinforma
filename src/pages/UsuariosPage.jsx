@@ -9,6 +9,7 @@ import { accountsStore } from '../lib/stores';
 import { listAllAccounts, updateAccount, deleteAccount, listAssinantes, removeAssinante } from '../lib/adminAccounts';
 import { listAllSubUsuarios, updateSubUsuarioCondominios, removeSubUsuario, getAccountCondominioOptions } from '../lib/subUsuario';
 import { listCupons, createCupom, updateCupom, deleteCupom } from '../lib/adminCupons';
+import { logAudit } from '../lib/auditLog';
 import ConfirmDeleteModal from '../components/common/ConfirmDeleteModal';
 
 const PLAN_LABELS = { start: 'Start', pro: 'Pro', business: 'Business' };
@@ -220,6 +221,7 @@ function SubUsuariosTab() {
     setSavingEdit(true);
     try {
       await updateSubUsuarioCondominios(editing.id, editCondominioIds);
+      logAudit({ action: 'sub_usuario.editado', entityType: 'sub_usuario', entityId: editing.id, details: { nome: editing.nome, condominioIds: editCondominioIds }, accountId: editing.account_id });
       notifications.show({ color: 'green', message: 'Permissões atualizadas.' });
       setEditing(null);
       load();
@@ -234,6 +236,7 @@ function SubUsuariosTab() {
     setRemoving(true);
     try {
       await removeSubUsuario(deleting.id);
+      logAudit({ action: 'sub_usuario.excluido', entityType: 'sub_usuario', entityId: deleting.id, details: { nome: deleting.nome, email: deleting.email }, accountId: deleting.account_id });
       notifications.show({ color: 'green', message: `${deleting.nome} removido.` });
     } catch {
       notifications.show({ color: 'red', message: 'Não foi possível remover o sub-usuário.' });

@@ -7,6 +7,7 @@ import { UserPlus, Pencil, Trash2, Users } from 'lucide-react';
 import { getSession } from '../../lib/authService';
 import { accountsStore, condominiosStore } from '../../lib/stores';
 import { listSubUsuarios, createSubUsuario, updateSubUsuarioCondominios, removeSubUsuario } from '../../lib/subUsuario';
+import { logAudit } from '../../lib/auditLog';
 
 const PLAN_LABELS = { start: 'Start', pro: 'Pro', business: 'Business' };
 
@@ -68,7 +69,8 @@ export default function SubUsuariosSection() {
     setFormError('');
     setSaving(true);
     try {
-      await createSubUsuario({ nome: nome.trim(), email: email.trim(), password, condominioIds });
+      const created = await createSubUsuario({ nome: nome.trim(), email: email.trim(), password, condominioIds });
+      logAudit({ action: 'sub_usuario.criado', entityType: 'sub_usuario', entityId: created?.id, details: { nome: nome.trim(), email: email.trim() } });
       setCreateOpen(false);
       load();
       notifications.show({ color: 'green', message: 'Sub-usuário criado com sucesso.' });
@@ -89,6 +91,7 @@ export default function SubUsuariosSection() {
     setSavingEdit(true);
     try {
       await updateSubUsuarioCondominios(editing.id, editCondominioIds);
+      logAudit({ action: 'sub_usuario.editado', entityType: 'sub_usuario', entityId: editing.id, details: { nome: editing.nome, condominioIds: editCondominioIds } });
       setEditing(null);
       load();
       notifications.show({ color: 'green', message: 'Permissões atualizadas.' });
@@ -102,6 +105,7 @@ export default function SubUsuariosSection() {
   const handleRemove = async (sub) => {
     try {
       await removeSubUsuario(sub.id);
+      logAudit({ action: 'sub_usuario.excluido', entityType: 'sub_usuario', entityId: sub.id, details: { nome: sub.nome, email: sub.email } });
       load();
       notifications.show({ color: 'green', message: `${sub.nome} removido.` });
     } catch {
