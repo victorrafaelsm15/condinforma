@@ -87,6 +87,19 @@ async function markAttempt(queueId, error) {
 
 const TABLE_BY_TYPE = { execucao: 'execucoes', ocorrencia: 'ocorrencias' };
 
+// Dispara a notificação push pro dono do condomínio (e sub-usuários com
+// acesso) depois que a ocorrência realmente chegou no servidor — nunca
+// antes. Fire-and-forget de propósito: se a notificação falhar, a
+// ocorrência já foi salva com sucesso, isso não pode travar a fila nem
+// reaparecer como erro pro colaborador/morador.
+function notifyOcorrenciaCreated(ocorrenciaId) {
+  fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/notify-ocorrencia`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', apikey: import.meta.env.VITE_SUPABASE_ANON_KEY },
+    body: JSON.stringify({ ocorrenciaId }),
+  }).catch(() => {});
+}
+
 async function sendToServer(entry) {
   const table = TABLE_BY_TYPE[entry.type];
   const { error } = await supabase.from(table).insert(entry.payload);
@@ -94,6 +107,9 @@ async function sendToServer(entry) {
   // tentativa anterior (ex.: a resposta caiu da rede depois de gravar) —
   // trata como sucesso, senão o item ficaria preso reenviando pra sempre.
   if (error && error.code !== '23505') throw error;
+  if (entry.type === 'ocorrencia' && (!error || error.code === '23505')) {
+    notifyOcorrenciaCreated(entry.payload.id);
+  }
 }
 
 let syncing = false;

@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   Text, Group, Button, Modal, TextInput, PasswordInput, MultiSelect, Badge, ActionIcon, Loader,
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { UserPlus, Pencil, Trash2, Users } from 'lucide-react';
+import { UserPlus, Pencil, Trash2, Users, TrendingUp, ArrowRight } from 'lucide-react';
 import { getSession } from '../../lib/authService';
 import { accountsStore, condominiosStore } from '../../lib/stores';
 import { listSubUsuarios, createSubUsuario, updateSubUsuarioCondominios, removeSubUsuario } from '../../lib/subUsuario';
@@ -50,6 +51,11 @@ export default function SubUsuariosSection() {
   const limit = account?.sub_usuario_limit || 0;
   const isOwner = account?.role === 'owner';
   const atLimit = !isOwner && subUsuarios.length >= limit;
+  // Aviso preventivo: falta exatamente 1 sub-usuário pra bater o limite do
+  // plano — não bloqueia nada, só avisa. Some sozinho se atLimit já
+  // cobrir (bloqueado) ou se a conta se afastar do limite (ex.: remover
+  // um sub-usuário).
+  const nearLimit = !isOwner && !atLimit && limit > 0 && limit - subUsuarios.length === 1;
   const condoOptions = condominios.map((c) => ({ value: c.id, label: c.name }));
 
   const openCreate = () => {
@@ -135,6 +141,22 @@ export default function SubUsuariosSection() {
         <Text size="xs" c="red" mb={12}>
           Limite de sub-usuários do plano atingido. Faça upgrade para adicionar mais.
         </Text>
+      )}
+
+      {nearLimit && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', marginBottom: 12,
+          background: 'var(--amber-light)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 10,
+          flexWrap: 'wrap',
+        }}>
+          <TrendingUp size={14} color="var(--amber)" style={{ flexShrink: 0 }} />
+          <Text size="xs" fw={600} style={{ color: '#92620a', flex: 1, minWidth: 160 }}>
+            Você está usando {subUsuarios.length} de {limit} sub-usuário(s) do seu plano. Considere fazer upgrade para continuar crescendo.
+          </Text>
+          <Button component={Link} to="/?scrollTo=planos" size="xs" variant="white" rightSection={<ArrowRight size={12} />}>
+            Ver planos
+          </Button>
+        </div>
       )}
 
       {subUsuarios.length ? (

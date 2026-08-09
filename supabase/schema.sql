@@ -118,15 +118,16 @@ create policy "ocorrencias_public_insert" on ocorrencias
 -- ============================================================
 
 create table if not exists accounts (
-  id                 uuid primary key references auth.users(id) on delete cascade,
-  email              text,
-  plan_name          text,
-  condominio_limit   integer not null default 0,
-  status             text not null default 'trial',
-  role               text not null default 'customer' check (role in ('customer', 'owner')),
-  asaas_customer_id  text,
-  created_at         timestamptz not null default now(),
-  updated_at         timestamptz not null default now()
+  id                    uuid primary key references auth.users(id) on delete cascade,
+  email                 text,
+  plan_name             text,
+  condominio_limit      integer not null default 0,
+  status                text not null default 'trial',
+  role                  text not null default 'customer' check (role in ('customer', 'owner')),
+  asaas_customer_id     text,
+  onboarding_completed  boolean not null default false,
+  created_at            timestamptz not null default now(),
+  updated_at            timestamptz not null default now()
 );
 
 create or replace function handle_new_user_account()
@@ -147,6 +148,40 @@ create trigger on_auth_user_created_account
 alter table accounts enable row level security;
 create policy "accounts_select_own" on accounts
   for select to authenticated using (id = auth.uid());
+
+-- A conta pode dar UPDATE na própria linha (ex.: marcar onboarding_completed),
+-- mas campos sensíveis (plano, limites, status, role) só podem mudar via
+-- is_platform_owner() (aba Usuários) ou service role — protegido por
+-- trigger logo abaixo, não por GRANT de coluna, porque accounts_platform_
+-- owner_update (mais abaixo neste arquivo) precisa continuar editando
+-- esses mesmos campos em QUALQUER conta.
+create policy "accounts_update_own" on accounts
+  for update to authenticated
+  using (id = auth.uid())
+  with check (id = auth.uid());
+
+create or replace function protect_account_sensitive_columns()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if not is_platform_owner() then
+    if new.plan_name is distinct from old.plan_name
+      or new.status is distinct from old.status
+      or new.condominio_limit is distinct from old.condominio_limit
+      or new.sub_usuario_limit is distinct from old.sub_usuario_limit
+      or new.role is distinct from old.role
+      or new.asaas_customer_id is distinct from old.asaas_customer_id
+    then
+      raise exception 'Você não tem permissão para alterar esses campos da conta.' using errcode = '42501';
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_protect_account_sensitive_columns on accounts;
+create trigger trg_protect_account_sensitive_columns
+  before update on accounts
+  for each row execute function protect_account_sensitive_columns();
 
 create or replace function check_condominio_limit()
 returns trigger language plpgsql security definer set search_path = public as $$
@@ -414,3 +449,21 @@ create policy "audit_log_insert" on audit_log
     )
     or is_platform_owner()
   );
+
+-- ============================================================
+-- Inscrições de notificação push (Web Push API nativa) — ver
+-- supabase/push_subscriptions_migration.sql pro comentário completo.
+create table if not exists push_subscriptions (
+  id          uuid primary key default gen_random_uuid(),
+  account_id  uuid not null references auth.users(id) on delete cascade,
+  endpoint    text not null unique,
+  keys        jsonb not null,
+  created_at  timestamptz not null default now()
+);
+create index if not exists push_subscriptions_account_id_idx on push_subscriptions(account_id);
+
+alter table push_subscriptions enable row level security;
+
+create policy "push_subscriptions_owner_all" on push_subscriptions
+  for all to authenticated
+  using (account_id = auth.uid()) with check (account_id = auth.uid());

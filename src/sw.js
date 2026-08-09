@@ -55,3 +55,45 @@ self.addEventListener('sync', (event) => {
     event.waitUntil(syncQueue());
   }
 });
+
+// Notificações push (Web Push API nativa) — o payload vem da Edge Function
+// notify-ocorrencia (ver supabase/functions/_shared/pushNotify.ts), sempre
+// como JSON { title, body, url }.
+self.addEventListener('push', (event) => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch {
+    data = { title: 'Cond-Informa', body: event.data ? event.data.text() : '' };
+  }
+  const title = data.title || 'Cond-Informa';
+  const options = {
+    body: data.body || '',
+    icon: `${self.registration.scope}pwa-192x192.png`,
+    badge: `${self.registration.scope}pwa-192x192.png`,
+    data: { url: data.url || '/' },
+  };
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+// Clicar na notificação foca uma aba já aberta do site (navegando pra
+// página relevante) ou abre uma nova — nunca deixa a notificação "morta"
+// sem levar a lugar nenhum.
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const targetPath = event.notification.data?.url || '/';
+  const targetUrl = `${self.registration.scope}#${targetPath}`;
+
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientsArr) => {
+      const existing = clientsArr.find((c) => c.url.startsWith(self.registration.scope));
+      if (existing) {
+        return existing.focus().then(() => {
+          if ('navigate' in existing) return existing.navigate(targetUrl);
+          return undefined;
+        });
+      }
+      return self.clients.openWindow(targetUrl);
+    }),
+  );
+});

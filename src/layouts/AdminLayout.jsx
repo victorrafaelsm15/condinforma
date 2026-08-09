@@ -6,6 +6,7 @@ import { signOut, getSession } from '../lib/authService';
 import { accountsStore } from '../lib/stores';
 import { getSubUsuarioInfo } from '../lib/subUsuario';
 import ConfiguracoesDrawer from '../components/admin/ConfiguracoesDrawer';
+import PushPermissionBanner from '../components/admin/PushPermissionBanner';
 
 const BASE_NAV_ITEMS = [
   { to: '/admin', label: 'Condomínios', icon: Building2, color: 'brand', match: (p) => p === '/admin' || p.startsWith('/admin/condominios') },
@@ -123,6 +124,8 @@ export default function AdminLayout() {
           </Menu>
         </div>
       </header>
+
+      <PushPermissionBanner />
 
       <div className="admin-body">
         {/* O "slot" reserva o espaço fixo (collapsed ou expanded, só via

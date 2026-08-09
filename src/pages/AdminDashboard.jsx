@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { Button, TextInput, Text, Group, Modal, Loader, SimpleGrid, ActionIcon } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { Plus, Building2, ChevronRight, LayoutGrid, Pencil, Trash2, Lock, ArrowRight } from 'lucide-react';
+import { Plus, Building2, ChevronRight, LayoutGrid, Pencil, Trash2, Lock, ArrowRight, TrendingUp } from 'lucide-react';
 import { condominiosStore, ambientesStore, accountsStore } from '../lib/stores';
 import { getSession } from '../lib/authService';
 import { getSubUsuarioInfo } from '../lib/subUsuario';
 import { logAudit } from '../lib/auditLog';
 import ConfirmDeleteModal from '../components/common/ConfirmDeleteModal';
+import OnboardingWizard from '../components/admin/OnboardingWizard';
 
 const PLAN_LABELS = { start: 'Start', pro: 'Pro', business: 'Business' };
 
@@ -27,7 +28,23 @@ function getBlockedMessage(account, condominiosCount) {
   return '';
 }
 
+// Aviso preventivo — dispara quando falta exatamente 1 condomínio pra
+// bater o limite do plano, não bloqueante (o botão "Novo condomínio"
+// continua liberado). Some sozinho se a conta se afastar do limite de
+// novo (ex.: excluir um condomínio) ou já estiver bloqueada (nesse caso
+// getBlockedMessage acima já cobre o aviso).
+function getNearLimitMessage(account, condominiosCount) {
+  if (!account || account.role === 'owner') return '';
+  if (account.status !== 'ativo') return '';
+  const limit = account.condominio_limit || 0;
+  if (limit <= 0 || condominiosCount >= limit) return '';
+  if (limit - condominiosCount !== 1) return '';
+  const planLabel = PLAN_LABELS[account.plan_name] || account.plan_name || '';
+  return `Você está usando ${condominiosCount} de ${limit} condomínio(s) do plano ${planLabel}. Considere fazer upgrade para continuar crescendo.`;
+}
+
 export default function AdminDashboard() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [condominios, setCondominios] = useState([]);
   const [ambienteCounts, setAmbienteCounts] = useState({});
   const [account, setAccount] = useState(null);
@@ -36,6 +53,7 @@ export default function AdminDashboard() {
   const [modalOpen, setModalOpen] = useState(false);
   const [newName, setNewName] = useState('');
   const [saving, setSaving] = useState(false);
+  const [wizardOpen, setWizardOpen] = useState(false);
 
   const [editing, setEditing] = useState(null);
   const [editName, setEditName] = useState('');
@@ -47,14 +65,16 @@ export default function AdminDashboard() {
   const load = async () => {
     setLoading(true);
     const session = await getSession();
+    let acc = null;
+    let subInfo = null;
     if (session) {
-      const subInfo = await getSubUsuarioInfo(session.user.id);
+      subInfo = await getSubUsuarioInfo(session.user.id);
       setIsSubUsuario(!!subInfo);
       // Sub-usuário nunca gerencia plano/limite — isso é só da conta
       // principal, então nem busca o próprio account (irrelevante: seria
       // sempre um "trial" vazio, sem relação com o plano de quem o convidou).
       if (!subInfo) {
-        const acc = await accountsStore.getById(session.user.id);
+        acc = await accountsStore.getById(session.user.id);
         setAccount(acc);
       }
     }
@@ -65,11 +85,34 @@ export default function AdminDashboard() {
     allAmbientes.forEach((a) => { counts[a.condominio_id] = (counts[a.condominio_id] || 0) + 1; });
     setAmbienteCounts(counts);
     setLoading(false);
+
+    // Onboarding guiado: só faz sentido pra conta principal (sub-usuário
+    // nunca cria condomínio) — só aparece sozinho pra conta nova que ainda
+    // não passou do primeiro condomínio. O reabrir forçado via "Ver
+    // tutorial" (?tutorial=1) é tratado num efeito à parte abaixo, porque
+    // navegar de /admin pra /admin?tutorial=1 não remonta este componente
+    // (mesma rota), então esse load() aqui só roda uma vez no mount e
+    // nunca veria a mudança do parâmetro.
+    if (!subInfo && acc && !acc.onboarding_completed && list.length === 0) {
+      setWizardOpen(true);
+    }
   };
 
   useEffect(() => { load(); }, []);
 
+  // Reabre o wizard sempre que ?tutorial=1 aparecer na URL (botão "Ver
+  // tutorial" em Configurações) — roda de novo a cada mudança de
+  // searchParams, diferente do load() acima que só roda no mount.
+  useEffect(() => {
+    if (searchParams.get('tutorial') === '1') {
+      setWizardOpen(true);
+      searchParams.delete('tutorial');
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
+
   const blockedMessage = isSubUsuario ? '' : getBlockedMessage(account, condominios.length);
+  const nearLimitMessage = isSubUsuario || blockedMessage ? '' : getNearLimitMessage(account, condominios.length);
 
   const handleCreate = async () => {
     if (!newName.trim()) return;
@@ -170,6 +213,20 @@ export default function AdminDashboard() {
         </div>
       )}
 
+      {!loading && nearLimitMessage && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 12, padding: '14px 18px', marginBottom: 20,
+          background: 'var(--amber-light)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 12,
+          flexWrap: 'wrap',
+        }}>
+          <TrendingUp size={17} color="var(--amber)" style={{ flexShrink: 0 }} />
+          <Text size="sm" fw={600} style={{ color: '#92620a', flex: 1, minWidth: 220 }}>{nearLimitMessage}</Text>
+          <Button component={Link} to="/?scrollTo=planos" size="xs" variant="white" rightSection={<ArrowRight size={13} />}>
+            Ver planos
+          </Button>
+        </div>
+      )}
+
       {loading ? (
         <Group justify="center" py={60}><Loader color="brand" /></Group>
       ) : condominios.length ? (
@@ -246,6 +303,17 @@ export default function AdminDashboard() {
         itemLabel={deleting?.name}
         loading={removing}
       />
+
+      {!isSubUsuario && account && (
+        <OnboardingWizard
+          opened={wizardOpen}
+          onClose={() => setWizardOpen(false)}
+          accountId={account.id}
+          hasCondominio={condominios.length > 0}
+          firstCondominio={condominios[0] || null}
+          onCondominioCreated={load}
+        />
+      )}
     </div>
   );
 }

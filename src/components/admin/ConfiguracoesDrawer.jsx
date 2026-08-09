@@ -1,10 +1,12 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Drawer, Text, Switch, Button, Group, Divider, useMantineColorScheme } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
-import { Moon, Sun, Headphones, LogOut } from 'lucide-react';
+import { Moon, Sun, Headphones, LogOut, Compass } from 'lucide-react';
 import SubUsuariosSection from './SubUsuariosSection';
 import PlanoSection from './PlanoSection';
 import AuditLogSection from './AuditLogSection';
+import PushToggleSection from './PushToggleSection';
 import SupportChat from '../SupportChat';
 
 export default function ConfiguracoesDrawer({ opened, onClose, onLogout, isSubUsuario }) {
@@ -31,6 +33,8 @@ export default function ConfiguracoesDrawer({ opened, onClose, onLogout, isSubUs
           </>
         )}
 
+        <PushToggleSection />
+
         <Group justify="space-between" mb="lg">
           <Group gap={8}>
             {isDark ? <Moon size={16} color="var(--blue)" /> : <Sun size={16} color="var(--amber)" />}
@@ -44,6 +48,27 @@ export default function ConfiguracoesDrawer({ opened, onClose, onLogout, isSubUs
         </Group>
 
         <Divider mb="lg" />
+
+        {/* Rever o tutorial reabre o wizard de boas-vindas no dashboard,
+            mesmo já tendo sido concluído — só faz sentido pra quem
+            gerencia condomínios, não pro sub-usuário. */}
+        {!isSubUsuario && (
+          <>
+            <Button
+              component={Link}
+              to="/admin?tutorial=1"
+              variant="light"
+              color="gray"
+              fullWidth
+              leftSection={<Compass size={16} />}
+              onClick={onClose}
+              mb="lg"
+            >
+              Ver tutorial
+            </Button>
+            <Divider mb="lg" />
+          </>
+        )}
 
         <Button
           variant="light"
