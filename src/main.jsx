@@ -1,6 +1,7 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { HashRouter } from 'react-router-dom';
+import { HelmetProvider } from 'react-helmet-async';
 import { MantineProvider } from '@mantine/core';
 import { Notifications } from '@mantine/notifications';
 
@@ -49,12 +50,14 @@ if (missingVars.length) {
   root.render(
     <StrictMode>
       <ErrorBoundary>
-        <MantineProvider theme={theme} defaultColorScheme="light">
-          <Notifications position="top-right" />
-          <HashRouter>
-            <App />
-          </HashRouter>
-        </MantineProvider>
+        <HelmetProvider>
+          <MantineProvider theme={theme} defaultColorScheme="light">
+            <Notifications position="top-right" />
+            <HashRouter>
+              <App />
+            </HashRouter>
+          </MantineProvider>
+        </HelmetProvider>
       </ErrorBoundary>
     </StrictMode>,
   );

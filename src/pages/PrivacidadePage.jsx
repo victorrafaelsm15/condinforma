@@ -1,10 +1,16 @@
 import { Link } from 'react-router-dom';
 import { Text, Button } from '@mantine/core';
 import { ArrowLeft } from 'lucide-react';
+import Seo from '../components/common/Seo';
 
 export default function PrivacidadePage() {
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)', padding: '48px 24px' }}>
+      <Seo
+        title="Política de Privacidade — Cond-Informa"
+        description="Como o Cond-Informa coleta, usa e protege os dados pessoais de clientes, colaboradores e moradores que utilizam a plataforma."
+        path="/privacidade"
+      />
       <div style={{ maxWidth: 720, margin: '0 auto' }}>
         <Button component={Link} to="/" variant="subtle" color="gray" leftSection={<ArrowLeft size={16} />} mb="lg">
           Voltar

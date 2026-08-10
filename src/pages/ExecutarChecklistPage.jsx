@@ -9,6 +9,7 @@ import { ambientesStore, checklistItemsStore, ocorrenciasStore } from '../lib/st
 import { enqueue, syncQueue, isPending, subscribeQueue, generateRecordId } from '../lib/offlineQueue';
 import { reporterLabel } from '../lib/ocorrenciaDisplay';
 import OcorrenciaForm from '../components/OcorrenciaForm';
+import Seo from '../components/common/Seo';
 
 function fileToBase64(file) {
   return new Promise((resolve, reject) => {
@@ -34,6 +35,12 @@ export default function ExecutarChecklistPage() {
   const [freeTextNote, setFreeTextNote] = useState('');
   const [pendingLocal, setPendingLocal] = useState(false);
   const [queuedRecordId, setQueuedRecordId] = useState(null);
+
+  // Página pública específica de um ambiente/condomínio — sem valor de
+  // busca genérica, então fica fora da indexação (mesmo critério do
+  // sitemap.xml/robots.txt). Definida uma vez e reaproveitada em todo
+  // "return" (loading, não encontrado, pendente, concluído, formulário).
+  const seoTag = <Seo noindex title="Executar checklist — Cond-Informa" path={`/ambiente/${id}/executar`} />;
   const [retrying, setRetrying] = useState(false);
   const [pendingOcorrencias, setPendingOcorrencias] = useState([]);
   const [resolvingId, setResolvingId] = useState(null);
@@ -160,8 +167,8 @@ export default function ExecutarChecklistPage() {
     setRetrying(false);
   };
 
-  if (loading) return <Group justify="center" py={80}><Loader color="brand" /></Group>;
-  if (!ambiente) return <Text ta="center" py={80}>Ambiente não encontrado.</Text>;
+  if (loading) return <>{seoTag}<Group justify="center" py={80}><Loader color="brand" /></Group></>;
+  if (!ambiente) return <>{seoTag}<Text ta="center" py={80}>Ambiente não encontrado.</Text></>;
 
   // Salvo localmente mas ainda NÃO confirmado pelo servidor — de propósito
   // não usa o mesmo visual de sucesso da tela "done" abaixo, pra não
@@ -170,6 +177,7 @@ export default function ExecutarChecklistPage() {
   if (pendingLocal) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)' }}>
+        {seoTag}
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
@@ -199,6 +207,7 @@ export default function ExecutarChecklistPage() {
   if (done) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)' }}>
+        {seoTag}
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
@@ -233,6 +242,7 @@ export default function ExecutarChecklistPage() {
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
+      {seoTag}
       <div style={{ maxWidth: 480, margin: '0 auto', padding: '32px 20px 60px' }}>
         <Group gap={8} mb={16}>
           <span className="icon-tile" style={{ width: 30, height: 30, borderRadius: 9, background: 'var(--blue-light)' }}>

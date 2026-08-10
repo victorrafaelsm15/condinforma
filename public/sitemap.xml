@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  App roteado com HashRouter: as URLs internas (/#/termos, /#/privacidade)
+  são todas o mesmo documento físico em "/" — o Google historicamente não
+  trata fragmentos "#" como páginas indexáveis à parte da raiz. Este
+  sitemap lista essas URLs mesmo assim (elas abrem no lugar certo se
+  alguém clicar/compartilhar), mas na prática só "/" tem garantia real de
+  ser indexada como página própria nos resultados de busca.
+-->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://condinforma.vercel.app/</loc>
+    <lastmod>2026-08-09</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://condinforma.vercel.app/#/termos</loc>
+    <lastmod>2026-08-09</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.3</priority>
+  </url>
+  <url>
+    <loc>https://condinforma.vercel.app/#/privacidade</loc>
+    <lastmod>2026-08-09</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.3</priority>
+  </url>
+</urlset>

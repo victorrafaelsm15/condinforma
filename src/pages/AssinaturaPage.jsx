@@ -5,6 +5,7 @@ import { Button, TextInput, PasswordInput, Text, SegmentedControl, Checkbox, Loa
 import { Check, Copy, Download, CheckCircle2, XCircle } from 'lucide-react';
 import { plans } from '../data/landingContent';
 import { signUp, getSession } from '../lib/authService';
+import Seo from '../components/common/Seo';
 
 function translateSignUpError(message) {
   if (message?.includes('User already registered')) {
@@ -125,6 +126,7 @@ export default function AssinaturaPage() {
   } = useForm({ defaultValues: { billingType: 'PIX' } });
   const termsAccepted = watch('termsAccepted');
   const billingType = watch('billingType');
+  const seoTag = <Seo title="Assine um plano — Cond-Informa" description="Assine o Cond-Informa e comece a organizar checklists digitais de limpeza e manutenção com QR Code no seu condomínio." path="/assinar" />;
 
   useEffect(() => {
     getSession().then((s) => {
@@ -136,6 +138,7 @@ export default function AssinaturaPage() {
   if (!plan) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)', padding: 24 }}>
+        {seoTag}
         <div className="surface-card" style={{ maxWidth: 420, padding: '40px 32px', textAlign: 'center' }}>
           <Text fw={800} size="lg" mb={8}>Plano não encontrado</Text>
           <Text c="dimmed" size="sm" mb="lg">Escolha um plano na página inicial para continuar.</Text>
@@ -203,11 +206,12 @@ export default function AssinaturaPage() {
   };
 
   if (checkingSession) {
-    return <Group justify="center" py={100}><Loader color="brand" /></Group>;
+    return <>{seoTag}<Group justify="center" py={100}><Loader color="brand" /></Group></>;
   }
 
   return (
     <div style={{ minHeight: '100vh', display: 'grid', gridTemplateColumns: '1fr 1fr' }} className="assinar-grid">
+      {seoTag}
       <div style={{
         background: 'var(--gradient-dark)', color: '#fff', position: 'relative', overflow: 'hidden',
         display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '60px 64px',

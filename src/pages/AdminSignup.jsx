@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form';
 import { Button, TextInput, PasswordInput, Text } from '@mantine/core';
 import { ShieldCheck, QrCode, BarChart3, MailCheck } from 'lucide-react';
 import { signUp } from '../lib/authService';
+import Seo from '../components/common/Seo';
 
 function translateAuthError(message) {
   if (message?.includes('User already registered')) return 'Já existe uma conta com esse e-mail. Tente entrar.';
@@ -54,6 +55,7 @@ export default function AdminSignup() {
 
   return (
     <div style={{ minHeight: '100vh', display: 'grid', gridTemplateColumns: '1fr 1fr' }} className="login-grid">
+      <Seo title="Criar conta — Cond-Informa" description="Crie sua conta no Cond-Informa e comece a organizar a limpeza e manutenção do seu condomínio com checklists digitais via QR Code." path="/admin/signup" />
       <div style={{
         background: 'var(--gradient-dark)', color: '#fff', position: 'relative', overflow: 'hidden',
         display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '60px 64px',

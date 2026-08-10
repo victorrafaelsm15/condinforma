@@ -26,7 +26,14 @@ export default defineConfig(({ mode }) => {
         strategies: 'injectManifest',
         srcDir: 'src',
         filename: 'sw.js',
-        includeAssets: ['favicon.svg', 'icons.svg', 'apple-touch-icon.png'],
+        // favicon.svg NÃO está aqui de propósito: é uma marca abstrata roxa
+        // sem relação com a logo real do Cond-Informa (prédios/folhas azul
+        // e verde) — provavelmente sobra de um scaffold antigo, nunca foi
+        // referenciada em nenhum <link> do index.html. O favicon de verdade
+        // agora é favicon.ico/-16x16/-32x32, gerado a partir de
+        // public/logo-icon.png (a logo real), consistente com os ícones de
+        // PWA abaixo (pwa-192/512, maskable, apple-touch-icon).
+        includeAssets: ['icons.svg', 'apple-touch-icon.png', 'favicon.ico', 'favicon-16x16.png', 'favicon-32x32.png', 'og-image.png'],
         manifest: {
           name: 'Cond-Informa',
           short_name: 'Cond-Informa',

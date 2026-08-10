@@ -5,6 +5,7 @@ import { Button, TextInput, PasswordInput, Text } from '@mantine/core';
 import { ShieldCheck, QrCode, BarChart3 } from 'lucide-react';
 import { signIn } from '../lib/authService';
 import InstallAppButton from '../components/common/InstallAppButton';
+import Seo from '../components/common/Seo';
 
 function translateAuthError(message) {
   if (message?.includes('Invalid login credentials')) return 'E-mail ou senha incorretos.';
@@ -26,6 +27,7 @@ export default function AdminLogin() {
 
   return (
     <div style={{ minHeight: '100vh', display: 'grid', gridTemplateColumns: '1fr 1fr' }} className="login-grid">
+      <Seo title="Entrar no painel — Cond-Informa" description="Acesse o painel do Cond-Informa para gerenciar checklists, ocorrências e relatórios dos seus condomínios." path="/admin/login" />
       <div style={{
         background: 'var(--gradient-dark)', color: '#fff', position: 'relative', overflow: 'hidden',
         display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '60px 64px',

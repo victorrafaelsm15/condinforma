@@ -2,10 +2,16 @@ import { Link } from 'react-router-dom';
 import { Text, Button } from '@mantine/core';
 import { ArrowLeft } from 'lucide-react';
 import { termosSections } from '../data/landingContent';
+import Seo from '../components/common/Seo';
 
 export default function TermosPage() {
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)', padding: '48px 24px' }}>
+      <Seo
+        title="Termos de Uso — Cond-Informa"
+        description="Termos de Uso e Condições Gerais de Contratação da plataforma Cond-Informa."
+        path="/termos"
+      />
       <div style={{ maxWidth: 760, margin: '0 auto' }}>
         <Button component={Link} to="/" variant="subtle" color="gray" leftSection={<ArrowLeft size={16} />} mb="lg">
           Voltar

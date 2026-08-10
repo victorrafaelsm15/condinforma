@@ -5,12 +5,17 @@ import { Text, Loader, Badge, Group } from '@mantine/core';
 import { CheckCircle2, Clock, Building2, ListChecks, HelpCircle } from 'lucide-react';
 import { ambientesStore, execucoesStore } from '../lib/stores';
 import OcorrenciaForm from '../components/OcorrenciaForm';
+import Seo from '../components/common/Seo';
 
 export default function StatusPublicoPage() {
   const { id } = useParams();
   const [ambiente, setAmbiente] = useState(null);
   const [lastExec, setLastExec] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  // Página pública específica de um ambiente/condomínio — sem valor de
+  // busca genérica, fica fora da indexação (mesmo critério do sitemap.xml).
+  const seoTag = <Seo noindex title="Status da limpeza — Cond-Informa" path={`/ambiente/${id}/status`} />;
 
   useEffect(() => {
     Promise.all([
@@ -23,11 +28,12 @@ export default function StatusPublicoPage() {
     });
   }, [id]);
 
-  if (loading) return <Group justify="center" py={80}><Loader color="brand" /></Group>;
-  if (!ambiente) return <Text ta="center" py={80}>Ambiente não encontrado.</Text>;
+  if (loading) return <>{seoTag}<Group justify="center" py={80}><Loader color="brand" /></Group></>;
+  if (!ambiente) return <>{seoTag}<Text ta="center" py={80}>Ambiente não encontrado.</Text></>;
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)', position: 'relative', overflow: 'hidden' }}>
+      {seoTag}
       <div className="blob" style={{ width: 360, height: 360, top: -160, left: '50%', transform: 'translateX(-50%)', background: `radial-gradient(circle, ${lastExec ? 'rgba(18,183,106,0.16)' : 'rgba(51,85,232,0.12)'}, transparent 70%)` }} />
       <div style={{ maxWidth: 440, margin: '0 auto', padding: '52px 20px', position: 'relative' }}>
         <Group gap={8} mb={6} justify="center">

@@ -1,0 +1,14 @@
+User-agent: *
+Allow: /
+
+# O app é uma SPA com HashRouter (tudo depois de "#" é roteado no
+# cliente, sem existir como caminho de servidor separado) — por isso não
+# há "Disallow" de rotas específicas aqui: robots.txt não consegue
+# distinguir /#/admin de /#/termos, já que fisicamente é o mesmo
+# documento em "/". As páginas privadas (painel /admin/*) e as públicas
+# sem valor de busca genérica (/ambiente/*/executar, /ambiente/*/status)
+# são marcadas com <meta name="robots" content="noindex, nofollow"> no
+# próprio HTML de cada rota (ver src/components/common/Seo.jsx), que é o
+# mecanismo que de fato funciona nesse tipo de roteamento.
+
+Sitemap: https://condinforma.vercel.app/sitemap.xml

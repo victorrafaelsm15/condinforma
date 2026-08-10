@@ -5,11 +5,44 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#3355e8" />
     <meta name="description" content="Checklists digitais com QR Code para condomínios — limpeza, zeladoria e manutenção." />
+
+    <link rel="icon" href="favicon.ico" sizes="any" />
+    <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="pwa-192x192.png" />
     <link rel="apple-touch-icon" href="apple-touch-icon.png" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Cond-Informa" />
+
     <title>Cond-Informa — Checklists e QR Code para condomínios</title>
+
+    <!--
+      Tags Open Graph/Twitter ESTÁTICAS aqui de propósito: bots de preview de
+      link (WhatsApp, Facebook, Twitter/X, Slack) não executam JavaScript,
+      então as tags dinâmicas injetadas via react-helmet-async (ver
+      src/components/common/Seo.jsx) são invisíveis pra eles — só o HTML
+      bruto conta. Como o app é uma SPA com HashRouter servida deste mesmo
+      index.html pra qualquer rota, isto aqui vira o preview de
+      compartilhamento PADRÃO pra qualquer link do site (não é possível ter
+      um preview diferente por rota interna sem SSR/pré-renderização, fora
+      do escopo atual). As tags dinâmicas continuam valendo pra título de
+      aba, Googlebot (que executa JS) e dados estruturados (JSON-LD) da
+      landing page.
+    -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Cond-Informa" />
+    <meta property="og:locale" content="pt_BR" />
+    <meta property="og:url" content="https://condinforma.vercel.app/" />
+    <meta property="og:title" content="Cond-Informa — Checklists digitais com QR Code para condomínios" />
+    <meta property="og:description" content="Checklists digitais com QR Code para condomínios: organize limpeza, zeladoria e manutenção por ambiente, com fotos, histórico e transparência total para os moradores." />
+    <meta property="og:image" content="https://condinforma.vercel.app/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Cond-Informa — Checklists digitais com QR Code para condomínios" />
+    <meta name="twitter:description" content="Checklists digitais com QR Code para condomínios: organize limpeza, zeladoria e manutenção por ambiente, com fotos, histórico e transparência total para os moradores." />
+    <meta name="twitter:image" content="https://condinforma.vercel.app/og-image.png" />
   </head>
   <body>
     <div id="root"></div>

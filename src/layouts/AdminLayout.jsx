@@ -9,6 +9,7 @@ import { accountsStore } from '../lib/stores';
 import { getSubUsuarioInfo } from '../lib/subUsuario';
 import ConfiguracoesDrawer from '../components/admin/ConfiguracoesDrawer';
 import PushPermissionBanner from '../components/admin/PushPermissionBanner';
+import Seo from '../components/common/Seo';
 
 // Nenhum item da sidebar tem cor própria (de propósito — substitui
 // qualquer pedido antigo de cor individual por item): ícone e texto
@@ -92,6 +93,7 @@ export default function AdminLayout() {
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
+      <Seo title="Painel — Cond-Informa" noindex path={location.pathname} />
       <header style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '14px 28px', background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(12px)',
