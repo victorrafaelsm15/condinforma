@@ -269,9 +269,13 @@ export default function ExecutarChecklistPage() {
 
         <div className="surface-card" style={{ padding: 22, marginBottom: 18 }}>
           <Text fw={800} size="xl" mb={4}>{ambiente.name}</Text>
-          <Text size="sm" c="dimmed" mb={16}>Marque as tarefas realizadas e confirme a execução.</Text>
+          <Text size="sm" c="dimmed" mb={ambiente.checklist_ativo === false ? 0 : 16}>
+            {ambiente.checklist_ativo === false
+              ? 'Este ambiente está sem checklist ativo no momento.'
+              : 'Marque as tarefas realizadas e confirme a execução.'}
+          </Text>
 
-          {items.length > 0 && (
+          {ambiente.checklist_ativo !== false && items.length > 0 && (
             <div style={{ marginBottom: 6 }}>
               <Group justify="space-between" mb={6}>
                 <Text size="xs" fw={700} c="dimmed">Progresso</Text>
@@ -331,104 +335,108 @@ export default function ExecutarChecklistPage() {
           </div>
         )}
 
-        <TextInput
-          label="Seu nome"
-          placeholder="Opcional"
-          value={executedBy}
-          onChange={(e) => setExecutedBy(e.currentTarget.value)}
-          mb="lg"
-          styles={{ input: { minHeight: 44 } }}
-        />
+        {ambiente.checklist_ativo === false ? null : (
+          <>
+            <TextInput
+              label="Seu nome"
+              placeholder="Opcional"
+              value={executedBy}
+              onChange={(e) => setExecutedBy(e.currentTarget.value)}
+              mb="lg"
+              styles={{ input: { minHeight: 44 } }}
+            />
 
-        {items.length ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
-            {items.map((item, i) => {
-              const isDone = !!checked[item.id];
-              const inputId = `checklist-item-${item.id}`;
-              return (
-                // <label> nativo em vez de <div onClick> — clicar em
-                // qualquer parte da linha, tocar com a tela suja/luvas, ou
-                // navegar por Tab + Espaço no checkbox já funciona sozinho
-                // (associação label/input nativa do navegador), sem
-                // precisar de nenhum JS extra de teclado.
-                <label
-                  key={item.id}
-                  htmlFor={inputId}
-                  className={`surface-card checklist-row ${isDone ? 'checklist-row--done' : ''}`}
-                  style={{ padding: '14px 16px', cursor: 'pointer', display: 'block' }}
-                >
-                  <Group justify="space-between" wrap="nowrap">
-                    <Group gap={12} wrap="nowrap">
-                      <span style={{
-                        width: 24, height: 24, borderRadius: 7, flexShrink: 0, fontSize: 11, fontWeight: 700,
-                        background: isDone ? 'var(--green)' : 'var(--blue-light)', color: isDone ? '#fff' : 'var(--blue)',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s var(--ease)',
-                      }}>
-                        {i + 1}
-                      </span>
-                      <Text size="sm" style={{ textDecoration: isDone ? 'line-through' : 'none', opacity: isDone ? 0.65 : 1 }}>
-                        {item.task}
-                      </Text>
-                    </Group>
-                    <Checkbox
-                      id={inputId}
-                      checked={isDone}
-                      onChange={() => toggleItem(item.id)}
-                      color="green"
-                      size="md"
-                      aria-label={item.task}
-                      styles={{ input: { cursor: 'pointer' } }}
-                    />
-                  </Group>
-                </label>
-              );
-            })}
-          </div>
-        ) : (
-          <Text c="dimmed" size="sm" mb="lg">Nenhuma tarefa cadastrada para este ambiente ainda. Você ainda pode confirmar um registro livre abaixo.</Text>
-        )}
+            {items.length ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
+                {items.map((item, i) => {
+                  const isDone = !!checked[item.id];
+                  const inputId = `checklist-item-${item.id}`;
+                  return (
+                    // <label> nativo em vez de <div onClick> — clicar em
+                    // qualquer parte da linha, tocar com a tela suja/luvas, ou
+                    // navegar por Tab + Espaço no checkbox já funciona sozinho
+                    // (associação label/input nativa do navegador), sem
+                    // precisar de nenhum JS extra de teclado.
+                    <label
+                      key={item.id}
+                      htmlFor={inputId}
+                      className={`surface-card checklist-row ${isDone ? 'checklist-row--done' : ''}`}
+                      style={{ padding: '14px 16px', cursor: 'pointer', display: 'block' }}
+                    >
+                      <Group justify="space-between" wrap="nowrap">
+                        <Group gap={12} wrap="nowrap">
+                          <span style={{
+                            width: 24, height: 24, borderRadius: 7, flexShrink: 0, fontSize: 11, fontWeight: 700,
+                            background: isDone ? 'var(--green)' : 'var(--blue-light)', color: isDone ? '#fff' : 'var(--blue)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s var(--ease)',
+                          }}>
+                            {i + 1}
+                          </span>
+                          <Text size="sm" style={{ textDecoration: isDone ? 'line-through' : 'none', opacity: isDone ? 0.65 : 1 }}>
+                            {item.task}
+                          </Text>
+                        </Group>
+                        <Checkbox
+                          id={inputId}
+                          checked={isDone}
+                          onChange={() => toggleItem(item.id)}
+                          color="green"
+                          size="md"
+                          aria-label={item.task}
+                          styles={{ input: { cursor: 'pointer' } }}
+                        />
+                      </Group>
+                    </label>
+                  );
+                })}
+              </div>
+            ) : (
+              <Text c="dimmed" size="sm" mb="lg">Nenhuma tarefa cadastrada para este ambiente ainda. Você ainda pode confirmar um registro livre abaixo.</Text>
+            )}
 
-        <Textarea
-          label="Observação / registro livre"
-          placeholder="Descreva algo que fez ou notou, mesmo fora do checklist (opcional)"
-          value={freeTextNote}
-          onChange={(e) => setFreeTextNote(e.currentTarget.value)}
-          minRows={2}
-          mb="md"
-        />
-
-        <FileButton onChange={handlePhoto} accept="image/*">
-          {(props) => (
-            <Button
-              {...props}
-              variant="light"
-              leftSection={<Camera size={16} />}
-              fullWidth
+            <Textarea
+              label="Observação / registro livre"
+              placeholder="Descreva algo que fez ou notou, mesmo fora do checklist (opcional)"
+              value={freeTextNote}
+              onChange={(e) => setFreeTextNote(e.currentTarget.value)}
+              minRows={2}
               mb="md"
-              size="md"
-              aria-label={photo ? 'Foto anexada. Toque para trocar a foto' : 'Anexar foto, opcional'}
-            >
-              {photo ? 'Foto anexada ✓' : 'Anexar foto (opcional)'}
-            </Button>
-          )}
-        </FileButton>
+            />
 
-        <Button
-          fullWidth
-          size="md"
-          onClick={handleSubmit}
-          loading={submitting}
-          className="btn-glow"
-          style={{ boxShadow: 'var(--shadow-brand)', minHeight: 48 }}
-        >
-          Confirmar execução
-        </Button>
-        {submitError && (
-          <Text role="alert" size="sm" c="red" fw={600} mt={10} ta="center">{submitError}</Text>
+            <FileButton onChange={handlePhoto} accept="image/*">
+              {(props) => (
+                <Button
+                  {...props}
+                  variant="light"
+                  leftSection={<Camera size={16} />}
+                  fullWidth
+                  mb="md"
+                  size="md"
+                  aria-label={photo ? 'Foto anexada. Toque para trocar a foto' : 'Anexar foto, opcional'}
+                >
+                  {photo ? 'Foto anexada ✓' : 'Anexar foto (opcional)'}
+                </Button>
+              )}
+            </FileButton>
+
+            <Button
+              fullWidth
+              size="md"
+              onClick={handleSubmit}
+              loading={submitting}
+              className="btn-glow"
+              style={{ boxShadow: 'var(--shadow-brand)', minHeight: 48 }}
+            >
+              Confirmar execução
+            </Button>
+            {submitError && (
+              <Text role="alert" size="sm" c="red" fw={600} mt={10} ta="center">{submitError}</Text>
+            )}
+          </>
         )}
 
         <div style={{ marginTop: 28, borderTop: '1px solid var(--border)', paddingTop: 20 }}>
-          <OcorrenciaForm ambienteId={id} accountId={ambiente.account_id} reportedByRole="colaborador" />
+          <OcorrenciaForm ambienteId={id} accountId={ambiente.account_id} reportedByRole="colaborador" checklistItems={items} />
         </div>
       </div>
     </div>

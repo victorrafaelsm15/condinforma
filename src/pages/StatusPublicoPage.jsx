@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Text, Loader, Badge, Group } from '@mantine/core';
 import { CheckCircle2, Clock, Building2, ListChecks, HelpCircle } from 'lucide-react';
-import { ambientesStore, execucoesStore } from '../lib/stores';
+import { ambientesStore, execucoesStore, checklistItemsStore } from '../lib/stores';
 import OcorrenciaForm from '../components/OcorrenciaForm';
 import Seo from '../components/common/Seo';
 
@@ -11,6 +11,7 @@ export default function StatusPublicoPage() {
   const { id } = useParams();
   const [ambiente, setAmbiente] = useState(null);
   const [lastExec, setLastExec] = useState(null);
+  const [checklistItems, setChecklistItems] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // Página pública específica de um ambiente/condomínio — sem valor de
@@ -21,9 +22,11 @@ export default function StatusPublicoPage() {
     Promise.all([
       ambientesStore.getById(id),
       execucoesStore.list({ ambiente_id: id }),
-    ]).then(([amb, execs]) => {
+      checklistItemsStore.list({ ambiente_id: id }),
+    ]).then(([amb, execs, items]) => {
       setAmbiente(amb);
       setLastExec(execs[0] || null);
+      setChecklistItems(items);
       setLoading(false);
     });
   }, [id]);
@@ -103,6 +106,7 @@ export default function StatusPublicoPage() {
             reportedByRole="morador"
             askReporterName
             triggerLabel="Notou algo errado? Registrar ocorrência"
+            checklistItems={checklistItems}
           />
         </div>
       </div>

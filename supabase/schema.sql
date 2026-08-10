@@ -22,11 +22,16 @@ create table if not exists condominios (
 create index if not exists condominios_account_id_idx on condominios(account_id);
 
 create table if not exists ambientes (
-  id             text primary key,
-  condominio_id  text not null references condominios(id) on delete cascade,
-  account_id     uuid not null references auth.users(id) on delete cascade,
-  name           text not null,
-  created_at     timestamptz not null default now()
+  id              text primary key,
+  condominio_id   text not null references condominios(id) on delete cascade,
+  account_id      uuid not null references auth.users(id) on delete cascade,
+  name            text not null,
+  -- Identificador legível (CHK-001, CHK-002...), sequencial por
+  -- condomínio, atribuído pelo trigger assign_ambiente_checklist_code()
+  -- mais abaixo — nunca setado direto pelo cliente.
+  checklist_code  text,
+  checklist_ativo boolean not null default true,
+  created_at      timestamptz not null default now()
 );
 create index if not exists ambientes_condominio_id_idx on ambientes(condominio_id);
 create index if not exists ambientes_account_id_idx on ambientes(account_id);
@@ -58,16 +63,23 @@ create index if not exists execucoes_ambiente_id_idx on execucoes(ambiente_id);
 create index if not exists execucoes_account_id_idx on execucoes(account_id);
 
 create table if not exists ocorrencias (
-  id                text primary key,
-  ambiente_id       text not null references ambientes(id) on delete cascade,
-  account_id        uuid not null references auth.users(id) on delete cascade,
-  description       text not null,
-  photo             text,
-  status            text not null default 'pendente',
-  reported_by_role  text check (reported_by_role is null or reported_by_role in ('colaborador', 'morador')),
-  reporter_name     text,
-  reporter_unidade  text,
-  created_at        timestamptz not null default now()
+  id                        text primary key,
+  ambiente_id               text not null references ambientes(id) on delete cascade,
+  account_id                uuid not null references auth.users(id) on delete cascade,
+  description               text not null,
+  photo                     text,
+  status                    text not null default 'pendente',
+  reported_by_role          text check (reported_by_role is null or reported_by_role in ('colaborador', 'morador')),
+  reporter_name             text,
+  reporter_unidade          text,
+  -- Identificador legível (OC-001, OC-002...), sequencial por
+  -- condomínio, atribuído pelo trigger assign_ocorrencia_code() mais
+  -- abaixo — nunca setado direto pelo cliente.
+  code                      text,
+  -- Item do checklist a que essa ocorrência se refere, opcional (ex.:
+  -- "a tarefa X não foi feita e por isso encontrei esse problema").
+  related_checklist_item_id text references checklist_items(id) on delete set null,
+  created_at                timestamptz not null default now()
 );
 create index if not exists ocorrencias_ambiente_id_idx on ocorrencias(ambiente_id);
 create index if not exists ocorrencias_account_id_idx on ocorrencias(account_id);
@@ -135,6 +147,8 @@ begin
       or new.reporter_name is distinct from old.reporter_name
       or new.reporter_unidade is distinct from old.reporter_unidade
       or new.created_at is distinct from old.created_at
+      or new.code is distinct from old.code
+      or new.related_checklist_item_id is distinct from old.related_checklist_item_id
     then
       raise exception 'Só é permitido marcar a ocorrência como resolvida.' using errcode = '42501';
     end if;
@@ -147,6 +161,54 @@ drop trigger if exists trg_protect_ocorrencia_public_update on ocorrencias;
 create trigger trg_protect_ocorrencia_public_update
   before update on ocorrencias
   for each row execute function protect_ocorrencia_public_update();
+
+-- ============================================================
+-- Identificadores legíveis (CHK-001/OC-001), sequenciais por condomínio,
+-- gerados no servidor pra não ter corrida/lacuna entre criações quase
+-- simultâneas.
+-- ============================================================
+create or replace function assign_ambiente_checklist_code()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare
+  v_next integer;
+begin
+  if new.checklist_code is not null then
+    return new;
+  end if;
+  select count(*) + 1 into v_next from ambientes where condominio_id = new.condominio_id;
+  new.checklist_code := 'CHK-' || lpad(v_next::text, 3, '0');
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_assign_ambiente_checklist_code on ambientes;
+create trigger trg_assign_ambiente_checklist_code
+  before insert on ambientes
+  for each row execute function assign_ambiente_checklist_code();
+
+create or replace function assign_ocorrencia_code()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare
+  v_condominio_id text;
+  v_next integer;
+begin
+  if new.code is not null then
+    return new;
+  end if;
+  select condominio_id into v_condominio_id from ambientes where id = new.ambiente_id;
+  select count(*) + 1 into v_next
+    from ocorrencias o
+    join ambientes a on a.id = o.ambiente_id
+    where a.condominio_id = v_condominio_id;
+  new.code := 'OC-' || lpad(v_next::text, 3, '0');
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_assign_ocorrencia_code on ocorrencias;
+create trigger trg_assign_ocorrencia_code
+  before insert on ocorrencias
+  for each row execute function assign_ocorrencia_code();
 
 -- ============================================================
 -- Limites de uso por plano — ver comentário completo em

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Text, Button, Textarea, TextInput, FileButton, Group } from '@mantine/core';
+import { Text, Button, Textarea, TextInput, Select, FileButton, Group } from '@mantine/core';
 import { Camera, AlertTriangle, CloudUpload } from 'lucide-react';
 import { enqueue, syncQueue, isPending, subscribeQueue, generateRecordId } from '../lib/offlineQueue';
 
@@ -25,11 +25,13 @@ export default function OcorrenciaForm({
   reportedByRole,
   askReporterName = false,
   triggerLabel = 'Encontrou um problema? Registrar ocorrência',
+  checklistItems = [],
 }) {
   const [expanded, setExpanded] = useState(false);
   const [description, setDescription] = useState('');
   const [reporterName, setReporterName] = useState('');
   const [reporterUnidade, setReporterUnidade] = useState('');
+  const [relatedItemId, setRelatedItemId] = useState(null);
   const [photo, setPhoto] = useState(null);
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
@@ -75,6 +77,7 @@ export default function OcorrenciaForm({
       reported_by_role: reportedByRole,
       reporter_name: askReporterName && reporterName.trim() ? reporterName.trim() : null,
       reporter_unidade: askReporterName && reporterUnidade.trim() ? reporterUnidade.trim() : null,
+      related_checklist_item_id: relatedItemId || null,
     };
 
     setSending(true);
@@ -169,6 +172,19 @@ export default function OcorrenciaForm({
             minRows={3}
             mb="sm"
           />
+          {!!checklistItems.length && (
+            <Select
+              label="Relacionado a (opcional)"
+              placeholder="Alguma tarefa do checklist?"
+              data={checklistItems.map((i) => ({ value: i.id, label: i.task }))}
+              value={relatedItemId}
+              onChange={setRelatedItemId}
+              clearable
+              searchable
+              mb="sm"
+              styles={{ input: { minHeight: 44 } }}
+            />
+          )}
           <FileButton onChange={async (f) => setPhoto(f ? await fileToBase64(f) : null)} accept="image/*">
             {(props) => (
               <Button

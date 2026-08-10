@@ -1,13 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Button, TextInput, Text, Group, Modal, Loader, SimpleGrid, ActionIcon } from '@mantine/core';
+import { Button, TextInput, Text, Group, Modal, Loader, SimpleGrid } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { Plus, Building2, ChevronRight, LayoutGrid, Pencil, Trash2, Lock, ArrowRight, TrendingUp } from 'lucide-react';
+import { Plus, Building2, ChevronRight, LayoutGrid, Lock, ArrowRight, TrendingUp } from 'lucide-react';
 import { condominiosStore, ambientesStore, accountsStore } from '../lib/stores';
 import { getSession } from '../lib/authService';
 import { getSubUsuarioInfo } from '../lib/subUsuario';
 import { logAudit } from '../lib/auditLog';
-import ConfirmDeleteModal from '../components/common/ConfirmDeleteModal';
 import OnboardingWizard from '../components/admin/OnboardingWizard';
 
 const PLAN_LABELS = { start: 'Start', pro: 'Pro', business: 'Business' };
@@ -54,13 +53,6 @@ export default function AdminDashboard() {
   const [newName, setNewName] = useState('');
   const [saving, setSaving] = useState(false);
   const [wizardOpen, setWizardOpen] = useState(false);
-
-  const [editing, setEditing] = useState(null);
-  const [editName, setEditName] = useState('');
-  const [savingEdit, setSavingEdit] = useState(false);
-
-  const [deleting, setDeleting] = useState(null);
-  const [removing, setRemoving] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -133,48 +125,6 @@ export default function AdminDashboard() {
     }
   };
 
-  const openEdit = (e, condominio) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setEditing(condominio);
-    setEditName(condominio.name);
-  };
-
-  const handleSaveEdit = async () => {
-    if (!editName.trim() || !editing) return;
-    setSavingEdit(true);
-    const oldName = editing.name;
-    await condominiosStore.update(editing.id, { name: editName.trim() });
-    logAudit({ action: 'condominio.editado', entityType: 'condominio', entityId: editing.id, details: { antes: oldName, depois: editName.trim() } });
-    setSavingEdit(false);
-    setEditing(null);
-    load();
-  };
-
-  const openDelete = (e, condominio) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDeleting(condominio);
-  };
-
-  const handleDelete = async () => {
-    if (!deleting) return;
-    setRemoving(true);
-    try {
-      // Ambientes, checklists, execuções e ocorrências desse condomínio
-      // já saem junto — são "on delete cascade" no banco (ver schema.sql).
-      await condominiosStore.remove(deleting.id);
-      logAudit({ action: 'condominio.excluido', entityType: 'condominio', entityId: deleting.id, details: { name: deleting.name } });
-      notifications.show({ color: 'green', message: `${deleting.name} excluído.` });
-    } catch {
-      notifications.show({ color: 'red', message: 'Não foi possível excluir o condomínio.' });
-    } finally {
-      setRemoving(false);
-      setDeleting(null);
-      load();
-    }
-  };
-
   return (
     <div>
       <Group justify="space-between" mb="xl" align="flex-start">
@@ -240,25 +190,11 @@ export default function AdminDashboard() {
                   </span>
                   <Text fw={700} size="md">{c.name}</Text>
                 </Group>
-                <Group gap={4}>
-                  {/* Sub-usuário só enxerga o condomínio (RLS de select),
-                      não pode renomear — esconde o lápis pra não deixar
-                      cair no fallback silencioso de localStorage do
-                      createStore quando o RLS recusar o update. */}
-                  {!isSubUsuario && (
-                    <>
-                      <ActionIcon variant="light" color="gray" radius="xl" onClick={(e) => openEdit(e, c)} aria-label="Editar condomínio">
-                        <Pencil size={15} />
-                      </ActionIcon>
-                      <ActionIcon variant="light" color="red" radius="xl" onClick={(e) => openDelete(e, c)} aria-label="Excluir condomínio">
-                        <Trash2 size={15} />
-                      </ActionIcon>
-                    </>
-                  )}
-                  <ChevronRight size={18} color="var(--text-faint)" />
-                </Group>
+                <ChevronRight size={18} color="var(--text-faint)" />
               </Group>
-              <Text size="sm" c="dimmed" mt={12}>{ambienteCounts[c.id] || 0} ambiente(s) cadastrado(s)</Text>
+              <Group gap={6} mt={14} pt={12} style={{ borderTop: '1px solid var(--border)' }}>
+                <Text size="sm" c="dimmed">{ambienteCounts[c.id] || 0} ambiente(s) cadastrado(s)</Text>
+              </Group>
             </Link>
           ))}
         </SimpleGrid>
@@ -285,24 +221,6 @@ export default function AdminDashboard() {
         />
         <Button fullWidth mt="lg" onClick={handleCreate} loading={saving}>Criar</Button>
       </Modal>
-
-      <Modal opened={!!editing} onClose={() => setEditing(null)} title="Editar condomínio">
-        <TextInput
-          label="Nome do condomínio"
-          value={editName}
-          onChange={(e) => setEditName(e.currentTarget.value)}
-          data-autofocus
-        />
-        <Button fullWidth mt="lg" onClick={handleSaveEdit} loading={savingEdit}>Salvar</Button>
-      </Modal>
-
-      <ConfirmDeleteModal
-        opened={!!deleting}
-        onClose={() => setDeleting(null)}
-        onConfirm={handleDelete}
-        itemLabel={deleting?.name}
-        loading={removing}
-      />
 
       {!isSubUsuario && account && (
         <OnboardingWizard

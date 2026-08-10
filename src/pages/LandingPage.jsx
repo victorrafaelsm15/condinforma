@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import Seo, { SITE_URL, DEFAULT_OG_IMAGE } from '../components/common/Seo';
+import Seo, { SITE_URL } from '../components/common/Seo';
 import LandingHeader from '../components/landing/LandingHeader';
 import Hero from '../components/landing/Hero';
 import ProblemSection from '../components/landing/ProblemSection';

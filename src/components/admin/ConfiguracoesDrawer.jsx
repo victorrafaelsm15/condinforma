@@ -18,6 +18,25 @@ export default function ConfiguracoesDrawer({ opened, onClose, onLogout, isSubUs
   return (
     <>
       <Drawer opened={opened} onClose={onClose} position="right" size={isMobile ? '100%' : '25%'} title="Configurações" padding="lg">
+        {/* Notificações push e Modo escuro no topo, por pedido explícito de
+            design — são os controles mais usados no dia a dia, ficam
+            visíveis sem precisar rolar. */}
+        <PushToggleSection />
+
+        <Group justify="space-between" mb="lg">
+          <Group gap={8}>
+            {isDark ? <Moon size={16} color="var(--blue)" /> : <Sun size={16} color="var(--amber)" />}
+            <Text fw={700} size="sm">Modo escuro</Text>
+          </Group>
+          <Switch
+            checked={isDark}
+            onChange={(e) => setColorScheme(e.currentTarget.checked ? 'dark' : 'light')}
+            aria-label="Alternar modo escuro"
+          />
+        </Group>
+
+        <Divider mb="lg" />
+
         {/* Sub-usuários e Auditoria viraram itens próprios da sidebar
             esquerda — só Plano continua aqui (sub-usuário não gerencia
             plano/pagamento da conta principal). */}
@@ -40,22 +59,6 @@ export default function ConfiguracoesDrawer({ opened, onClose, onLogout, isSubUs
         >
           Segurança
         </Button>
-
-        <Divider mb="lg" />
-
-        <PushToggleSection />
-
-        <Group justify="space-between" mb="lg">
-          <Group gap={8}>
-            {isDark ? <Moon size={16} color="var(--blue)" /> : <Sun size={16} color="var(--amber)" />}
-            <Text fw={700} size="sm">Modo escuro</Text>
-          </Group>
-          <Switch
-            checked={isDark}
-            onChange={(e) => setColorScheme(e.currentTarget.checked ? 'dark' : 'light')}
-            aria-label="Alternar modo escuro"
-          />
-        </Group>
 
         <Divider mb="lg" />
 

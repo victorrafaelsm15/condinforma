@@ -222,20 +222,20 @@ export default function AssinaturaPage() {
             <img src={`${import.meta.env.BASE_URL}logo-icon.png`} alt="" style={{ height: 32, width: 'auto' }} />
             Cond-Informa
           </Link>
-          <Text size="sm" fw={700} tt="uppercase" style={{ opacity: 0.7, letterSpacing: '0.06em' }}>Plano selecionado</Text>
-          <Text fw={800} size="2.4rem" className="font-display" mt={8}>{plan.name}</Text>
-          <Text size="md" style={{ opacity: 0.75 }} mb={10}>{plan.tagline}</Text>
-          <Text fw={800} size="2.75rem" className="font-display" mb={28}>
-            R$ {plan.price}<span style={{ fontSize: 17, fontWeight: 500, opacity: 0.7 }}>/mês</span>
+          <Text size="md" fw={700} tt="uppercase" style={{ opacity: 0.7, letterSpacing: '0.06em' }}>Plano selecionado</Text>
+          <Text fw={800} size="3rem" className="font-display" mt={10}>{plan.name}</Text>
+          <Text size="lg" style={{ opacity: 0.78 }} mb={14}>{plan.tagline}</Text>
+          <Text fw={800} size="3.4rem" className="font-display" mb={32}>
+            R$ {plan.price}<span style={{ fontSize: 19, fontWeight: 500, opacity: 0.7 }}>/mês</span>
           </Text>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 17 }}>
             {plan.features.map((f) => (
-              <div key={f} style={{ display: 'flex', gap: 10, fontSize: 16, alignItems: 'flex-start' }}>
+              <div key={f} style={{ display: 'flex', gap: 12, fontSize: 18, alignItems: 'flex-start' }}>
                 <span style={{
-                  flexShrink: 0, marginTop: 1, width: 20, height: 20, borderRadius: '50%',
+                  flexShrink: 0, marginTop: 1, width: 23, height: 23, borderRadius: '50%',
                   background: 'rgba(18,183,106,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}>
-                  <Check size={12} color="#5eead4" strokeWidth={3} />
+                  <Check size={13} color="#5eead4" strokeWidth={3} />
                 </span>
                 {f}
               </div>
@@ -388,6 +388,24 @@ export default function AssinaturaPage() {
                   label="Cupom de desconto (opcional)"
                   placeholder="Ex: BEMVINDO20"
                   mb="sm"
+                  autoComplete="off"
+                  // O campo tem "coupon" no name (register('couponCode')),
+                  // exatamente o padrão que extensões de cupom (Honey,
+                  // Capital One Shopping) e o Grammarly usam pra decidir
+                  // onde injetar um ícone/wrapper próprio no input — quando
+                  // o React re-renderiza esse nó depois, a extensão fica com
+                  // uma referência antiga e quebra ao ler ref.value, o que
+                  // aparece pro usuário como "Cannot read properties of null
+                  // (reading 'value')". Essas data-attributes desativam a
+                  // injeção do Grammarly; data-honey/data-lpignore cobrem os
+                  // gerenciadores de senha e localizadores de cupom mais
+                  // comuns que respeitam opt-out.
+                  data-gramm="false"
+                  data-gramm_editor="false"
+                  data-enable-grammarly="false"
+                  data-lpignore="true"
+                  data-1p-ignore="true"
+                  data-honey-disable="true"
                   error={errors.couponCode?.message}
                   {...register('couponCode')}
                 />

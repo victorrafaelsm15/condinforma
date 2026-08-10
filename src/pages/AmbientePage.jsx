@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
   Text, Group, Breadcrumbs, Loader, TextInput, Button, ActionIcon,
-  Tabs, Badge, Image as MantineImage, Modal, Menu,
+  Tabs, Badge, Image as MantineImage, Modal, Menu, Switch,
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import {
@@ -13,10 +13,12 @@ import { ambientesStore, checklistItemsStore, execucoesStore, ocorrenciasStore, 
 import AmbienteQrCards from '../components/admin/AmbienteQrCards';
 import { generateComunicadoPdf, downloadPdf, sharePdf } from '../lib/comunicado';
 import { logAudit } from '../lib/auditLog';
-import { reporterLabel } from '../lib/ocorrenciaDisplay';
+import { getSession } from '../lib/authService';
+import { getSubUsuarioInfo } from '../lib/subUsuario';
 import ConfirmDeleteModal from '../components/common/ConfirmDeleteModal';
+import OcorrenciaCard from '../components/admin/OcorrenciaCard';
 
-function ChecklistTab({ ambienteId, accountId }) {
+function ChecklistTab({ ambienteId, accountId, checklistAtivo, onToggleAtivo }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [newTask, setNewTask] = useState('');
@@ -72,6 +74,23 @@ function ChecklistTab({ ambienteId, accountId }) {
 
   return (
     <div>
+      <Group justify="space-between" className="surface-card" style={{ padding: '14px 16px' }} mb="lg">
+        <div>
+          <Text fw={700} size="sm">Checklist {checklistAtivo ? 'ativo' : 'inativo'}</Text>
+          <Text size="xs" c="dimmed" mt={2}>
+            {checklistAtivo
+              ? 'Disponível para execução pelo colaborador via QR Code.'
+              : 'Colaborador não vê este checklist como disponível até você reativar.'}
+          </Text>
+        </div>
+        <Switch
+          checked={!!checklistAtivo}
+          onChange={(e) => onToggleAtivo(e.currentTarget.checked)}
+          color="green"
+          aria-label="Ativar ou desativar o checklist deste ambiente"
+        />
+      </Group>
+
       {items.length ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
           {items.map((item, i) => {
@@ -376,47 +395,77 @@ function HistoryTab({ ambienteId, ambienteName, condominioName }) {
   );
 }
 
-function OccurrencesTab({ ambienteId }) {
+function OccurrencesTab({ ambienteId, canDelete }) {
   const [list, setList] = useState([]);
+  const [itemsById, setItemsById] = useState({});
   const [loading, setLoading] = useState(true);
+  const [resolvingId, setResolvingId] = useState(null);
+  const [deleting, setDeleting] = useState(null);
+  const [removing, setRemoving] = useState(false);
 
   const load = () => {
     setLoading(true);
-    ocorrenciasStore.list({ ambiente_id: ambienteId }).then((data) => { setList(data); setLoading(false); });
+    Promise.all([
+      ocorrenciasStore.list({ ambiente_id: ambienteId }),
+      checklistItemsStore.list({ ambiente_id: ambienteId }),
+    ]).then(([occs, checklistItems]) => {
+      setList(occs);
+      setItemsById(Object.fromEntries(checklistItems.map((i) => [i.id, i.task])));
+      setLoading(false);
+    });
   };
 
   useEffect(load, [ambienteId]);
 
   const handleResolve = async (id) => {
-    await ocorrenciasStore.update(id, { status: 'resolvido' });
-    load();
+    setResolvingId(id);
+    try {
+      await ocorrenciasStore.update(id, { status: 'resolvido' });
+      load();
+    } finally {
+      setResolvingId(null);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deleting) return;
+    setRemoving(true);
+    try {
+      await ocorrenciasStore.remove(deleting.id);
+      logAudit({ action: 'ocorrencia.excluida', entityType: 'ocorrencia', entityId: deleting.id, details: { description: deleting.description } });
+      notifications.show({ color: 'green', message: 'Ocorrência excluída.' });
+    } catch {
+      notifications.show({ color: 'red', message: 'Não foi possível excluir a ocorrência.' });
+    } finally {
+      setRemoving(false);
+      setDeleting(null);
+      load();
+    }
   };
 
   if (loading) return <Loader size="sm" color="brand" />;
   if (!list.length) return <Text c="dimmed" size="sm">Nenhuma ocorrência registrada.</Text>;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       {list.map((o) => (
-        <div key={o.id} className="surface-card" style={{ padding: 16 }}>
-          <Group justify="space-between" align="flex-start">
-            <div style={{ flex: 1 }}>
-              <Text size="sm">{o.description}</Text>
-              <Text size="xs" c="dimmed" mt={4}>
-                {new Date(o.created_at).toLocaleString('pt-BR')}
-                {reporterLabel(o) && ` · ${reporterLabel(o)}`}
-              </Text>
-            </div>
-            <Badge color={o.status === 'resolvido' ? 'green' : 'red'} variant="light">{o.status}</Badge>
-          </Group>
-          {o.photo && <MantineImage src={o.photo} radius="md" mt="sm" h={140} w={140} fit="cover" />}
-          {o.status !== 'resolvido' && (
-            <Button size="xs" variant="light" color="green" mt="sm" onClick={() => handleResolve(o.id)}>
-              Marcar como resolvido
-            </Button>
-          )}
-        </div>
+        <OcorrenciaCard
+          key={o.id}
+          ocorrencia={o}
+          relatedTask={o.related_checklist_item_id ? itemsById[o.related_checklist_item_id] : null}
+          onResolve={o.status !== 'resolvido' ? () => handleResolve(o.id) : undefined}
+          resolving={resolvingId === o.id}
+          onDelete={canDelete ? () => setDeleting(o) : undefined}
+        />
       ))}
+
+      <ConfirmDeleteModal
+        opened={!!deleting}
+        onClose={() => setDeleting(null)}
+        onConfirm={handleDelete}
+        itemLabel="esta ocorrência"
+        loading={removing}
+      />
     </div>
   );
 }
@@ -433,8 +482,14 @@ export default function AmbientePage() {
   const [activeTab, setActiveTab] = useState('checklist');
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [removing, setRemoving] = useState(false);
+  const [isSubUsuario, setIsSubUsuario] = useState(false);
 
   const load = async () => {
+    const session = await getSession();
+    if (session) {
+      const subInfo = await getSubUsuarioInfo(session.user.id);
+      setIsSubUsuario(!!subInfo);
+    }
     const data = await ambientesStore.getById(id);
     setAmbiente(data);
     if (data) {
@@ -445,6 +500,12 @@ export default function AmbientePage() {
   };
 
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [id]);
+
+  const handleToggleChecklistAtivo = async (value) => {
+    await ambientesStore.update(id, { checklist_ativo: value });
+    logAudit({ action: 'ambiente.checklist_status_alterado', entityType: 'ambiente', entityId: id, details: { ativo: value } });
+    load();
+  };
 
   const openEdit = () => {
     setEditName(ambiente.name);
@@ -502,7 +563,12 @@ export default function AmbientePage() {
           }}>
             <ListChecks size={17} color="#fff" />
           </span>
-          <Text fw={800} size="1.6rem" className="font-display" c="#fff">{ambiente.name}</Text>
+          <div>
+            <Text fw={800} size="1.6rem" className="font-display" c="#fff" lh={1.2}>{ambiente.name}</Text>
+            {ambiente.checklist_code && (
+              <Text size="xs" fw={600} c="rgba(255,255,255,0.72)">{ambiente.checklist_code}</Text>
+            )}
+          </div>
         </Group>
         <Group gap={8}>
           <ActionIcon variant="light" color="gray" radius="xl" size="lg" onClick={openEdit} aria-label="Editar ambiente">
@@ -533,25 +599,32 @@ export default function AmbientePage() {
         }}
       >
         <Tabs.List>
-          <Tabs.Tab value="checklist" leftSection={<ClipboardList size={15} />} style={getTabStyle('checklist', activeTab === 'checklist')}>
-            Checklist
-          </Tabs.Tab>
           <Tabs.Tab value="qrcode" style={getTabStyle('qrcode', activeTab === 'qrcode')}>
             <Group gap={6} wrap="nowrap" style={activeTab === 'qrcode' ? { color: '#fff', mixBlendMode: 'difference' } : undefined}>
               <QrCode size={15} /> QR Codes
             </Group>
           </Tabs.Tab>
-          <Tabs.Tab value="historico" leftSection={<History size={15} />} style={getTabStyle('historico', activeTab === 'historico')}>
-            Histórico
+          <Tabs.Tab value="checklist" leftSection={<ClipboardList size={15} />} style={getTabStyle('checklist', activeTab === 'checklist')}>
+            Checklist
           </Tabs.Tab>
           <Tabs.Tab value="ocorrencias" leftSection={<AlertTriangle size={15} />} style={getTabStyle('ocorrencias', activeTab === 'ocorrencias')}>
             Ocorrências
           </Tabs.Tab>
+          <Tabs.Tab value="historico" leftSection={<History size={15} />} style={getTabStyle('historico', activeTab === 'historico')}>
+            Histórico
+          </Tabs.Tab>
         </Tabs.List>
-        <Tabs.Panel value="checklist" pt="lg"><ChecklistTab ambienteId={id} accountId={ambiente.account_id} /></Tabs.Panel>
         <Tabs.Panel value="qrcode" pt="lg"><QrCodeTab ambiente={ambiente} /></Tabs.Panel>
+        <Tabs.Panel value="checklist" pt="lg">
+          <ChecklistTab
+            ambienteId={id}
+            accountId={ambiente.account_id}
+            checklistAtivo={ambiente.checklist_ativo}
+            onToggleAtivo={handleToggleChecklistAtivo}
+          />
+        </Tabs.Panel>
+        <Tabs.Panel value="ocorrencias" pt="lg"><OccurrencesTab ambienteId={id} canDelete={!isSubUsuario} /></Tabs.Panel>
         <Tabs.Panel value="historico" pt="lg"><HistoryTab ambienteId={id} ambienteName={ambiente.name} condominioName={condominio?.name} /></Tabs.Panel>
-        <Tabs.Panel value="ocorrencias" pt="lg"><OccurrencesTab ambienteId={id} /></Tabs.Panel>
       </Tabs>
 
       <ConfirmDeleteModal

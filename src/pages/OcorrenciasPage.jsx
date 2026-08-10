@@ -1,19 +1,35 @@
 import { useEffect, useState } from 'react';
-import { Text, Group, Loader, Badge, Button, Image as MantineImage } from '@mantine/core';
+import { Text, Group, Loader } from '@mantine/core';
+import { notifications } from '@mantine/notifications';
 import { AlertTriangle } from 'lucide-react';
-import { ocorrenciasStore, ambientesStore, condominiosStore } from '../lib/stores';
-import { reporterLabel } from '../lib/ocorrenciaDisplay';
+import { ocorrenciasStore, ambientesStore, condominiosStore, checklistItemsStore } from '../lib/stores';
+import { getSession } from '../lib/authService';
+import { getSubUsuarioInfo } from '../lib/subUsuario';
+import { logAudit } from '../lib/auditLog';
+import ConfirmDeleteModal from '../components/common/ConfirmDeleteModal';
+import OcorrenciaCard from '../components/admin/OcorrenciaCard';
 
 export default function OcorrenciasPage() {
   const [list, setList] = useState([]);
+  const [itemsById, setItemsById] = useState({});
+  const [isSubUsuario, setIsSubUsuario] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [resolvingId, setResolvingId] = useState(null);
+  const [deleting, setDeleting] = useState(null);
+  const [removing, setRemoving] = useState(false);
 
   const load = async () => {
     setLoading(true);
-    const [occs, ambientes, condominios] = await Promise.all([
+    const session = await getSession();
+    if (session) {
+      const subInfo = await getSubUsuarioInfo(session.user.id);
+      setIsSubUsuario(!!subInfo);
+    }
+    const [occs, ambientes, condominios, checklistItems] = await Promise.all([
       ocorrenciasStore.list(),
       ambientesStore.list(),
       condominiosStore.list(),
+      checklistItemsStore.list(),
     ]);
     const ambienteMap = Object.fromEntries(ambientes.map((a) => [a.id, a]));
     const condMap = Object.fromEntries(condominios.map((c) => [c.id, c]));
@@ -26,14 +42,36 @@ export default function OcorrenciasPage() {
       };
     });
     setList(enriched);
+    setItemsById(Object.fromEntries(checklistItems.map((i) => [i.id, i.task])));
     setLoading(false);
   };
 
   useEffect(() => { load(); }, []);
 
   const handleResolve = async (id) => {
-    await ocorrenciasStore.update(id, { status: 'resolvido' });
-    load();
+    setResolvingId(id);
+    try {
+      await ocorrenciasStore.update(id, { status: 'resolvido' });
+      load();
+    } finally {
+      setResolvingId(null);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deleting) return;
+    setRemoving(true);
+    try {
+      await ocorrenciasStore.remove(deleting.id);
+      logAudit({ action: 'ocorrencia.excluida', entityType: 'ocorrencia', entityId: deleting.id, details: { description: deleting.description } });
+      notifications.show({ color: 'green', message: 'Ocorrência excluída.' });
+    } catch {
+      notifications.show({ color: 'red', message: 'Não foi possível excluir a ocorrência.' });
+    } finally {
+      setRemoving(false);
+      setDeleting(null);
+      load();
+    }
   };
 
   if (loading) return <Group justify="center" py={60}><Loader color="brand" /></Group>;
@@ -52,25 +90,15 @@ export default function OcorrenciasPage() {
       {list.length ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {list.map((o) => (
-            <div key={o.id} className="surface-card" style={{ padding: 18 }}>
-              <Group justify="space-between" align="flex-start">
-                <div style={{ flex: 1 }}>
-                  <Text size="sm" c="dimmed" fw={600}>{o.condominioName}, {o.ambienteName}</Text>
-                  <Text size="md" mt={4}>{o.description}</Text>
-                  <Text size="sm" c="dimmed" mt={4}>
-                    {new Date(o.created_at).toLocaleString('pt-BR')}
-                    {reporterLabel(o) && ` · ${reporterLabel(o)}`}
-                  </Text>
-                </div>
-                <Badge color={o.status === 'resolvido' ? 'green' : 'red'} variant="light">{o.status}</Badge>
-              </Group>
-              {o.photo && <MantineImage src={o.photo} radius="md" mt="sm" h={160} w={160} fit="cover" />}
-              {o.status !== 'resolvido' && (
-                <Button size="xs" variant="light" color="green" mt="sm" onClick={() => handleResolve(o.id)}>
-                  Marcar como resolvido
-                </Button>
-              )}
-            </div>
+            <OcorrenciaCard
+              key={o.id}
+              ocorrencia={o}
+              locationLabel={`${o.condominioName}, ${o.ambienteName}`}
+              relatedTask={o.related_checklist_item_id ? itemsById[o.related_checklist_item_id] : null}
+              onResolve={o.status !== 'resolvido' ? () => handleResolve(o.id) : undefined}
+              resolving={resolvingId === o.id}
+              onDelete={!isSubUsuario ? () => setDeleting(o) : undefined}
+            />
           ))}
         </div>
       ) : (
@@ -78,6 +106,14 @@ export default function OcorrenciasPage() {
           <Text c="dimmed">Nenhuma ocorrência registrada em nenhum condomínio.</Text>
         </div>
       )}
+
+      <ConfirmDeleteModal
+        opened={!!deleting}
+        onClose={() => setDeleting(null)}
+        onConfirm={handleDelete}
+        itemLabel="esta ocorrência"
+        loading={removing}
+      />
     </div>
   );
 }
