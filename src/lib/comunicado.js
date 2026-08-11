@@ -122,16 +122,61 @@ function renderExecucaoPage(doc, { condominioName, ambienteName, execucao }) {
   );
 }
 
+function renderVinculosPage(doc, { condominioName, ambienteName, itemOcorrenciaCounts }) {
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const marginX = 14;
+
+  doc.setFillColor(...BLUE);
+  doc.rect(0, 0, pageWidth, 26, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(14);
+  doc.text('COND-INFORMA', marginX, 12);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.text('Ocorrências vinculadas ao checklist no período', marginX, 19);
+  if (condominioName) {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.text(condominioName, pageWidth - marginX, 15, { align: 'right' });
+  }
+
+  let y = 40;
+  doc.setTextColor(...INK);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(15);
+  doc.text(ambienteName || 'Ambiente', marginX, y);
+  y += 10;
+
+  autoTable(doc, {
+    startY: y,
+    margin: { left: marginX, right: marginX },
+    head: [['Item do checklist', 'Ocorrências no período']],
+    body: itemOcorrenciaCounts.map((row) => [row.task, String(row.count)]),
+    headStyles: { fillColor: BLUE, textColor: [255, 255, 255], fontStyle: 'bold' },
+    alternateRowStyles: { fillColor: [245, 246, 252] },
+    styles: { fontSize: 10, cellPadding: 4, textColor: INK },
+    columnStyles: { 1: { cellWidth: 50, halign: 'center' } },
+  });
+}
+
 /**
  * Gera um PDF de comunicado — uma página por execução, útil tanto para uma
  * única execução quanto para um período (várias execuções em sequência).
+ * itemOcorrenciaCounts (opcional, [{ task, count }]) adiciona uma página
+ * extra ao final resumindo quantas ocorrências cada item do checklist
+ * teve vinculadas no período coberto pelas execuções incluídas.
  */
-export function generateComunicadoPdf({ condominioName, ambienteName, execucoes }) {
+export function generateComunicadoPdf({ condominioName, ambienteName, execucoes, itemOcorrenciaCounts }) {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   execucoes.forEach((execucao, idx) => {
     if (idx > 0) doc.addPage();
     renderExecucaoPage(doc, { condominioName, ambienteName, execucao });
   });
+  if (itemOcorrenciaCounts?.length) {
+    doc.addPage();
+    renderVinculosPage(doc, { condominioName, ambienteName, itemOcorrenciaCounts });
+  }
   return doc;
 }
 

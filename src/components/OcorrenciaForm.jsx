@@ -26,12 +26,18 @@ export default function OcorrenciaForm({
   askReporterName = false,
   triggerLabel = 'Encontrou um problema? Registrar ocorrência',
   checklistItems = [],
+  // Usado pelo ícone "Relatar problema" de cada item do checklist (ver
+  // ExecutarChecklistPage.jsx): quem chama passa um "key" diferente
+  // junto com esses dois props pra forçar o React a remontar o
+  // formulário já aberto e com o item certo pré-selecionado.
+  initiallyExpanded = false,
+  initialRelatedItemId = null,
 }) {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(initiallyExpanded);
   const [description, setDescription] = useState('');
   const [reporterName, setReporterName] = useState('');
   const [reporterUnidade, setReporterUnidade] = useState('');
-  const [relatedItemId, setRelatedItemId] = useState(null);
+  const [relatedItemId, setRelatedItemId] = useState(initialRelatedItemId);
   const [photo, setPhoto] = useState(null);
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);

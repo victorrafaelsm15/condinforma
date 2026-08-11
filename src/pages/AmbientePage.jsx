@@ -7,9 +7,9 @@ import {
 import { notifications } from '@mantine/notifications';
 import {
   Plus, Trash2, ClipboardList, QrCode, History, AlertTriangle, ListChecks, ArrowLeft, Pencil, Check, X,
-  FileDown, Download, Share2, Calendar,
+  FileDown, Download, Share2, Calendar, FolderPlus,
 } from 'lucide-react';
-import { ambientesStore, checklistItemsStore, execucoesStore, ocorrenciasStore, condominiosStore } from '../lib/stores';
+import { ambientesStore, checklistGruposStore, checklistItemsStore, execucoesStore, ocorrenciasStore, condominiosStore } from '../lib/stores';
 import AmbienteQrCards from '../components/admin/AmbienteQrCards';
 import { generateComunicadoPdf, downloadPdf, sharePdf } from '../lib/comunicado';
 import { logAudit } from '../lib/auditLog';
@@ -18,36 +18,34 @@ import { getSubUsuarioInfo } from '../lib/subUsuario';
 import ConfirmDeleteModal from '../components/common/ConfirmDeleteModal';
 import OcorrenciaCard from '../components/admin/OcorrenciaCard';
 
-function ChecklistTab({ ambienteId, accountId, checklistAtivo, onToggleAtivo }) {
-  const [items, setItems] = useState([]);
-  const [loading, setLoading] = useState(true);
+// Um card por grupo de checklist — mantém seus próprios itens (adicionar/
+// editar/remover), toggle de ativo/inativo, exclusão do grupo inteiro e o
+// badge de ocorrências pendentes por item (contagem vem de fora, calculada
+// uma vez pro ambiente inteiro).
+function ChecklistGrupoCard({ grupo, items, ambienteId, accountId, pendingCountByItem, onToggleStatus, onDeleteRequest, onReload }) {
   const [newTask, setNewTask] = useState('');
+  const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [editValue, setEditValue] = useState('');
 
-  const load = async () => {
-    setLoading(true);
-    const list = await checklistItemsStore.list({ ambiente_id: ambienteId });
-    setItems(list.sort((a, b) => (a.order_index || 0) - (b.order_index || 0)));
-    setLoading(false);
-  };
-
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [ambienteId]);
-
   const handleAdd = async () => {
     if (!newTask.trim()) return;
+    setAdding(true);
     // account_id copiado do ambiente (não da sessão) — quem cria pode ser
     // um sub-usuário, cujo próprio account_id não é o dono real do ambiente.
-    const created = await checklistItemsStore.create({ ambiente_id: ambienteId, task: newTask.trim(), order_index: items.length, account_id: accountId });
-    logAudit({ action: 'checklist.item_criado', entityType: 'checklist_item', entityId: created.id, details: { task: created.task } });
+    const created = await checklistItemsStore.create({
+      ambiente_id: ambienteId, checklist_grupo_id: grupo.id, task: newTask.trim(), order_index: items.length, account_id: accountId,
+    });
+    logAudit({ action: 'checklist.item_criado', entityType: 'checklist_item', entityId: created.id, details: { task: created.task, grupo: grupo.nome } });
     setNewTask('');
-    load();
+    setAdding(false);
+    onReload();
   };
 
   const handleRemove = async (id, task) => {
     await checklistItemsStore.remove(id);
-    logAudit({ action: 'checklist.item_excluido', entityType: 'checklist_item', entityId: id, details: { task } });
-    load();
+    logAudit({ action: 'checklist.item_excluido', entityType: 'checklist_item', entityId: id, details: { task, grupo: grupo.nome } });
+    onReload();
   };
 
   const startEdit = (item) => {
@@ -64,37 +62,42 @@ function ChecklistTab({ ambienteId, accountId, checklistAtivo, onToggleAtivo }) 
     if (!editValue.trim()) return;
     const before = items.find((i) => i.id === editingId);
     await checklistItemsStore.update(editingId, { task: editValue.trim() });
-    logAudit({ action: 'checklist.item_editado', entityType: 'checklist_item', entityId: editingId, details: { antes: before?.task, depois: editValue.trim() } });
+    logAudit({ action: 'checklist.item_editado', entityType: 'checklist_item', entityId: editingId, details: { antes: before?.task, depois: editValue.trim(), grupo: grupo.nome } });
     setEditingId(null);
     setEditValue('');
-    load();
+    onReload();
   };
 
-  if (loading) return <Loader size="sm" color="brand" />;
+  const isAtivo = grupo.status === 'ativo';
 
   return (
-    <div>
-      <Group justify="space-between" className="surface-card" style={{ padding: '14px 16px' }} mb="lg">
-        <div>
-          <Text fw={700} size="sm">Checklist {checklistAtivo ? 'ativo' : 'inativo'}</Text>
-          <Text size="xs" c="dimmed" mt={2}>
-            {checklistAtivo
-              ? 'Disponível para execução pelo colaborador via QR Code.'
-              : 'Colaborador não vê este checklist como disponível até você reativar.'}
-          </Text>
-        </div>
-        <Switch
-          checked={!!checklistAtivo}
-          onChange={(e) => onToggleAtivo(e.currentTarget.checked)}
-          color="green"
-          aria-label="Ativar ou desativar o checklist deste ambiente"
-        />
+    <div className="surface-card" style={{ padding: 20 }}>
+      <Group justify="space-between" mb={4}>
+        <Group gap={10}>
+          <Text fw={700} size="md">{grupo.nome}</Text>
+          <Badge color={isAtivo ? 'green' : 'gray'} variant="light">{isAtivo ? 'Ativo' : 'Inativo'}</Badge>
+        </Group>
+        <Group gap={8}>
+          <Switch
+            checked={isAtivo}
+            onChange={() => onToggleStatus(grupo)}
+            color="green"
+            aria-label={`Ativar ou desativar o grupo ${grupo.nome}`}
+          />
+          <ActionIcon color="red" variant="light" radius="md" onClick={() => onDeleteRequest(grupo)} aria-label={`Excluir grupo ${grupo.nome}`}>
+            <Trash2 size={15} />
+          </ActionIcon>
+        </Group>
       </Group>
+      <Text size="xs" c="dimmed" mb="md">
+        Edite os itens aqui só para corrigir este grupo. Pra mudar a rotina de verdade, crie um novo grupo — assim o histórico de execuções antigas continua íntegro.
+      </Text>
 
       {items.length ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
           {items.map((item, i) => {
             const isEditing = editingId === item.id;
+            const pendingCount = pendingCountByItem[item.id] || 0;
             return (
               <div key={item.id} className="surface-card" style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
                 <Group gap={12} style={{ flex: 1 }}>
@@ -115,6 +118,11 @@ function ChecklistTab({ ambienteId, accountId, checklistAtivo, onToggleAtivo }) 
                     />
                   ) : (
                     <Text size="md">{item.task}</Text>
+                  )}
+                  {!isEditing && pendingCount > 0 && (
+                    <Badge size="xs" color="red" variant="light" title="Ocorrências pendentes vinculadas a este item">
+                      {pendingCount} {pendingCount === 1 ? 'ocorrência' : 'ocorrências'}
+                    </Badge>
                   )}
                 </Group>
                 <Group gap={4}>
@@ -143,7 +151,7 @@ function ChecklistTab({ ambienteId, accountId, checklistAtivo, onToggleAtivo }) 
           })}
         </div>
       ) : (
-        <Text c="dimmed" size="sm" mb="md">Nenhuma tarefa cadastrada ainda.</Text>
+        <Text c="dimmed" size="sm" mb="md">Nenhuma tarefa cadastrada neste grupo ainda.</Text>
       )}
 
       <Group>
@@ -154,8 +162,136 @@ function ChecklistTab({ ambienteId, accountId, checklistAtivo, onToggleAtivo }) 
           style={{ flex: 1 }}
           onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
         />
-        <Button leftSection={<Plus size={15} />} onClick={handleAdd}>Adicionar</Button>
+        <Button leftSection={<Plus size={15} />} onClick={handleAdd} loading={adding}>Adicionar</Button>
       </Group>
+    </div>
+  );
+}
+
+function ChecklistTab({ ambienteId, accountId }) {
+  const [grupos, setGrupos] = useState([]);
+  const [itemsByGrupo, setItemsByGrupo] = useState({});
+  const [pendingCountByItem, setPendingCountByItem] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [novoGrupoOpen, setNovoGrupoOpen] = useState(false);
+  const [novoGrupoNome, setNovoGrupoNome] = useState('');
+  const [savingGrupo, setSavingGrupo] = useState(false);
+  const [deletingGrupo, setDeletingGrupo] = useState(null);
+  const [removingGrupo, setRemovingGrupo] = useState(false);
+
+  const load = async () => {
+    setLoading(true);
+    const [gruposList, itemsList, pendentes] = await Promise.all([
+      checklistGruposStore.list({ ambiente_id: ambienteId }),
+      checklistItemsStore.list({ ambiente_id: ambienteId }),
+      ocorrenciasStore.list({ ambiente_id: ambienteId, status: 'pendente' }),
+    ]);
+    setGrupos(gruposList);
+    const grouped = {};
+    itemsList.forEach((item) => {
+      (grouped[item.checklist_grupo_id] ||= []).push(item);
+    });
+    Object.values(grouped).forEach((list) => list.sort((a, b) => (a.order_index || 0) - (b.order_index || 0)));
+    setItemsByGrupo(grouped);
+    const counts = {};
+    pendentes.forEach((o) => {
+      if (o.related_checklist_item_id) counts[o.related_checklist_item_id] = (counts[o.related_checklist_item_id] || 0) + 1;
+    });
+    setPendingCountByItem(counts);
+    setLoading(false);
+  };
+
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, [ambienteId]);
+
+  const openNovoGrupo = () => {
+    setNovoGrupoNome('');
+    setNovoGrupoOpen(true);
+  };
+
+  const handleCreateGrupo = async () => {
+    if (!novoGrupoNome.trim()) return;
+    setSavingGrupo(true);
+    const created = await checklistGruposStore.create({ ambiente_id: ambienteId, nome: novoGrupoNome.trim(), status: 'ativo', account_id: accountId });
+    logAudit({ action: 'checklist_grupo.criado', entityType: 'checklist_grupo', entityId: created.id, details: { nome: created.nome } });
+    setSavingGrupo(false);
+    setNovoGrupoOpen(false);
+    load();
+  };
+
+  const handleToggleGrupoStatus = async (grupo) => {
+    const novoStatus = grupo.status === 'ativo' ? 'inativo' : 'ativo';
+    await checklistGruposStore.update(grupo.id, { status: novoStatus });
+    logAudit({ action: 'checklist_grupo.status_alterado', entityType: 'checklist_grupo', entityId: grupo.id, details: { nome: grupo.nome, status: novoStatus } });
+    load();
+  };
+
+  const handleDeleteGrupo = async () => {
+    if (!deletingGrupo) return;
+    setRemovingGrupo(true);
+    try {
+      // Itens desse grupo saem junto (on delete cascade); execuções
+      // antigas ficam preservadas, só perdem a referência ao grupo
+      // (on delete set null — ver schema.sql).
+      await checklistGruposStore.remove(deletingGrupo.id);
+      logAudit({ action: 'checklist_grupo.excluido', entityType: 'checklist_grupo', entityId: deletingGrupo.id, details: { nome: deletingGrupo.nome } });
+      notifications.show({ color: 'green', message: `Grupo "${deletingGrupo.nome}" excluído.` });
+    } catch {
+      notifications.show({ color: 'red', message: 'Não foi possível excluir esse grupo.' });
+    } finally {
+      setRemovingGrupo(false);
+      setDeletingGrupo(null);
+      load();
+    }
+  };
+
+  if (loading) return <Loader size="sm" color="brand" />;
+
+  return (
+    <div>
+      {grupos.length ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 18 }}>
+          {grupos.map((g) => (
+            <ChecklistGrupoCard
+              key={g.id}
+              grupo={g}
+              items={itemsByGrupo[g.id] || []}
+              ambienteId={ambienteId}
+              accountId={accountId}
+              pendingCountByItem={pendingCountByItem}
+              onToggleStatus={handleToggleGrupoStatus}
+              onDeleteRequest={setDeletingGrupo}
+              onReload={load}
+            />
+          ))}
+        </div>
+      ) : (
+        <Text c="dimmed" size="sm" mb="lg">Nenhum grupo de checklist cadastrado ainda. Crie um pra começar (ex: "Rotina Diária").</Text>
+      )}
+
+      <Button variant="light" leftSection={<FolderPlus size={16} />} onClick={openNovoGrupo}>Novo grupo de checklist</Button>
+
+      <Modal opened={novoGrupoOpen} onClose={() => setNovoGrupoOpen(false)} title="Novo grupo de checklist">
+        <TextInput
+          label="Nome do grupo"
+          placeholder="Ex: Rotina Diária, Faxina Semanal"
+          value={novoGrupoNome}
+          onChange={(e) => setNovoGrupoNome(e.currentTarget.value)}
+          onKeyDown={(e) => e.key === 'Enter' && handleCreateGrupo()}
+          data-autofocus
+        />
+        <Text size="xs" c="dimmed" mt={8}>
+          O grupo nasce ativo e aparece pro colaborador na hora. Mais de um grupo pode ficar ativo ao mesmo tempo.
+        </Text>
+        <Button fullWidth mt="lg" onClick={handleCreateGrupo} loading={savingGrupo}>Criar grupo</Button>
+      </Modal>
+
+      <ConfirmDeleteModal
+        opened={!!deletingGrupo}
+        onClose={() => setDeletingGrupo(null)}
+        onConfirm={handleDeleteGrupo}
+        itemLabel={deletingGrupo ? `o grupo "${deletingGrupo.nome}" e seus itens` : ''}
+        loading={removingGrupo}
+      />
     </div>
   );
 }
@@ -203,6 +339,8 @@ function ComunicadoMenu({ label, icon, onPick, loading, disabled }) {
 
 function HistoryTab({ ambienteId, ambienteName, condominioName }) {
   const [execs, setExecs] = useState([]);
+  const [ocorrenciasVinculadas, setOcorrenciasVinculadas] = useState([]);
+  const [itemsById, setItemsById] = useState({});
   const [loading, setLoading] = useState(true);
   const [selectedIds, setSelectedIds] = useState(() => new Set());
   const [generatingId, setGeneratingId] = useState(null);
@@ -213,13 +351,42 @@ function HistoryTab({ ambienteId, ambienteName, condominioName }) {
 
   const load = () => {
     setSelectedIds(new Set());
-    execucoesStore.list({ ambiente_id: ambienteId }).then((data) => {
+    Promise.all([
+      execucoesStore.list({ ambiente_id: ambienteId }),
+      ocorrenciasStore.list({ ambiente_id: ambienteId }),
+      checklistItemsStore.list({ ambiente_id: ambienteId }),
+    ]).then(([data, ocorrencias, items]) => {
       setExecs(data);
+      // Só as que têm vínculo com um item — é só isso que entra no
+      // resumo do comunicado (item 3.5).
+      setOcorrenciasVinculadas(ocorrencias.filter((o) => o.related_checklist_item_id));
+      setItemsById(Object.fromEntries(items.map((i) => [i.id, i.task])));
       setLoading(false);
     });
   };
 
   useEffect(load, [ambienteId]);
+
+  // Só faz sentido resumir "ocorrências vinculadas no período" quando o
+  // comunicado cobre mais de uma execução (período/seleção) — pra uma
+  // única execução, a janela de tempo é só aquele instante, e a seção
+  // ficaria sempre vazia.
+  const buildItemOcorrenciaCounts = (execucoes) => {
+    if (execucoes.length <= 1) return undefined;
+    const timestamps = execucoes.map((e) => new Date(e.created_at).getTime());
+    const min = Math.min(...timestamps);
+    const max = Math.max(...timestamps);
+    const counts = {};
+    ocorrenciasVinculadas.forEach((o) => {
+      const t = new Date(o.created_at).getTime();
+      if (t < min || t > max) return;
+      counts[o.related_checklist_item_id] = (counts[o.related_checklist_item_id] || 0) + 1;
+    });
+    const rows = Object.entries(counts)
+      .map(([itemId, count]) => ({ task: itemsById[itemId] || 'Tarefa removida', count }))
+      .sort((a, b) => b.count - a.count);
+    return rows.length ? rows : undefined;
+  };
 
   const handleDelete = async () => {
     if (!deleting) return;
@@ -256,7 +423,8 @@ function HistoryTab({ ambienteId, ambienteName, condominioName }) {
     }
     setBusy(key);
     try {
-      const doc = generateComunicadoPdf({ condominioName, ambienteName, execucoes });
+      const itemOcorrenciaCounts = buildItemOcorrenciaCounts(execucoes);
+      const doc = generateComunicadoPdf({ condominioName, ambienteName, execucoes, itemOcorrenciaCounts });
       if (action === 'share') {
         const result = await sharePdf(doc, filename);
         if (result === 'downloaded') {
@@ -501,12 +669,6 @@ export default function AmbientePage() {
 
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [id]);
 
-  const handleToggleChecklistAtivo = async (value) => {
-    await ambientesStore.update(id, { checklist_ativo: value });
-    logAudit({ action: 'ambiente.checklist_status_alterado', entityType: 'ambiente', entityId: id, details: { ativo: value } });
-    load();
-  };
-
   const openEdit = () => {
     setEditName(ambiente.name);
     setEditOpen(true);
@@ -616,12 +778,7 @@ export default function AmbientePage() {
         </Tabs.List>
         <Tabs.Panel value="qrcode" pt="lg"><QrCodeTab ambiente={ambiente} /></Tabs.Panel>
         <Tabs.Panel value="checklist" pt="lg">
-          <ChecklistTab
-            ambienteId={id}
-            accountId={ambiente.account_id}
-            checklistAtivo={ambiente.checklist_ativo}
-            onToggleAtivo={handleToggleChecklistAtivo}
-          />
+          <ChecklistTab ambienteId={id} accountId={ambiente.account_id} />
         </Tabs.Panel>
         <Tabs.Panel value="ocorrencias" pt="lg"><OccurrencesTab ambienteId={id} canDelete={!isSubUsuario} /></Tabs.Panel>
         <Tabs.Panel value="historico" pt="lg"><HistoryTab ambienteId={id} ambienteName={ambiente.name} condominioName={condominio?.name} /></Tabs.Panel>

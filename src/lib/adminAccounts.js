@@ -19,8 +19,9 @@ export async function updateAccount(id, payload) {
 
 // Exclusão de usuário precisa da Auth Admin API (service role) — só a
 // Edge Function delete-account consegue. Deletar auth.users cascade-remove
-// accounts, condominios, ambientes, checklist_items, execucoes, ocorrencias,
-// sub_usuarios e sub_usuario_condominios daquela conta (ver schema.sql).
+// accounts, condominios, ambientes, checklist_grupos, checklist_items,
+// execucoes, ocorrencias, sub_usuarios e sub_usuario_condominios daquela
+// conta (ver schema.sql).
 export async function deleteAccount(userId) {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) throw new Error('Não autenticado.');

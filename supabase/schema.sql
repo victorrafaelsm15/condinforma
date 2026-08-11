@@ -30,36 +30,61 @@ create table if not exists ambientes (
   -- condomínio, atribuído pelo trigger assign_ambiente_checklist_code()
   -- mais abaixo — nunca setado direto pelo cliente.
   checklist_code  text,
-  checklist_ativo boolean not null default true,
   created_at      timestamptz not null default now()
 );
 create index if not exists ambientes_condominio_id_idx on ambientes(condominio_id);
 create index if not exists ambientes_account_id_idx on ambientes(account_id);
 
-create table if not exists checklist_items (
+-- Um ambiente pode ter vários grupos de checklist nomeados (ex: "Rotina
+-- Diária", "Faxina Semanal"), cada um com seu próprio status
+-- ativo/inativo — mais de um grupo pode estar ativo ao mesmo tempo. A
+-- tela pública de execução só mostra os grupos com status='ativo'.
+create table if not exists checklist_grupos (
   id           text primary key,
   ambiente_id  text not null references ambientes(id) on delete cascade,
   account_id   uuid not null references auth.users(id) on delete cascade,
-  task         text not null,
-  order_index  integer not null default 0,
+  nome         text not null,
+  status       text not null default 'ativo' check (status in ('ativo', 'inativo')),
   created_at   timestamptz not null default now()
 );
+create index if not exists checklist_grupos_ambiente_id_idx on checklist_grupos(ambiente_id);
+create index if not exists checklist_grupos_account_id_idx on checklist_grupos(account_id);
+
+-- ambiente_id fica denormalizado aqui de propósito (também dá pra chegar
+-- nele via checklist_grupo_id -> checklist_grupos.ambiente_id): simplifica
+-- RLS e consultas que já filtram checklist_items por ambiente_id
+-- diretamente (ver supabase/checklist_grupos_migration.sql pro raciocínio
+-- completo, é o mesmo aqui pra instalação nova).
+create table if not exists checklist_items (
+  id                  text primary key,
+  ambiente_id         text not null references ambientes(id) on delete cascade,
+  checklist_grupo_id  text not null references checklist_grupos(id) on delete cascade,
+  account_id          uuid not null references auth.users(id) on delete cascade,
+  task                text not null,
+  order_index         integer not null default 0,
+  created_at          timestamptz not null default now()
+);
 create index if not exists checklist_items_ambiente_id_idx on checklist_items(ambiente_id);
+create index if not exists checklist_items_checklist_grupo_id_idx on checklist_items(checklist_grupo_id);
 create index if not exists checklist_items_account_id_idx on checklist_items(account_id);
 
 create table if not exists execucoes (
-  id               text primary key,
-  ambiente_id      text not null references ambientes(id) on delete cascade,
-  account_id       uuid not null references auth.users(id) on delete cascade,
-  executed_by      text,
-  completed_count  integer not null default 0,
-  total_count      integer not null default 0,
-  items            jsonb,
-  photo            text,
-  free_text_note   text,
-  created_at       timestamptz not null default now()
+  id                  text primary key,
+  ambiente_id         text not null references ambientes(id) on delete cascade,
+  -- Qual grupo foi executado — nullable pra permitir um registro livre
+  -- sem grupo nenhum associado (ver ExecutarChecklistPage.jsx).
+  checklist_grupo_id  text references checklist_grupos(id) on delete set null,
+  account_id          uuid not null references auth.users(id) on delete cascade,
+  executed_by         text,
+  completed_count     integer not null default 0,
+  total_count         integer not null default 0,
+  items               jsonb,
+  photo               text,
+  free_text_note      text,
+  created_at          timestamptz not null default now()
 );
 create index if not exists execucoes_ambiente_id_idx on execucoes(ambiente_id);
+create index if not exists execucoes_checklist_grupo_id_idx on execucoes(checklist_grupo_id);
 create index if not exists execucoes_account_id_idx on execucoes(account_id);
 
 create table if not exists ocorrencias (
@@ -89,11 +114,12 @@ create index if not exists ocorrencias_account_id_idx on ocorrencias(account_id)
 -- sobre por que as políticas públicas usam "to anon" (nunca "authenticated").
 -- ============================================================
 
-alter table condominios     enable row level security;
-alter table ambientes       enable row level security;
-alter table checklist_items enable row level security;
-alter table execucoes       enable row level security;
-alter table ocorrencias     enable row level security;
+alter table condominios      enable row level security;
+alter table ambientes        enable row level security;
+alter table checklist_grupos enable row level security;
+alter table checklist_items  enable row level security;
+alter table execucoes        enable row level security;
+alter table ocorrencias      enable row level security;
 
 create policy "condominios_owner_all" on condominios
   for all to authenticated
@@ -103,6 +129,12 @@ create policy "ambientes_owner_all" on ambientes
   for all to authenticated
   using (account_id = auth.uid()) with check (account_id = auth.uid());
 create policy "ambientes_public_select" on ambientes
+  for select to anon using (true);
+
+create policy "checklist_grupos_owner_all" on checklist_grupos
+  for all to authenticated
+  using (account_id = auth.uid()) with check (account_id = auth.uid());
+create policy "checklist_grupos_public_select" on checklist_grupos
   for select to anon using (true);
 
 create policy "checklist_items_owner_all" on checklist_items
@@ -426,6 +458,11 @@ create policy "ambientes_subusuario_all" on ambientes
   using (has_subusuario_access(condominio_id))
   with check (has_subusuario_access(condominio_id) and account_id = condominio_owner_account(condominio_id));
 
+create policy "checklist_grupos_subusuario_all" on checklist_grupos
+  for all to authenticated
+  using (has_subusuario_access_via_ambiente(ambiente_id))
+  with check (has_subusuario_access_via_ambiente(ambiente_id) and account_id = ambiente_owner_account(ambiente_id));
+
 create policy "checklist_items_subusuario_all" on checklist_items
   for all to authenticated
   using (has_subusuario_access_via_ambiente(ambiente_id))
@@ -655,6 +692,11 @@ create trigger trg_block_inactive_condominios
 drop trigger if exists trg_block_inactive_ambientes on ambientes;
 create trigger trg_block_inactive_ambientes
   before insert or update or delete on ambientes
+  for each row execute function block_writes_when_inactive();
+
+drop trigger if exists trg_block_inactive_checklist_grupos on checklist_grupos;
+create trigger trg_block_inactive_checklist_grupos
+  before insert or update or delete on checklist_grupos
   for each row execute function block_writes_when_inactive();
 
 drop trigger if exists trg_block_inactive_checklist_items on checklist_items;

@@ -9,7 +9,7 @@
 // o generateSW fazia antes, só que escrito à mão.
 import { precacheAndRoute, createHandlerBoundToURL } from 'workbox-precaching';
 import { registerRoute, NavigationRoute } from 'workbox-routing';
-import { NetworkFirst, CacheFirst } from 'workbox-strategies';
+import { CacheFirst } from 'workbox-strategies';
 import { ExpirationPlugin } from 'workbox-expiration';
 import { CacheableResponsePlugin } from 'workbox-cacheable-response';
 import { clientsClaim } from 'workbox-core';
@@ -20,17 +20,19 @@ clientsClaim();
 
 precacheAndRoute(self.__WB_MANIFEST);
 
-registerRoute(
-  ({ url }) => url.hostname.endsWith('.supabase.co'),
-  new NetworkFirst({
-    cacheName: 'supabase-data',
-    networkTimeoutSeconds: 6,
-    plugins: [
-      new ExpirationPlugin({ maxEntries: 200, maxAgeSeconds: 60 * 60 * 24 * 3 }),
-      new CacheableResponsePlugin({ statuses: [0, 200] }),
-    ],
-  }),
-);
+// REMOVIDO: rota NetworkFirst pra *.supabase.co que existia aqui antes
+// (cache genérico das respostas REST). Achada como causa raiz de um bug
+// grave: duas requisições concorrentes pro Supabase que só diferem na
+// query string (ex: duas telas lendo a mesma tabela com filtros
+// diferentes ao mesmo tempo) faziam uma delas travar pra sempre — sem
+// erro nenhum, o fetch() do lado da página simplesmente nunca resolvia,
+// deixando a tela presa no loading (foi assim que a aba Ocorrências do
+// ambiente parou de carregar). Não vale o risco: o app já tem seu
+// próprio sistema de fila offline (IndexedDB, ver lib/offlineQueue.js)
+// pra execuções/ocorrências, que é o que realmente precisa funcionar
+// sem rede — leituras (GET) da API REST não precisam de cache genérico
+// do service worker, e cache de dados vivos do painel administrativo
+// nem seria desejável (mostraria dado desatualizado).
 
 registerRoute(
   ({ url }) => url.hostname === 'fonts.googleapis.com' || url.hostname === 'fonts.gstatic.com',

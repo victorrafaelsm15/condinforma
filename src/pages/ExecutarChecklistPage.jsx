@@ -2,10 +2,10 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
-  Text, Checkbox, Button, TextInput, Textarea, Loader, FileButton, Group, Progress, Image as MantineImage, Badge,
+  Text, Checkbox, Button, TextInput, Textarea, Loader, FileButton, Group, Progress, Image as MantineImage, Badge, ActionIcon,
 } from '@mantine/core';
-import { CheckCircle2, Camera, Building2, WifiOff, CloudUpload, AlertTriangle } from 'lucide-react';
-import { ambientesStore, checklistItemsStore, ocorrenciasStore } from '../lib/stores';
+import { CheckCircle2, Camera, Building2, WifiOff, CloudUpload, AlertTriangle, MessageSquareWarning } from 'lucide-react';
+import { ambientesStore, checklistGruposStore, checklistItemsStore, ocorrenciasStore } from '../lib/stores';
 import { enqueue, syncQueue, isPending, subscribeQueue, generateRecordId } from '../lib/offlineQueue';
 import { reporterLabel } from '../lib/ocorrenciaDisplay';
 import OcorrenciaForm from '../components/OcorrenciaForm';
@@ -20,46 +20,23 @@ function fileToBase64(file) {
   });
 }
 
-export default function ExecutarChecklistPage() {
-  const { id } = useParams();
-  const [ambiente, setAmbiente] = useState(null);
-  const [items, setItems] = useState([]);
+// Um card por grupo de checklist ATIVO — cada grupo tem sua própria
+// execução independente (nome do executor, foto, progresso, envio), que
+// vira uma linha própria em "execucoes" com checklist_grupo_id apontando
+// pra este grupo. Extraído do antigo formulário único da página, que
+// cobria só um checklist por ambiente.
+function GroupExecutionCard({ grupo, items, ambiente, isOnline, onReportItem }) {
   const [checked, setChecked] = useState({});
   const [executedBy, setExecutedBy] = useState('');
   const [photo, setPhoto] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [freeTextNote, setFreeTextNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
   const [submitError, setSubmitError] = useState('');
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
-  const [freeTextNote, setFreeTextNote] = useState('');
   const [pendingLocal, setPendingLocal] = useState(false);
   const [queuedRecordId, setQueuedRecordId] = useState(null);
-
-  // Página pública específica de um ambiente/condomínio — sem valor de
-  // busca genérica, então fica fora da indexação (mesmo critério do
-  // sitemap.xml/robots.txt). Definida uma vez e reaproveitada em todo
-  // "return" (loading, não encontrado, pendente, concluído, formulário).
-  const seoTag = <Seo noindex title="Executar checklist — Cond-Informa" path={`/ambiente/${id}/executar`} />;
   const [retrying, setRetrying] = useState(false);
-  const [pendingOcorrencias, setPendingOcorrencias] = useState([]);
-  const [resolvingId, setResolvingId] = useState(null);
 
-  useEffect(() => {
-    const goOnline = () => setIsOnline(true);
-    const goOffline = () => setIsOnline(false);
-    window.addEventListener('online', goOnline);
-    window.addEventListener('offline', goOffline);
-    return () => {
-      window.removeEventListener('online', goOnline);
-      window.removeEventListener('offline', goOffline);
-    };
-  }, []);
-
-  // Enquanto a execução ficar "pendente de envio" na fila local, escuta
-  // qualquer sincronização (evento online, intervalo periódico, Background
-  // Sync do service worker) pra saber assim que o servidor confirmar de
-  // verdade, mesmo que o colaborador continue com a página aberta.
   useEffect(() => {
     if (!queuedRecordId) return undefined;
     const unsubscribe = subscribeQueue(async () => {
@@ -72,64 +49,37 @@ export default function ExecutarChecklistPage() {
     return unsubscribe;
   }, [queuedRecordId]);
 
-  useEffect(() => {
-    Promise.all([
-      ambientesStore.getById(id),
-      checklistItemsStore.list({ ambiente_id: id }),
-    ]).then(([amb, checklist]) => {
-      setAmbiente(amb);
-      setItems(checklist.sort((a, b) => (a.order_index || 0) - (b.order_index || 0)));
-      setLoading(false);
-    });
-    loadPendingOcorrencias();
-  }, [id]);
-
-  // O colaborador que vai executar o checklist é provavelmente quem vai
-  // resolver o problema fisicamente ali — sem isso ele só via a lista de
-  // tarefas, sem nenhum aviso de que já existe uma ocorrência aberta
-  // nesse mesmo ambiente.
-  const loadPendingOcorrencias = () => {
-    ocorrenciasStore.list({ ambiente_id: id, status: 'pendente' }).then(setPendingOcorrencias);
-  };
-
-  const handleResolveOcorrencia = async (ocorrenciaId) => {
-    setResolvingId(ocorrenciaId);
-    try {
-      await ocorrenciasStore.update(ocorrenciaId, { status: 'resolvido' });
-      setPendingOcorrencias((prev) => prev.filter((o) => o.id !== ocorrenciaId));
-    } catch {
-      // silencioso — o item continua na lista, a pessoa pode tentar de novo
-    } finally {
-      setResolvingId(null);
-    }
-  };
-
-  const toggleItem = (itemId) => {
-    setChecked((prev) => ({ ...prev, [itemId]: !prev[itemId] }));
-  };
-
+  const toggleItem = (itemId) => setChecked((prev) => ({ ...prev, [itemId]: !prev[itemId] }));
   const handlePhoto = async (file) => {
     if (!file) return;
-    const base64 = await fileToBase64(file);
-    setPhoto(base64);
+    setPhoto(await fileToBase64(file));
   };
 
   const completedCount = Object.values(checked).filter(Boolean).length;
   const progressPct = items.length ? Math.round((completedCount / items.length) * 100) : 0;
 
+  const resetForm = () => {
+    setChecked({});
+    setExecutedBy('');
+    setPhoto(null);
+    setFreeTextNote('');
+    setDone(false);
+    setPendingLocal(false);
+    setQueuedRecordId(null);
+    setSubmitError('');
+  };
+
   const handleSubmit = async () => {
     setSubmitError('');
-
     // Salva na fila local (IndexedDB) ANTES de tentar enviar — é o que
     // garante que a execução não se perde se o colaborador confirmar numa
-    // área sem sinal (elevador, subsolo, garagem) e a conexão cair na hora
-    // do envio. O createStore.js genérico não serve aqui: ele cai
-    // silenciosamente pro localStorage em qualquer erro de rede e devolve
-    // um "sucesso" fake que nunca chega no painel do gestor.
+    // área sem sinal (elevador, subsolo, garagem) e a conexão cair na
+    // hora do envio.
     const record = {
       id: generateRecordId(),
       created_at: new Date().toISOString(),
-      ambiente_id: id,
+      ambiente_id: ambiente.id,
+      checklist_grupo_id: grupo.id,
       // Sem sessão logada nesta página pública — o dono do registro é
       // copiado do próprio ambiente, não detectado por auth.
       account_id: ambiente.account_id,
@@ -167,78 +117,272 @@ export default function ExecutarChecklistPage() {
     setRetrying(false);
   };
 
-  if (loading) return <>{seoTag}<Group justify="center" py={80}><Loader color="brand" /></Group></>;
-  if (!ambiente) return <>{seoTag}<Text ta="center" py={80}>Ambiente não encontrado.</Text></>;
-
-  // Salvo localmente mas ainda NÃO confirmado pelo servidor — de propósito
-  // não usa o mesmo visual de sucesso da tela "done" abaixo, pra não
-  // sugerir que já chegou no painel do gestor quando na verdade só está
-  // guardado neste aparelho, esperando a conexão voltar.
   if (pendingLocal) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)' }}>
-        {seoTag}
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-          className="surface-card"
-          style={{ maxWidth: 400, margin: '0 20px', padding: '48px 32px', textAlign: 'center' }}
-        >
-          <div style={{
-            width: 76, height: 76, borderRadius: '50%', background: 'var(--amber-light)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px',
-          }}>
-            <CloudUpload size={38} color="var(--amber)" />
-          </div>
-          <Text fw={800} size="lg">Salvo neste dispositivo</Text>
-          <Text c="dimmed" size="sm" mt={4}>{ambiente.name}</Text>
-          <Text size="sm" mt={12} style={{ color: '#92620a' }}>
-            Sua execução ainda não foi confirmada pelo servidor. Ela será enviada automaticamente assim que a conexão voltar — você pode fechar o app com segurança, nada será perdido.
-          </Text>
-          <Button mt="xl" variant="light" fullWidth size="md" onClick={handleRetryNow} loading={retrying} style={{ minHeight: 44 }}>
-            Tentar enviar agora
-          </Button>
-        </motion.div>
+      <div className="surface-card" style={{ padding: '28px 24px', marginBottom: 18, textAlign: 'center' }}>
+        <div style={{
+          width: 56, height: 56, borderRadius: '50%', background: 'var(--amber-light)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px',
+        }}>
+          <CloudUpload size={28} color="var(--amber)" />
+        </div>
+        <Text fw={800}>{grupo.nome} — salvo neste dispositivo</Text>
+        <Text size="sm" mt={8} style={{ color: '#92620a' }}>
+          Ainda não confirmado pelo servidor. Será enviado automaticamente assim que a conexão voltar.
+        </Text>
+        <Button mt="lg" variant="light" fullWidth size="md" onClick={handleRetryNow} loading={retrying} style={{ minHeight: 44 }}>
+          Tentar enviar agora
+        </Button>
       </div>
     );
   }
 
   if (done) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)' }}>
-        {seoTag}
+      <div className="surface-card" style={{ padding: '28px 24px', marginBottom: 18, textAlign: 'center' }}>
         <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-          className="surface-card"
-          style={{ maxWidth: 400, margin: '0 20px', padding: '48px 32px', textAlign: 'center' }}
+          initial={{ scale: 0.5, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ type: 'spring', stiffness: 200, damping: 14 }}
+          className="pulse-ring"
+          style={{
+            width: 56, height: 56, borderRadius: '50%', background: 'var(--green-light)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px',
+          }}
         >
-          <motion.div
-            initial={{ scale: 0.5, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ delay: 0.15, type: 'spring', stiffness: 200, damping: 14 }}
-            style={{
-              width: 76, height: 76, borderRadius: '50%', background: 'var(--green-light)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px',
-            }}
-            className="pulse-ring"
-          >
-            <CheckCircle2 size={40} color="var(--green)" />
-          </motion.div>
-          <Text fw={800} size="lg">Checklist concluído!</Text>
-          <Text c="dimmed" size="sm" mt={4}>{ambiente.name}</Text>
-          {items.length > 0 ? (
-            <Text size="xs" c="dimmed" mt={10}>{completedCount} de {items.length} tarefas marcadas como feitas</Text>
-          ) : (
-            <Text size="xs" c="dimmed" mt={10}>Registro livre enviado</Text>
-          )}
-          <Button mt="xl" variant="light" fullWidth size="md" onClick={() => window.location.reload()} style={{ minHeight: 44 }}>Executar novamente</Button>
+          <CheckCircle2 size={28} color="var(--green)" />
         </motion.div>
+        <Text fw={800}>{grupo.nome} — concluído!</Text>
+        {items.length > 0 ? (
+          <Text size="xs" c="dimmed" mt={8}>{completedCount} de {items.length} tarefas marcadas como feitas</Text>
+        ) : (
+          <Text size="xs" c="dimmed" mt={8}>Registro livre enviado</Text>
+        )}
+        <Button mt="lg" variant="light" fullWidth size="md" onClick={resetForm} style={{ minHeight: 44 }}>Executar novamente</Button>
       </div>
     );
   }
+
+  return (
+    <div className="surface-card" style={{ padding: 22, marginBottom: 18 }}>
+      <Text fw={800} size="lg" mb={4}>{grupo.nome}</Text>
+      <Text size="sm" c="dimmed" mb={16}>Marque as tarefas realizadas e confirme a execução.</Text>
+
+      {items.length > 0 && (
+        <div style={{ marginBottom: 18 }}>
+          <Group justify="space-between" mb={6}>
+            <Text size="xs" fw={700} c="dimmed">Progresso</Text>
+            <Text size="xs" fw={700} c={progressPct === 100 ? 'green' : 'dimmed'}>{completedCount}/{items.length}</Text>
+          </Group>
+          <Progress
+            value={progressPct}
+            color={progressPct === 100 ? 'green' : 'brand'}
+            radius="xl"
+            size={8}
+            aria-label={`Progresso do grupo ${grupo.nome}: ${completedCount} de ${items.length} tarefas concluídas`}
+          />
+        </div>
+      )}
+
+      <TextInput
+        label="Seu nome"
+        placeholder="Opcional"
+        value={executedBy}
+        onChange={(e) => setExecutedBy(e.currentTarget.value)}
+        mb="lg"
+        styles={{ input: { minHeight: 44 } }}
+      />
+
+      {items.length ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
+          {items.map((item, i) => {
+            const isDone = !!checked[item.id];
+            const inputId = `checklist-item-${item.id}`;
+            return (
+              <div
+                key={item.id}
+                className={`surface-card checklist-row ${isDone ? 'checklist-row--done' : ''}`}
+                style={{ padding: '14px 16px' }}
+              >
+                <Group justify="space-between" wrap="nowrap">
+                  {/* <label> nativo em vez de <div onClick> — clicar em
+                      qualquer parte da linha, tocar com a tela suja/luvas,
+                      ou navegar por Tab + Espaço no checkbox já funciona
+                      sozinho, sem precisar de nenhum JS extra de teclado. */}
+                  <label htmlFor={inputId} style={{ cursor: 'pointer', flex: 1, display: 'flex' }}>
+                    <Group gap={12} wrap="nowrap">
+                      <span style={{
+                        width: 24, height: 24, borderRadius: 7, flexShrink: 0, fontSize: 11, fontWeight: 700,
+                        background: isDone ? 'var(--green)' : 'var(--blue-light)', color: isDone ? '#fff' : 'var(--blue)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s var(--ease)',
+                      }}>
+                        {i + 1}
+                      </span>
+                      <Text size="sm" style={{ textDecoration: isDone ? 'line-through' : 'none', opacity: isDone ? 0.65 : 1 }}>
+                        {item.task}
+                      </Text>
+                    </Group>
+                  </label>
+                  <Group gap={6} wrap="nowrap">
+                    <ActionIcon
+                      variant="subtle"
+                      color="red"
+                      radius="md"
+                      onClick={() => onReportItem(item)}
+                      aria-label={`Relatar problema na tarefa: ${item.task}`}
+                      title="Relatar problema"
+                    >
+                      <MessageSquareWarning size={16} />
+                    </ActionIcon>
+                    <Checkbox
+                      id={inputId}
+                      checked={isDone}
+                      onChange={() => toggleItem(item.id)}
+                      color="green"
+                      size="md"
+                      aria-label={item.task}
+                      styles={{ input: { cursor: 'pointer' } }}
+                    />
+                  </Group>
+                </Group>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <Text c="dimmed" size="sm" mb="lg">Nenhuma tarefa cadastrada neste grupo ainda. Você ainda pode confirmar um registro livre abaixo.</Text>
+      )}
+
+      <Textarea
+        label="Observação / registro livre"
+        placeholder="Descreva algo que fez ou notou, mesmo fora do checklist (opcional)"
+        value={freeTextNote}
+        onChange={(e) => setFreeTextNote(e.currentTarget.value)}
+        minRows={2}
+        mb="md"
+      />
+
+      <FileButton onChange={handlePhoto} accept="image/*">
+        {(props) => (
+          <Button
+            {...props}
+            variant="light"
+            leftSection={<Camera size={16} />}
+            fullWidth
+            mb="md"
+            size="md"
+            aria-label={photo ? 'Foto anexada. Toque para trocar a foto' : 'Anexar foto, opcional'}
+          >
+            {photo ? 'Foto anexada ✓' : 'Anexar foto (opcional)'}
+          </Button>
+        )}
+      </FileButton>
+
+      <Button
+        fullWidth
+        size="md"
+        onClick={handleSubmit}
+        loading={submitting}
+        className="btn-glow"
+        style={{ boxShadow: 'var(--shadow-brand)', minHeight: 48 }}
+      >
+        Confirmar execução
+      </Button>
+      {submitError && (
+        <Text role="alert" size="sm" c="red" fw={600} mt={10} ta="center">{submitError}</Text>
+      )}
+      {!isOnline && (
+        <Text size="xs" c="dimmed" mt={8} ta="center">Sem conexão — a confirmação é enviada assim que a internet voltar.</Text>
+      )}
+    </div>
+  );
+}
+
+export default function ExecutarChecklistPage() {
+  const { id } = useParams();
+  const [ambiente, setAmbiente] = useState(null);
+  const [gruposAtivos, setGruposAtivos] = useState([]);
+  const [itemsByGrupo, setItemsByGrupo] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [pendingOcorrencias, setPendingOcorrencias] = useState([]);
+  const [resolvingId, setResolvingId] = useState(null);
+  const [reportItem, setReportItem] = useState(null);
+
+  // Página pública específica de um ambiente/condomínio — sem valor de
+  // busca genérica, então fica fora da indexação (mesmo critério do
+  // sitemap.xml/robots.txt). Definida uma vez e reaproveitada em todo
+  // "return" (loading, não encontrado, formulário).
+  const seoTag = <Seo noindex title="Executar checklist — Cond-Informa" path={`/ambiente/${id}/executar`} />;
+
+  useEffect(() => {
+    const goOnline = () => setIsOnline(true);
+    const goOffline = () => setIsOnline(false);
+    window.addEventListener('online', goOnline);
+    window.addEventListener('offline', goOffline);
+    return () => {
+      window.removeEventListener('online', goOnline);
+      window.removeEventListener('offline', goOffline);
+    };
+  }, []);
+
+  const load = () => {
+    Promise.all([
+      ambientesStore.getById(id),
+      checklistGruposStore.list({ ambiente_id: id, status: 'ativo' }),
+      checklistItemsStore.list({ ambiente_id: id }),
+    ]).then(([amb, grupos, allItems]) => {
+      setAmbiente(amb);
+      setGruposAtivos(grupos);
+      const grouped = {};
+      allItems.forEach((item) => {
+        (grouped[item.checklist_grupo_id] ||= []).push(item);
+      });
+      Object.values(grouped).forEach((list) => list.sort((a, b) => (a.order_index || 0) - (b.order_index || 0)));
+      setItemsByGrupo(grouped);
+      setLoading(false);
+    });
+    loadPendingOcorrencias();
+  };
+
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, [id]);
+
+  // O colaborador que vai executar o checklist é provavelmente quem vai
+  // resolver o problema fisicamente ali — sem isso ele só via a lista de
+  // tarefas, sem nenhum aviso de que já existe uma ocorrência aberta
+  // nesse mesmo ambiente.
+  const loadPendingOcorrencias = () => {
+    ocorrenciasStore.list({ ambiente_id: id, status: 'pendente' }).then(setPendingOcorrencias);
+  };
+
+  const handleResolveOcorrencia = async (ocorrenciaId) => {
+    setResolvingId(ocorrenciaId);
+    try {
+      await ocorrenciasStore.update(ocorrenciaId, { status: 'resolvido' });
+      setPendingOcorrencias((prev) => prev.filter((o) => o.id !== ocorrenciaId));
+    } catch {
+      // silencioso — o item continua na lista, a pessoa pode tentar de novo
+    } finally {
+      setResolvingId(null);
+    }
+  };
+
+  const handleReportItem = (item) => {
+    setReportItem(item);
+    // Pequeno delay pra garantir que o formulário (que muda de key e
+    // remonta expandido) já esteja no DOM antes de rolar até ele.
+    setTimeout(() => {
+      document.getElementById('ocorrencia-form-anchor')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
+  };
+
+  if (loading) return <>{seoTag}<Group justify="center" py={80}><Loader color="brand" /></Group></>;
+  if (!ambiente) return <>{seoTag}<Text ta="center" py={80}>Ambiente não encontrado.</Text></>;
+
+  // Itens de TODOS os grupos ativos combinados — é o que o dropdown
+  // "Relacionado a" do formulário de ocorrência oferece (só faz sentido
+  // vincular a uma tarefa que está de fato em uso agora).
+  const allActiveItems = gruposAtivos.flatMap((g) => itemsByGrupo[g.id] || []);
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
@@ -250,6 +394,8 @@ export default function ExecutarChecklistPage() {
           </span>
           <Text size="xs" c="dimmed" fw={700} tt="uppercase" style={{ letterSpacing: '0.06em' }}>Cond-Informa</Text>
         </Group>
+
+        <Text fw={800} size="xl" mb={18}>{ambiente.name}</Text>
 
         {!isOnline && (
           <div
@@ -266,31 +412,6 @@ export default function ExecutarChecklistPage() {
             </Text>
           </div>
         )}
-
-        <div className="surface-card" style={{ padding: 22, marginBottom: 18 }}>
-          <Text fw={800} size="xl" mb={4}>{ambiente.name}</Text>
-          <Text size="sm" c="dimmed" mb={ambiente.checklist_ativo === false ? 0 : 16}>
-            {ambiente.checklist_ativo === false
-              ? 'Este ambiente está sem checklist ativo no momento.'
-              : 'Marque as tarefas realizadas e confirme a execução.'}
-          </Text>
-
-          {ambiente.checklist_ativo !== false && items.length > 0 && (
-            <div style={{ marginBottom: 6 }}>
-              <Group justify="space-between" mb={6}>
-                <Text size="xs" fw={700} c="dimmed">Progresso</Text>
-                <Text size="xs" fw={700} c={progressPct === 100 ? 'green' : 'dimmed'}>{completedCount}/{items.length}</Text>
-              </Group>
-              <Progress
-                value={progressPct}
-                color={progressPct === 100 ? 'green' : 'brand'}
-                radius="xl"
-                size={8}
-                aria-label={`Progresso do checklist: ${completedCount} de ${items.length} tarefas concluídas`}
-              />
-            </div>
-          )}
-        </div>
 
         {!!pendingOcorrencias.length && (
           <div className="surface-card" style={{ padding: 20, marginBottom: 18, borderColor: 'rgba(239,68,68,0.25)' }}>
@@ -335,108 +456,34 @@ export default function ExecutarChecklistPage() {
           </div>
         )}
 
-        {ambiente.checklist_ativo === false ? null : (
-          <>
-            <TextInput
-              label="Seu nome"
-              placeholder="Opcional"
-              value={executedBy}
-              onChange={(e) => setExecutedBy(e.currentTarget.value)}
-              mb="lg"
-              styles={{ input: { minHeight: 44 } }}
+        {gruposAtivos.length ? (
+          gruposAtivos.map((grupo) => (
+            <GroupExecutionCard
+              key={grupo.id}
+              grupo={grupo}
+              items={itemsByGrupo[grupo.id] || []}
+              ambiente={ambiente}
+              isOnline={isOnline}
+              onReportItem={handleReportItem}
             />
-
-            {items.length ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
-                {items.map((item, i) => {
-                  const isDone = !!checked[item.id];
-                  const inputId = `checklist-item-${item.id}`;
-                  return (
-                    // <label> nativo em vez de <div onClick> — clicar em
-                    // qualquer parte da linha, tocar com a tela suja/luvas, ou
-                    // navegar por Tab + Espaço no checkbox já funciona sozinho
-                    // (associação label/input nativa do navegador), sem
-                    // precisar de nenhum JS extra de teclado.
-                    <label
-                      key={item.id}
-                      htmlFor={inputId}
-                      className={`surface-card checklist-row ${isDone ? 'checklist-row--done' : ''}`}
-                      style={{ padding: '14px 16px', cursor: 'pointer', display: 'block' }}
-                    >
-                      <Group justify="space-between" wrap="nowrap">
-                        <Group gap={12} wrap="nowrap">
-                          <span style={{
-                            width: 24, height: 24, borderRadius: 7, flexShrink: 0, fontSize: 11, fontWeight: 700,
-                            background: isDone ? 'var(--green)' : 'var(--blue-light)', color: isDone ? '#fff' : 'var(--blue)',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s var(--ease)',
-                          }}>
-                            {i + 1}
-                          </span>
-                          <Text size="sm" style={{ textDecoration: isDone ? 'line-through' : 'none', opacity: isDone ? 0.65 : 1 }}>
-                            {item.task}
-                          </Text>
-                        </Group>
-                        <Checkbox
-                          id={inputId}
-                          checked={isDone}
-                          onChange={() => toggleItem(item.id)}
-                          color="green"
-                          size="md"
-                          aria-label={item.task}
-                          styles={{ input: { cursor: 'pointer' } }}
-                        />
-                      </Group>
-                    </label>
-                  );
-                })}
-              </div>
-            ) : (
-              <Text c="dimmed" size="sm" mb="lg">Nenhuma tarefa cadastrada para este ambiente ainda. Você ainda pode confirmar um registro livre abaixo.</Text>
-            )}
-
-            <Textarea
-              label="Observação / registro livre"
-              placeholder="Descreva algo que fez ou notou, mesmo fora do checklist (opcional)"
-              value={freeTextNote}
-              onChange={(e) => setFreeTextNote(e.currentTarget.value)}
-              minRows={2}
-              mb="md"
-            />
-
-            <FileButton onChange={handlePhoto} accept="image/*">
-              {(props) => (
-                <Button
-                  {...props}
-                  variant="light"
-                  leftSection={<Camera size={16} />}
-                  fullWidth
-                  mb="md"
-                  size="md"
-                  aria-label={photo ? 'Foto anexada. Toque para trocar a foto' : 'Anexar foto, opcional'}
-                >
-                  {photo ? 'Foto anexada ✓' : 'Anexar foto (opcional)'}
-                </Button>
-              )}
-            </FileButton>
-
-            <Button
-              fullWidth
-              size="md"
-              onClick={handleSubmit}
-              loading={submitting}
-              className="btn-glow"
-              style={{ boxShadow: 'var(--shadow-brand)', minHeight: 48 }}
-            >
-              Confirmar execução
-            </Button>
-            {submitError && (
-              <Text role="alert" size="sm" c="red" fw={600} mt={10} ta="center">{submitError}</Text>
-            )}
-          </>
+          ))
+        ) : (
+          <div className="surface-card" style={{ padding: 22, marginBottom: 18, textAlign: 'center' }}>
+            <Text fw={700}>Sem checklist ativo</Text>
+            <Text size="sm" c="dimmed" mt={6}>Este ambiente está sem nenhum grupo de checklist ativo no momento.</Text>
+          </div>
         )}
 
-        <div style={{ marginTop: 28, borderTop: '1px solid var(--border)', paddingTop: 20 }}>
-          <OcorrenciaForm ambienteId={id} accountId={ambiente.account_id} reportedByRole="colaborador" checklistItems={items} />
+        <div id="ocorrencia-form-anchor" style={{ marginTop: 28, borderTop: '1px solid var(--border)', paddingTop: 20 }}>
+          <OcorrenciaForm
+            key={reportItem?.id || 'default'}
+            ambienteId={id}
+            accountId={ambiente.account_id}
+            reportedByRole="colaborador"
+            checklistItems={allActiveItems}
+            initiallyExpanded={!!reportItem}
+            initialRelatedItemId={reportItem?.id || null}
+          />
         </div>
       </div>
     </div>
