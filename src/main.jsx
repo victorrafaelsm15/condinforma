@@ -16,16 +16,22 @@ import MissingEnvScreen from './components/MissingEnvScreen.jsx';
 import { registerSW } from 'virtual:pwa-register';
 import { checkInstallLaunchRedirect } from './lib/installPrompt';
 import { initAutoSync } from './lib/offlineQueue';
+import { isValidHttpUrl } from './lib/supabaseClient';
 
 const root = createRoot(document.getElementById('root'));
 
 // Desde a migração pra multi-tenant, o Supabase é obrigatório — sem essas
-// duas variáveis o app não tem como autenticar nem ler/gravar nada. Checa
+// duas variáveis (ou com VITE_SUPABASE_URL presente mas mal formada — já
+// aconteceu de verdade num deploy da Vercel, com o valor colado sem o
+// "https://") o app não tem como autenticar nem ler/gravar nada. Checa
 // ANTES de montar qualquer coisa (Mantine, router, App) pra parar aqui com
 // uma mensagem clara, em vez de deixar tudo tentar continuar e falhar
-// silenciosamente mais na frente (tela branca sem nenhuma pista).
+// silenciosamente mais na frente (tela branca sem nenhuma pista) — embora
+// o guarda de verdade contra o crash em si esteja em supabaseClient.js,
+// já que este check só roda depois do import chain (App.jsx e tudo que
+// ele importa) já ter sido avaliado.
 const missingVars = [
-  !import.meta.env.VITE_SUPABASE_URL && 'VITE_SUPABASE_URL',
+  !isValidHttpUrl(import.meta.env.VITE_SUPABASE_URL) && 'VITE_SUPABASE_URL',
   !import.meta.env.VITE_SUPABASE_ANON_KEY && 'VITE_SUPABASE_ANON_KEY',
 ].filter(Boolean);
 

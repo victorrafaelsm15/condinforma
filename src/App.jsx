@@ -3,7 +3,35 @@ import { Routes, Route } from 'react-router-dom';
 import { Loader } from '@mantine/core';
 import ProtectedRoute from './components/ProtectedRoute';
 
-const AdminLayout = lazy(() => import('./layouts/AdminLayout'));
+// "Failed to fetch dynamically imported module" acontece sobretudo quando
+// um deploy novo já saiu (hashes de arquivo mudaram) enquanto essa aba
+// ainda está com o index.html antigo em memória — a aba nunca vai
+// conseguir buscar aquele chunk específico de novo, não importa quantas
+// vezes tentar, porque o arquivo simplesmente não existe mais no servidor.
+// Um reload da página resolve na hora (busca o index.html novo, com os
+// hashes certos). Só tenta reload UMA vez por sessão (sessionStorage) pra
+// não entrar em loop infinito se o problema for outra coisa (rede caída
+// de verdade, por exemplo) — nesse caso o erro segue normalmente pro
+// ErrorBoundary, que já mostra uma tela com botão de recarregar.
+function lazyWithChunkRetry(importer) {
+  return lazy(async () => {
+    try {
+      return await importer();
+    } catch (error) {
+      const key = 'condinforma-chunk-reload-attempted';
+      if (!sessionStorage.getItem(key)) {
+        sessionStorage.setItem(key, '1');
+        window.location.reload();
+        // A promise fica pendente de propósito — a página recarrega antes
+        // dela resolver ou rejeitar de verdade.
+        return new Promise(() => {});
+      }
+      throw error;
+    }
+  });
+}
+
+const AdminLayout = lazyWithChunkRetry(() => import('./layouts/AdminLayout'));
 
 // Cada página vira um chunk próprio carregado sob demanda — o objetivo
 // principal é o colaborador de zeladoria, que abre só ExecutarChecklistPage
@@ -15,28 +43,28 @@ const AdminLayout = lazy(() => import('./layouts/AdminLayout'));
 // do colaborador (ExecutarChecklistPage) e fluxo público do morador
 // (StatusPublicoPage) — landing/login/assinatura também saem do bundle
 // principal como efeito colateral direto do mesmo padrão.
-const LandingPage = lazy(() => import('./pages/LandingPage'));
-const AdminLogin = lazy(() => import('./pages/AdminLogin'));
-const AdminSignup = lazy(() => import('./pages/AdminSignup'));
-const AssinaturaPage = lazy(() => import('./pages/AssinaturaPage'));
-const TermosPage = lazy(() => import('./pages/TermosPage'));
-const PrivacidadePage = lazy(() => import('./pages/PrivacidadePage'));
+const LandingPage = lazyWithChunkRetry(() => import('./pages/LandingPage'));
+const AdminLogin = lazyWithChunkRetry(() => import('./pages/AdminLogin'));
+const AdminSignup = lazyWithChunkRetry(() => import('./pages/AdminSignup'));
+const AssinaturaPage = lazyWithChunkRetry(() => import('./pages/AssinaturaPage'));
+const TermosPage = lazyWithChunkRetry(() => import('./pages/TermosPage'));
+const PrivacidadePage = lazyWithChunkRetry(() => import('./pages/PrivacidadePage'));
 
-const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
-const CondominioPage = lazy(() => import('./pages/CondominioPage'));
-const SindicoDashboard = lazy(() => import('./pages/SindicoDashboard'));
-const QrCodesCondominioPage = lazy(() => import('./pages/QrCodesCondominioPage'));
-const QrCodesPickerPage = lazy(() => import('./pages/QrCodesPickerPage'));
-const AmbientePage = lazy(() => import('./pages/AmbientePage'));
-const OcorrenciasPage = lazy(() => import('./pages/OcorrenciasPage'));
-const RelatoriosPage = lazy(() => import('./pages/RelatoriosPage'));
-const SubUsuariosPage = lazy(() => import('./pages/SubUsuariosPage'));
-const AuditoriaPage = lazy(() => import('./pages/AuditoriaPage'));
-const SegurancaPage = lazy(() => import('./pages/SegurancaPage'));
-const UsuariosPage = lazy(() => import('./pages/UsuariosPage'));
+const AdminDashboard = lazyWithChunkRetry(() => import('./pages/AdminDashboard'));
+const CondominioPage = lazyWithChunkRetry(() => import('./pages/CondominioPage'));
+const SindicoDashboard = lazyWithChunkRetry(() => import('./pages/SindicoDashboard'));
+const QrCodesCondominioPage = lazyWithChunkRetry(() => import('./pages/QrCodesCondominioPage'));
+const QrCodesPickerPage = lazyWithChunkRetry(() => import('./pages/QrCodesPickerPage'));
+const AmbientePage = lazyWithChunkRetry(() => import('./pages/AmbientePage'));
+const OcorrenciasPage = lazyWithChunkRetry(() => import('./pages/OcorrenciasPage'));
+const RelatoriosPage = lazyWithChunkRetry(() => import('./pages/RelatoriosPage'));
+const SubUsuariosPage = lazyWithChunkRetry(() => import('./pages/SubUsuariosPage'));
+const AuditoriaPage = lazyWithChunkRetry(() => import('./pages/AuditoriaPage'));
+const SegurancaPage = lazyWithChunkRetry(() => import('./pages/SegurancaPage'));
+const UsuariosPage = lazyWithChunkRetry(() => import('./pages/UsuariosPage'));
 
-const ExecutarChecklistPage = lazy(() => import('./pages/ExecutarChecklistPage'));
-const StatusPublicoPage = lazy(() => import('./pages/StatusPublicoPage'));
+const ExecutarChecklistPage = lazyWithChunkRetry(() => import('./pages/ExecutarChecklistPage'));
+const StatusPublicoPage = lazyWithChunkRetry(() => import('./pages/StatusPublicoPage'));
 
 function PageFallback() {
   return (

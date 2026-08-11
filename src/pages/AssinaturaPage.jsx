@@ -6,6 +6,7 @@ import { Check, Copy, Download, CheckCircle2, XCircle } from 'lucide-react';
 import { plans } from '../data/landingContent';
 import { signUp, getSession } from '../lib/authService';
 import Seo from '../components/common/Seo';
+import SectionErrorBoundary from '../components/common/SectionErrorBoundary';
 
 function translateSignUpError(message) {
   if (message?.includes('User already registered')) {
@@ -263,6 +264,19 @@ export default function AssinaturaPage() {
                   : `Plano ${plan.name}: preencha seus dados para continuar.`}
               </Text>
 
+              <SectionErrorBoundary
+                fallback={(reset) => (
+                  <div style={{ textAlign: 'center', padding: '24px 8px' }}>
+                    <Text fw={700} size="sm" mb={6}>Não foi possível carregar o formulário</Text>
+                    <Text size="xs" c="dimmed" mb="lg">
+                      Isso costuma acontecer por conflito com alguma extensão do navegador (ex: gerenciador de senhas,
+                      bloqueador de anúncios, localizador de cupons). Tente novamente, ou desative extensões e recarregue.
+                    </Text>
+                    <Button variant="light" onClick={reset} mr={8}>Tentar de novo</Button>
+                    <Button variant="default" onClick={() => window.location.reload()}>Recarregar página</Button>
+                  </div>
+                )}
+              >
               <form onSubmit={handleSubmit(onSubmit)}>
                 <TextInput
                   label="Nome completo"
@@ -389,6 +403,9 @@ export default function AssinaturaPage() {
                   placeholder="Ex: BEMVINDO20"
                   mb="sm"
                   autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="off"
+                  spellCheck={false}
                   // O campo tem "coupon" no name (register('couponCode')),
                   // exatamente o padrão que extensões de cupom (Honey,
                   // Capital One Shopping) e o Grammarly usam pra decidir
@@ -438,6 +455,7 @@ export default function AssinaturaPage() {
                   {session ? 'Confirmar assinatura' : 'Criar conta e assinar'}
                 </Button>
               </form>
+              </SectionErrorBoundary>
             </div>
           )}
         </div>

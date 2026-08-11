@@ -18,12 +18,13 @@ export default function MissingEnvScreen({ missingVars }) {
       </h1>
       <p style={{ fontSize: 15, color: '#5b6178', maxWidth: 460, margin: '0 0 6px' }}>
         {missingVars.length === 1
-          ? `A variável de ambiente ${missingVars[0]} não foi definida.`
-          : `As variáveis de ambiente ${missingVars.join(' e ')} não foram definidas.`}
+          ? `A variável de ambiente ${missingVars[0]} não foi definida ou está com um valor inválido.`
+          : `As variáveis de ambiente ${missingVars.join(' e ')} não foram definidas ou estão com valores inválidos.`}
       </p>
       <p style={{ fontSize: 13, color: '#8890a6', maxWidth: 460 }}>
         O Cond-Informa precisa dessa configuração pra funcionar. Defina no arquivo <code>.env</code> (local)
-        ou nas variáveis de ambiente do provedor de deploy, e publique novamente.
+        ou nas variáveis de ambiente do provedor de deploy — confira se VITE_SUPABASE_URL está completa,
+        com "https://" no início e sem espaços — e publique novamente.
       </p>
     </div>
   );
