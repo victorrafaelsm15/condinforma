@@ -56,6 +56,7 @@ const SindicoDashboard = lazyWithChunkRetry(() => import('./pages/SindicoDashboa
 const QrCodesCondominioPage = lazyWithChunkRetry(() => import('./pages/QrCodesCondominioPage'));
 const QrCodesPickerPage = lazyWithChunkRetry(() => import('./pages/QrCodesPickerPage'));
 const AmbientePage = lazyWithChunkRetry(() => import('./pages/AmbientePage'));
+const GrupoChecklistPage = lazyWithChunkRetry(() => import('./pages/GrupoChecklistPage'));
 const OcorrenciasPage = lazyWithChunkRetry(() => import('./pages/OcorrenciasPage'));
 const RelatoriosPage = lazyWithChunkRetry(() => import('./pages/RelatoriosPage'));
 const SubUsuariosPage = lazyWithChunkRetry(() => import('./pages/SubUsuariosPage'));
@@ -96,6 +97,7 @@ export default function App() {
             <Route path="/admin/condominios/:id/qrcodes" element={<QrCodesCondominioPage />} />
             <Route path="/admin/qrcodes" element={<QrCodesPickerPage />} />
             <Route path="/admin/ambientes/:id" element={<AmbientePage />} />
+            <Route path="/admin/ambientes/:ambienteId/grupos/:grupoId" element={<GrupoChecklistPage />} />
             <Route path="/admin/ocorrencias" element={<OcorrenciasPage />} />
             <Route path="/admin/relatorios" element={<RelatoriosPage />} />
             <Route path="/admin/sub-usuarios" element={<SubUsuariosPage />} />

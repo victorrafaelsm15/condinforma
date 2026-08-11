@@ -2,202 +2,54 @@ import { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
   Text, Group, Breadcrumbs, Loader, TextInput, Button, ActionIcon,
-  Tabs, Badge, Image as MantineImage, Modal, Menu, Switch,
+  Tabs, Badge, Modal, SimpleGrid, Tooltip,
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import {
-  Plus, Trash2, ClipboardList, QrCode, History, AlertTriangle, ListChecks, ArrowLeft, Pencil, Check, X,
-  FileDown, Download, Share2, Calendar, FolderPlus,
+  Trash2, ClipboardList, QrCode, History, AlertTriangle, ArrowLeft, Pencil, ChevronRight, Clock, FolderPlus,
 } from 'lucide-react';
 import { ambientesStore, checklistGruposStore, checklistItemsStore, execucoesStore, ocorrenciasStore, condominiosStore } from '../lib/stores';
 import AmbienteQrCards from '../components/admin/AmbienteQrCards';
-import { generateComunicadoPdf, downloadPdf, sharePdf } from '../lib/comunicado';
+import HistoryTab from '../components/admin/HistoryTab';
 import { logAudit } from '../lib/auditLog';
 import { getSession } from '../lib/authService';
 import { getSubUsuarioInfo } from '../lib/subUsuario';
+import { AMBIENTE_ICON_OPTIONS, getAmbienteIcon } from '../lib/ambienteIcons';
 import ConfirmDeleteModal from '../components/common/ConfirmDeleteModal';
 import OcorrenciaCard from '../components/admin/OcorrenciaCard';
 
-// Um card por grupo de checklist — mantém seus próprios itens (adicionar/
-// editar/remover), toggle de ativo/inativo, exclusão do grupo inteiro e o
-// badge de ocorrências pendentes por item (contagem vem de fora, calculada
-// uma vez pro ambiente inteiro).
-function ChecklistGrupoCard({ grupo, items, ambienteId, accountId, pendingCountByItem, onToggleStatus, onDeleteRequest, onReload }) {
-  const [newTask, setNewTask] = useState('');
-  const [adding, setAdding] = useState(false);
-  const [editingId, setEditingId] = useState(null);
-  const [editValue, setEditValue] = useState('');
-
-  const handleAdd = async () => {
-    if (!newTask.trim()) return;
-    setAdding(true);
-    // account_id copiado do ambiente (não da sessão) — quem cria pode ser
-    // um sub-usuário, cujo próprio account_id não é o dono real do ambiente.
-    const created = await checklistItemsStore.create({
-      ambiente_id: ambienteId, checklist_grupo_id: grupo.id, task: newTask.trim(), order_index: items.length, account_id: accountId,
-    });
-    logAudit({ action: 'checklist.item_criado', entityType: 'checklist_item', entityId: created.id, details: { task: created.task, grupo: grupo.nome } });
-    setNewTask('');
-    setAdding(false);
-    onReload();
-  };
-
-  const handleRemove = async (id, task) => {
-    await checklistItemsStore.remove(id);
-    logAudit({ action: 'checklist.item_excluido', entityType: 'checklist_item', entityId: id, details: { task, grupo: grupo.nome } });
-    onReload();
-  };
-
-  const startEdit = (item) => {
-    setEditingId(item.id);
-    setEditValue(item.task);
-  };
-
-  const cancelEdit = () => {
-    setEditingId(null);
-    setEditValue('');
-  };
-
-  const saveEdit = async () => {
-    if (!editValue.trim()) return;
-    const before = items.find((i) => i.id === editingId);
-    await checklistItemsStore.update(editingId, { task: editValue.trim() });
-    logAudit({ action: 'checklist.item_editado', entityType: 'checklist_item', entityId: editingId, details: { antes: before?.task, depois: editValue.trim(), grupo: grupo.nome } });
-    setEditingId(null);
-    setEditValue('');
-    onReload();
-  };
-
-  const isAtivo = grupo.status === 'ativo';
-
-  return (
-    <div className="surface-card" style={{ padding: 20 }}>
-      <Group justify="space-between" mb={4}>
-        <Group gap={10}>
-          <Text fw={700} size="md">{grupo.nome}</Text>
-          <Badge color={isAtivo ? 'green' : 'gray'} variant="light">{isAtivo ? 'Ativo' : 'Inativo'}</Badge>
-        </Group>
-        <Group gap={8}>
-          <Switch
-            checked={isAtivo}
-            onChange={() => onToggleStatus(grupo)}
-            color="green"
-            aria-label={`Ativar ou desativar o grupo ${grupo.nome}`}
-          />
-          <ActionIcon color="red" variant="light" radius="md" onClick={() => onDeleteRequest(grupo)} aria-label={`Excluir grupo ${grupo.nome}`}>
-            <Trash2 size={15} />
-          </ActionIcon>
-        </Group>
-      </Group>
-      <Text size="xs" c="dimmed" mb="md">
-        Edite os itens aqui só para corrigir este grupo. Pra mudar a rotina de verdade, crie um novo grupo — assim o histórico de execuções antigas continua íntegro.
-      </Text>
-
-      {items.length ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
-          {items.map((item, i) => {
-            const isEditing = editingId === item.id;
-            const pendingCount = pendingCountByItem[item.id] || 0;
-            return (
-              <div key={item.id} className="surface-card" style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-                <Group gap={12} style={{ flex: 1 }}>
-                  <span style={{
-                    width: 26, height: 26, borderRadius: 8, background: 'var(--blue-light)', color: 'var(--blue)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, flexShrink: 0,
-                  }}>
-                    {i + 1}
-                  </span>
-                  {isEditing ? (
-                    <TextInput
-                      value={editValue}
-                      onChange={(e) => setEditValue(e.currentTarget.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && saveEdit()}
-                      style={{ flex: 1 }}
-                      size="sm"
-                      autoFocus
-                    />
-                  ) : (
-                    <Text size="md">{item.task}</Text>
-                  )}
-                  {!isEditing && pendingCount > 0 && (
-                    <Badge size="xs" color="red" variant="light" title="Ocorrências pendentes vinculadas a este item">
-                      {pendingCount} {pendingCount === 1 ? 'ocorrência' : 'ocorrências'}
-                    </Badge>
-                  )}
-                </Group>
-                <Group gap={4}>
-                  {isEditing ? (
-                    <>
-                      <ActionIcon color="green" variant="light" radius="md" onClick={saveEdit} aria-label="Salvar tarefa">
-                        <Check size={15} />
-                      </ActionIcon>
-                      <ActionIcon color="gray" variant="light" radius="md" onClick={cancelEdit} aria-label="Cancelar edição">
-                        <X size={15} />
-                      </ActionIcon>
-                    </>
-                  ) : (
-                    <>
-                      <ActionIcon color="gray" variant="light" radius="md" onClick={() => startEdit(item)} aria-label="Editar tarefa">
-                        <Pencil size={15} />
-                      </ActionIcon>
-                      <ActionIcon color="red" variant="light" radius="md" onClick={() => handleRemove(item.id, item.task)} aria-label="Remover tarefa">
-                        <Trash2 size={15} />
-                      </ActionIcon>
-                    </>
-                  )}
-                </Group>
-              </div>
-            );
-          })}
-        </div>
-      ) : (
-        <Text c="dimmed" size="sm" mb="md">Nenhuma tarefa cadastrada neste grupo ainda.</Text>
-      )}
-
-      <Group>
-        <TextInput
-          placeholder="Nova tarefa (ex: Varrer e passar pano no piso)"
-          value={newTask}
-          onChange={(e) => setNewTask(e.currentTarget.value)}
-          style={{ flex: 1 }}
-          onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
-        />
-        <Button leftSection={<Plus size={15} />} onClick={handleAdd} loading={adding}>Adicionar</Button>
-      </Group>
-    </div>
-  );
-}
-
+// Listagem de grupos de checklist do ambiente — cada card leva pra
+// página própria do grupo (GrupoChecklistPage), onde de fato se
+// gerencia itens/status/histórico. Mesmo padrão visual já usado na
+// listagem de condomínios → ambientes (ícone, nome, chevron, resumo
+// embaixo com separador).
 function ChecklistTab({ ambienteId, accountId }) {
   const [grupos, setGrupos] = useState([]);
-  const [itemsByGrupo, setItemsByGrupo] = useState({});
-  const [pendingCountByItem, setPendingCountByItem] = useState({});
+  const [itemCountByGrupo, setItemCountByGrupo] = useState({});
+  const [lastExecByGrupo, setLastExecByGrupo] = useState({});
   const [loading, setLoading] = useState(true);
   const [novoGrupoOpen, setNovoGrupoOpen] = useState(false);
   const [novoGrupoNome, setNovoGrupoNome] = useState('');
   const [savingGrupo, setSavingGrupo] = useState(false);
-  const [deletingGrupo, setDeletingGrupo] = useState(null);
-  const [removingGrupo, setRemovingGrupo] = useState(false);
 
   const load = async () => {
     setLoading(true);
-    const [gruposList, itemsList, pendentes] = await Promise.all([
+    const [gruposList, itemsList, execs] = await Promise.all([
       checklistGruposStore.list({ ambiente_id: ambienteId }),
       checklistItemsStore.list({ ambiente_id: ambienteId }),
-      ocorrenciasStore.list({ ambiente_id: ambienteId, status: 'pendente' }),
+      execucoesStore.list({ ambiente_id: ambienteId }),
     ]);
     setGrupos(gruposList);
-    const grouped = {};
-    itemsList.forEach((item) => {
-      (grouped[item.checklist_grupo_id] ||= []).push(item);
-    });
-    Object.values(grouped).forEach((list) => list.sort((a, b) => (a.order_index || 0) - (b.order_index || 0)));
-    setItemsByGrupo(grouped);
     const counts = {};
-    pendentes.forEach((o) => {
-      if (o.related_checklist_item_id) counts[o.related_checklist_item_id] = (counts[o.related_checklist_item_id] || 0) + 1;
+    itemsList.forEach((item) => { counts[item.checklist_grupo_id] = (counts[item.checklist_grupo_id] || 0) + 1; });
+    setItemCountByGrupo(counts);
+    // execs já vem ordenado por created_at desc (ver stores.js) — a
+    // primeira ocorrência de cada grupo é a execução mais recente dele.
+    const lastByGrupo = {};
+    execs.forEach((e) => {
+      if (e.checklist_grupo_id && !lastByGrupo[e.checklist_grupo_id]) lastByGrupo[e.checklist_grupo_id] = e;
     });
-    setPendingCountByItem(counts);
+    setLastExecByGrupo(lastByGrupo);
     setLoading(false);
   };
 
@@ -218,52 +70,47 @@ function ChecklistTab({ ambienteId, accountId }) {
     load();
   };
 
-  const handleToggleGrupoStatus = async (grupo) => {
-    const novoStatus = grupo.status === 'ativo' ? 'inativo' : 'ativo';
-    await checklistGruposStore.update(grupo.id, { status: novoStatus });
-    logAudit({ action: 'checklist_grupo.status_alterado', entityType: 'checklist_grupo', entityId: grupo.id, details: { nome: grupo.nome, status: novoStatus } });
-    load();
-  };
-
-  const handleDeleteGrupo = async () => {
-    if (!deletingGrupo) return;
-    setRemovingGrupo(true);
-    try {
-      // Itens desse grupo saem junto (on delete cascade); execuções
-      // antigas ficam preservadas, só perdem a referência ao grupo
-      // (on delete set null — ver schema.sql).
-      await checklistGruposStore.remove(deletingGrupo.id);
-      logAudit({ action: 'checklist_grupo.excluido', entityType: 'checklist_grupo', entityId: deletingGrupo.id, details: { nome: deletingGrupo.nome } });
-      notifications.show({ color: 'green', message: `Grupo "${deletingGrupo.nome}" excluído.` });
-    } catch {
-      notifications.show({ color: 'red', message: 'Não foi possível excluir esse grupo.' });
-    } finally {
-      setRemovingGrupo(false);
-      setDeletingGrupo(null);
-      load();
-    }
-  };
-
   if (loading) return <Loader size="sm" color="brand" />;
 
   return (
     <div>
       {grupos.length ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 18 }}>
-          {grupos.map((g) => (
-            <ChecklistGrupoCard
-              key={g.id}
-              grupo={g}
-              items={itemsByGrupo[g.id] || []}
-              ambienteId={ambienteId}
-              accountId={accountId}
-              pendingCountByItem={pendingCountByItem}
-              onToggleStatus={handleToggleGrupoStatus}
-              onDeleteRequest={setDeletingGrupo}
-              onReload={load}
-            />
-          ))}
-        </div>
+        <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md" mb="lg">
+          {grupos.map((g) => {
+            const exec = lastExecByGrupo[g.id];
+            const isAtivo = g.status === 'ativo';
+            return (
+              <Link
+                key={g.id}
+                to={`/admin/ambientes/${ambienteId}/grupos/${g.id}`}
+                className="surface-card surface-card--hover"
+                style={{ display: 'block', padding: 20 }}
+              >
+                <Group justify="space-between">
+                  <Group gap={12}>
+                    <span className="icon-tile" style={{ background: isAtivo ? 'var(--green-light)' : '#eef0f3', width: 40, height: 40, borderRadius: 12 }}>
+                      <ClipboardList size={19} color={isAtivo ? 'var(--green)' : '#6b7280'} />
+                    </span>
+                    <div>
+                      <Text fw={700} size="md">{g.nome}</Text>
+                      <Text size="xs" c="dimmed">{itemCountByGrupo[g.id] || 0} item(ns)</Text>
+                    </div>
+                  </Group>
+                  <ChevronRight size={18} color="var(--text-faint)" />
+                </Group>
+                <Group gap={6} mt={14} pt={12} style={{ borderTop: '1px solid var(--border)' }}>
+                  <Badge size="xs" color={isAtivo ? 'green' : 'gray'} variant="light">{isAtivo ? 'Ativo' : 'Inativo'}</Badge>
+                  <Clock size={13} color="var(--text-muted)" />
+                  {exec ? (
+                    <Badge size="xs" color="gray" variant="light">Última execução: {new Date(exec.created_at).toLocaleString('pt-BR')}</Badge>
+                  ) : (
+                    <Badge size="xs" color="yellow" variant="light">Nunca executado</Badge>
+                  )}
+                </Group>
+              </Link>
+            );
+          })}
+        </SimpleGrid>
       ) : (
         <Text c="dimmed" size="sm" mb="lg">Nenhum grupo de checklist cadastrado ainda. Crie um pra começar (ex: "Rotina Diária").</Text>
       )}
@@ -284,14 +131,6 @@ function ChecklistTab({ ambienteId, accountId }) {
         </Text>
         <Button fullWidth mt="lg" onClick={handleCreateGrupo} loading={savingGrupo}>Criar grupo</Button>
       </Modal>
-
-      <ConfirmDeleteModal
-        opened={!!deletingGrupo}
-        onClose={() => setDeletingGrupo(null)}
-        onConfirm={handleDeleteGrupo}
-        itemLabel={deletingGrupo ? `o grupo "${deletingGrupo.nome}" e seus itens` : ''}
-        loading={removingGrupo}
-      />
     </div>
   );
 }
@@ -319,248 +158,6 @@ function getTabStyle(value, isActive) {
 
 function QrCodeTab({ ambiente }) {
   return <AmbienteQrCards ambiente={ambiente} />;
-}
-
-function ComunicadoMenu({ label, icon, onPick, loading, disabled }) {
-  return (
-    <Menu shadow="md" width={210} position="bottom-end" withinPortal disabled={disabled}>
-      <Menu.Target>
-        <Button size="xs" variant="light" leftSection={icon} loading={loading} disabled={disabled} onClick={(e) => e.stopPropagation()}>
-          {label}
-        </Button>
-      </Menu.Target>
-      <Menu.Dropdown onClick={(e) => e.stopPropagation()}>
-        <Menu.Item leftSection={<Download size={14} />} onClick={() => onPick('download')}>Baixar PDF</Menu.Item>
-        <Menu.Item leftSection={<Share2 size={14} />} onClick={() => onPick('share')}>Compartilhar (WhatsApp)</Menu.Item>
-      </Menu.Dropdown>
-    </Menu>
-  );
-}
-
-function HistoryTab({ ambienteId, ambienteName, condominioName }) {
-  const [execs, setExecs] = useState([]);
-  const [ocorrenciasVinculadas, setOcorrenciasVinculadas] = useState([]);
-  const [itemsById, setItemsById] = useState({});
-  const [loading, setLoading] = useState(true);
-  const [selectedIds, setSelectedIds] = useState(() => new Set());
-  const [generatingId, setGeneratingId] = useState(null);
-  const [generatingPeriod, setGeneratingPeriod] = useState(false);
-  const [generatingSelection, setGeneratingSelection] = useState(false);
-  const [deleting, setDeleting] = useState(null);
-  const [removing, setRemoving] = useState(false);
-
-  const load = () => {
-    setSelectedIds(new Set());
-    Promise.all([
-      execucoesStore.list({ ambiente_id: ambienteId }),
-      ocorrenciasStore.list({ ambiente_id: ambienteId }),
-      checklistItemsStore.list({ ambiente_id: ambienteId }),
-    ]).then(([data, ocorrencias, items]) => {
-      setExecs(data);
-      // Só as que têm vínculo com um item — é só isso que entra no
-      // resumo do comunicado (item 3.5).
-      setOcorrenciasVinculadas(ocorrencias.filter((o) => o.related_checklist_item_id));
-      setItemsById(Object.fromEntries(items.map((i) => [i.id, i.task])));
-      setLoading(false);
-    });
-  };
-
-  useEffect(load, [ambienteId]);
-
-  // Só faz sentido resumir "ocorrências vinculadas no período" quando o
-  // comunicado cobre mais de uma execução (período/seleção) — pra uma
-  // única execução, a janela de tempo é só aquele instante, e a seção
-  // ficaria sempre vazia.
-  const buildItemOcorrenciaCounts = (execucoes) => {
-    if (execucoes.length <= 1) return undefined;
-    const timestamps = execucoes.map((e) => new Date(e.created_at).getTime());
-    const min = Math.min(...timestamps);
-    const max = Math.max(...timestamps);
-    const counts = {};
-    ocorrenciasVinculadas.forEach((o) => {
-      const t = new Date(o.created_at).getTime();
-      if (t < min || t > max) return;
-      counts[o.related_checklist_item_id] = (counts[o.related_checklist_item_id] || 0) + 1;
-    });
-    const rows = Object.entries(counts)
-      .map(([itemId, count]) => ({ task: itemsById[itemId] || 'Tarefa removida', count }))
-      .sort((a, b) => b.count - a.count);
-    return rows.length ? rows : undefined;
-  };
-
-  const handleDelete = async () => {
-    if (!deleting) return;
-    setRemoving(true);
-    try {
-      await execucoesStore.remove(deleting.id);
-      logAudit({ action: 'execucao.excluida', entityType: 'execucao', entityId: deleting.id, details: { executed_by: deleting.executed_by, created_at: deleting.created_at } });
-      notifications.show({ color: 'green', message: 'Execução excluída.' });
-    } catch {
-      notifications.show({ color: 'red', message: 'Não foi possível excluir a execução.' });
-    } finally {
-      setRemoving(false);
-      setDeleting(null);
-      load();
-    }
-  };
-
-  const toggleSelect = (id) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
-  const selectAll = () => setSelectedIds(new Set(execs.map((e) => e.id)));
-  const deselectAll = () => setSelectedIds(new Set());
-
-  const runComunicado = async (execucoes, filename, action, setBusy, key) => {
-    if (!execucoes.length) {
-      notifications.show({ color: 'red', message: 'Nenhuma execução selecionada pra gerar comunicado.' });
-      return;
-    }
-    setBusy(key);
-    try {
-      const itemOcorrenciaCounts = buildItemOcorrenciaCounts(execucoes);
-      const doc = generateComunicadoPdf({ condominioName, ambienteName, execucoes, itemOcorrenciaCounts });
-      if (action === 'share') {
-        const result = await sharePdf(doc, filename);
-        if (result === 'downloaded') {
-          notifications.show({ color: 'blue', message: 'Seu navegador não suporta compartilhar arquivos. O PDF foi baixado.' });
-        }
-      } else {
-        downloadPdf(doc, filename);
-      }
-    } catch {
-      notifications.show({ color: 'red', message: 'Não foi possível gerar o PDF. Tente novamente.' });
-    } finally {
-      setBusy(null);
-    }
-  };
-
-  const handleExecucaoComunicado = (exec, action) => {
-    const dataStr = new Date(exec.created_at).toLocaleDateString('pt-BR').replaceAll('/', '-');
-    runComunicado([exec], `comunicado-${ambienteName}-${dataStr}.pdf`, action, setGeneratingId, exec.id);
-  };
-
-  const handlePeriodoComunicado = (days, action) => {
-    const cutoff = days ? Date.now() - days * 24 * 3_600_000 : null;
-    const filtered = cutoff ? execs.filter((e) => new Date(e.created_at).getTime() >= cutoff) : execs;
-    const label = days ? `ultimos-${days}-dias` : 'todas';
-    runComunicado(filtered, `comunicado-${ambienteName}-${label}.pdf`, action, setGeneratingPeriod, true);
-  };
-
-  const handleSelectionComunicado = (action) => {
-    // .filter preserva a ordem em que aparecem em "execs" (mais recente primeiro)
-    const selectedExecs = execs.filter((e) => selectedIds.has(e.id));
-    runComunicado(selectedExecs, `comunicado-${ambienteName}-selecionados.pdf`, action, setGeneratingSelection, true);
-  };
-
-  if (loading) return <Loader size="sm" color="brand" />;
-
-  return (
-    <div>
-      {!!execs.length && (
-        <Group justify="space-between" mb="md" wrap="wrap" gap={10}>
-          <Group gap={8}>
-            <Button size="xs" variant="light" onClick={selectAll}>Selecionar todos</Button>
-            <Button size="xs" variant="light" color="gray" onClick={deselectAll}>Desmarcar todos</Button>
-          </Group>
-          <Group gap={8}>
-            <ComunicadoMenu
-              label={selectedIds.size ? `Gerar comunicado (${selectedIds.size})` : 'Gerar comunicado'}
-              icon={<FileDown size={14} />}
-              loading={!!generatingSelection}
-              disabled={!selectedIds.size}
-              onPick={handleSelectionComunicado}
-            />
-            <Menu shadow="md" width={230} position="bottom-end" withinPortal>
-              <Menu.Target>
-                <Button size="xs" variant="default" leftSection={<Calendar size={14} />} loading={!!generatingPeriod}>
-                  Por período
-                </Button>
-              </Menu.Target>
-              <Menu.Dropdown>
-                <Menu.Label>Baixar PDF</Menu.Label>
-                <Menu.Item onClick={() => handlePeriodoComunicado(7, 'download')}>Últimos 7 dias</Menu.Item>
-                <Menu.Item onClick={() => handlePeriodoComunicado(30, 'download')}>Últimos 30 dias</Menu.Item>
-                <Menu.Item onClick={() => handlePeriodoComunicado(null, 'download')}>Todo o histórico</Menu.Item>
-                <Menu.Divider />
-                <Menu.Label>Compartilhar (WhatsApp)</Menu.Label>
-                <Menu.Item onClick={() => handlePeriodoComunicado(7, 'share')}>Últimos 7 dias</Menu.Item>
-                <Menu.Item onClick={() => handlePeriodoComunicado(30, 'share')}>Últimos 30 dias</Menu.Item>
-              </Menu.Dropdown>
-            </Menu>
-          </Group>
-        </Group>
-      )}
-
-      {!execs.length ? (
-        <Text c="dimmed" size="sm">Nenhuma execução registrada ainda.</Text>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {execs.map((e) => {
-            const isSelected = selectedIds.has(e.id);
-            return (
-              <div key={e.id} className="surface-card" style={{ padding: 16 }}>
-                <Group justify="space-between" align="flex-start" wrap="wrap" gap={10}>
-                  <Group gap={10} align="flex-start" wrap="nowrap">
-                    <button
-                      type="button"
-                      onClick={() => toggleSelect(e.id)}
-                      aria-label={isSelected ? 'Desmarcar execução' : 'Marcar execução'}
-                      aria-pressed={isSelected}
-                      style={{
-                        width: 22, height: 22, marginTop: 2, borderRadius: '50%', flexShrink: 0, cursor: 'pointer', padding: 0,
-                        border: isSelected ? 'none' : '2px solid var(--border)',
-                        background: isSelected ? 'var(--blue)' : '#fff',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        transition: 'all 0.15s var(--ease)',
-                      }}
-                    >
-                      {isSelected && <Check size={13} color="#fff" strokeWidth={3} />}
-                    </button>
-                    <div>
-                      <Text size="sm" fw={600}>{e.executed_by || 'Colaborador'}</Text>
-                      <Text size="xs" c="dimmed">{new Date(e.created_at).toLocaleString('pt-BR')}</Text>
-                    </div>
-                  </Group>
-                  <Group gap={8}>
-                    <Badge color="green" variant="light">{e.completed_count}/{e.total_count} tarefas</Badge>
-                    <ComunicadoMenu
-                      label="Gerar comunicado"
-                      icon={<FileDown size={14} />}
-                      loading={generatingId === e.id}
-                      onPick={(action) => handleExecucaoComunicado(e, action)}
-                    />
-                    <ActionIcon variant="light" color="red" radius="md" onClick={() => setDeleting(e)} aria-label="Excluir execução">
-                      <Trash2 size={15} />
-                    </ActionIcon>
-                  </Group>
-                </Group>
-                {e.free_text_note && (
-                  <Text size="sm" mt={8} ml={32} style={{ fontStyle: 'italic', color: 'var(--text-muted)' }}>
-                    &quot;{e.free_text_note}&quot;
-                  </Text>
-                )}
-                {e.photo && <MantineImage src={e.photo} radius="md" mt="sm" ml={32} h={140} w={140} fit="cover" />}
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      <ConfirmDeleteModal
-        opened={!!deleting}
-        onClose={() => setDeleting(null)}
-        onConfirm={handleDelete}
-        itemLabel="esta execução"
-        loading={removing}
-      />
-    </div>
-  );
 }
 
 function OccurrencesTab({ ambienteId, canDelete }) {
@@ -646,6 +243,7 @@ export default function AmbientePage() {
   const [loading, setLoading] = useState(true);
   const [editOpen, setEditOpen] = useState(false);
   const [editName, setEditName] = useState('');
+  const [editIcon, setEditIcon] = useState(null);
   const [savingEdit, setSavingEdit] = useState(false);
   const [activeTab, setActiveTab] = useState('checklist');
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -671,6 +269,7 @@ export default function AmbientePage() {
 
   const openEdit = () => {
     setEditName(ambiente.name);
+    setEditIcon(ambiente.icon || 'DoorOpen');
     setEditOpen(true);
   };
 
@@ -678,7 +277,10 @@ export default function AmbientePage() {
     if (!editName.trim()) return;
     setSavingEdit(true);
     const oldName = ambiente.name;
-    await ambientesStore.update(id, { name: editName.trim() });
+    // "DoorOpen" (o genérico) grava como null — mais simples que carregar
+    // "sem ícone" vs. "ícone genérico escolhido" como dois estados
+    // diferentes no banco, já que visualmente é a mesma coisa.
+    await ambientesStore.update(id, { name: editName.trim(), icon: editIcon === 'DoorOpen' ? null : editIcon });
     logAudit({ action: 'ambiente.editado', entityType: 'ambiente', entityId: id, details: { antes: oldName, depois: editName.trim() } });
     setSavingEdit(false);
     setEditOpen(false);
@@ -723,7 +325,7 @@ export default function AmbientePage() {
             width: 32, height: 32, borderRadius: '50%', background: 'rgba(255,255,255,0.2)',
             display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
           }}>
-            <ListChecks size={17} color="#fff" />
+            {(() => { const AmbienteIcon = getAmbienteIcon(ambiente.icon); return <AmbienteIcon size={17} color="#fff" />; })()}
           </span>
           <div>
             <Text fw={800} size="1.6rem" className="font-display" c="#fff" lh={1.2}>{ambiente.name}</Text>
@@ -748,7 +350,29 @@ export default function AmbientePage() {
           value={editName}
           onChange={(e) => setEditName(e.currentTarget.value)}
           data-autofocus
+          mb="md"
         />
+        <Text size="sm" fw={600} mb={8}>Ícone</Text>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 8 }}>
+          {AMBIENTE_ICON_OPTIONS.map(({ value, label, Icon }) => {
+            const selected = editIcon === value;
+            return (
+              <Tooltip key={value} label={label} withArrow>
+                <ActionIcon
+                  variant={selected ? 'filled' : 'light'}
+                  color={selected ? 'brand' : 'gray'}
+                  size="xl"
+                  radius="md"
+                  onClick={() => setEditIcon(value)}
+                  aria-label={label}
+                  aria-pressed={selected}
+                >
+                  <Icon size={19} />
+                </ActionIcon>
+              </Tooltip>
+            );
+          })}
+        </div>
         <Button fullWidth mt="lg" onClick={handleSaveEdit} loading={savingEdit}>Salvar</Button>
       </Modal>
 

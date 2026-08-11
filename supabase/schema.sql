@@ -30,6 +30,10 @@ create table if not exists ambientes (
   -- condomínio, atribuído pelo trigger assign_ambiente_checklist_code()
   -- mais abaixo — nunca setado direto pelo cliente.
   checklist_code  text,
+  -- Nome de um ícone lucide-react (ex: "Bath", "Dumbbell") escolhido no
+  -- seletor de AmbientePage.jsx — nullable, sem escolha usa o ícone
+  -- genérico (DoorOpen) como fallback no front-end.
+  icon            text,
   created_at      timestamptz not null default now()
 );
 create index if not exists ambientes_condominio_id_idx on ambientes(condominio_id);

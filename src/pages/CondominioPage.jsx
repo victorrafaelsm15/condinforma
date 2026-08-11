@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Button, TextInput, Text, Group, Modal, Loader, SimpleGrid, Breadcrumbs, Badge, ActionIcon } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { Plus, DoorOpen, ChevronRight, Clock, LayoutGrid, ArrowLeft, Pencil, Trash2, LayoutDashboard } from 'lucide-react';
+import { Plus, ChevronRight, Clock, LayoutGrid, ArrowLeft, Pencil, Trash2, LayoutDashboard } from 'lucide-react';
 import { condominiosStore, ambientesStore, execucoesStore } from '../lib/stores';
+import { getAmbienteIcon } from '../lib/ambienteIcons';
 import { getSession } from '../lib/authService';
 import { getSubUsuarioInfo } from '../lib/subUsuario';
 import { logAudit } from '../lib/auditLog';
@@ -146,12 +147,13 @@ export default function CondominioPage() {
         <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="md">
           {ambientes.map((a) => {
             const exec = lastExec[a.id];
+            const AmbienteIcon = getAmbienteIcon(a.icon);
             return (
               <Link key={a.id} to={`/admin/ambientes/${a.id}`} className="surface-card surface-card--hover" style={{ display: 'block', padding: 22, position: 'relative' }}>
                 <Group justify="space-between">
                   <Group gap={12}>
                     <span className="icon-tile" style={{ background: 'var(--blue-light)', width: 40, height: 40, borderRadius: 12 }}>
-                      <DoorOpen size={19} color="var(--blue)" />
+                      <AmbienteIcon size={19} color="var(--blue)" />
                     </span>
                     <div>
                       <Text fw={700} size="md">{a.name}</Text>
