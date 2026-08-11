@@ -396,7 +396,21 @@ function CuponsTab() {
 
   const renderForm = (form, setForm, error) => (
     <>
-      <TextInput label="Código" placeholder="Ex: BEMVINDO20" value={form.codigo} onChange={(e) => setForm((f) => ({ ...f, codigo: e.currentTarget.value }))} mb="sm" data-autofocus />
+      <TextInput
+        label="Código"
+        placeholder="Ex: BEMVINDO20"
+        value={form.codigo}
+        // e.currentTarget precisa ser lido AQUI, síncrono, e não dentro do
+        // callback de atualização funcional (f => ...) — o SyntheticEvent
+        // do React já foi liberado (currentTarget vira null) no momento em
+        // que esse callback roda, porque setForm com uma função corre pela
+        // fase de render, não pela fase de evento. Era exatamente isso que
+        // quebrava a aplicação inteira com "Cannot read properties of null
+        // (reading 'value')" ao digitar o primeiro caractere do cupom.
+        onChange={(e) => { const value = e.currentTarget.value; setForm((f) => ({ ...f, codigo: value })); }}
+        mb="sm"
+        data-autofocus
+      />
       <Select
         label="Tipo de desconto"
         data={[{ value: 'percentual', label: 'Percentual (%)' }, { value: 'fixo', label: 'Valor fixo (R$)' }]}
@@ -411,9 +425,20 @@ function CuponsTab() {
         onChange={(v) => setForm((f) => ({ ...f, valor: v ?? '' }))}
         mb="sm"
       />
-      <TextInput label="Validade (opcional)" type="date" value={form.validade} onChange={(e) => setForm((f) => ({ ...f, validade: e.currentTarget.value }))} mb="sm" />
+      <TextInput
+        label="Validade (opcional)"
+        type="date"
+        value={form.validade}
+        onChange={(e) => { const value = e.currentTarget.value; setForm((f) => ({ ...f, validade: value })); }}
+        mb="sm"
+      />
       <NumberInput label="Limite de usos (opcional)" min={1} value={form.limite_usos} onChange={(v) => setForm((f) => ({ ...f, limite_usos: v ?? '' }))} mb="sm" />
-      <Switch label="Cupom ativo" checked={form.ativo} onChange={(e) => setForm((f) => ({ ...f, ativo: e.currentTarget.checked }))} mb="md" />
+      <Switch
+        label="Cupom ativo"
+        checked={form.ativo}
+        onChange={(e) => { const checked = e.currentTarget.checked; setForm((f) => ({ ...f, ativo: checked })); }}
+        mb="md"
+      />
       {error && <Text size="sm" c="red" mb="sm">{error}</Text>}
     </>
   );
