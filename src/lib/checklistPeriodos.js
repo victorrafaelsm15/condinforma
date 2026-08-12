@@ -20,17 +20,20 @@ export async function getOrCreateActivePeriodo(ambienteId, accountId) {
 // Fecha o período ativo — vira histórico read-only, preservando o status
 // exato de cada item no momento do fechamento — e cria um novo período
 // ativo, copiando os itens atuais como pendentes. Nenhuma tarefa se perde
-// ao virar a página.
-export async function closePeriodoAndStartNew({ ambienteId, periodoAtivo, items, accountId }) {
+// ao virar a página. novoCodigo/dataInicio/dataFimPrevista são os campos
+// do formulário "Novo período" (todos opcionais — sem código digitado,
+// cai no "Período N" automático; sem data início, usa agora).
+export async function closePeriodoAndStartNew({ ambienteId, periodoAtivo, items, accountId, novoCodigo, dataInicio, dataFimPrevista }) {
   await checklistPeriodosStore.update(periodoAtivo.id, { status: 'fechado', closed_at: new Date().toISOString() });
 
   const existentes = await checklistPeriodosStore.list({ ambiente_id: ambienteId });
   const novoPeriodo = await checklistPeriodosStore.create({
     ambiente_id: ambienteId,
     account_id: accountId,
-    nome: `Período ${existentes.length + 1}`,
+    nome: novoCodigo?.trim() || `Período ${existentes.length + 1}`,
     status: 'ativo',
-    started_at: new Date().toISOString(),
+    started_at: dataInicio ? new Date(dataInicio).toISOString() : new Date().toISOString(),
+    data_fim_prevista: dataFimPrevista || null,
   });
 
   await Promise.all(items.map((item, i) => checklistItemsStore.create({

@@ -44,14 +44,17 @@ create index if not exists ambientes_account_id_idx on ambientes(account_id);
 -- Fechar o período ativo copia os itens atuais pro período novo (como
 -- pendentes) e o período fechado vira histórico read-only.
 create table if not exists checklist_periodos (
-  id           text primary key,
-  ambiente_id  text not null references ambientes(id) on delete cascade,
-  account_id   uuid not null references auth.users(id) on delete cascade,
-  nome         text not null,
-  status       text not null default 'ativo' check (status in ('ativo', 'fechado')),
-  started_at   timestamptz not null default now(),
-  closed_at    timestamptz,
-  created_at   timestamptz not null default now()
+  id                 text primary key,
+  ambiente_id        text not null references ambientes(id) on delete cascade,
+  account_id         uuid not null references auth.users(id) on delete cascade,
+  nome               text not null,
+  status             text not null default 'ativo' check (status in ('ativo', 'fechado')),
+  started_at         timestamptz not null default now(),
+  closed_at          timestamptz,
+  -- Data de fim prevista (opcional, informativa) — não é o que fecha o
+  -- período de fato; isso só acontece quando um novo período é iniciado.
+  data_fim_prevista  date,
+  created_at         timestamptz not null default now()
 );
 create index if not exists checklist_periodos_ambiente_id_idx on checklist_periodos(ambiente_id);
 create index if not exists checklist_periodos_account_id_idx on checklist_periodos(account_id);
@@ -71,8 +74,15 @@ create table if not exists checklist_items (
   order_index           integer not null default 0,
   status                text not null default 'pendente' check (status in ('pendente', 'concluido')),
   criado_por            text,
+  -- Quem está encarregado de resolver o item NESTE período (atribuição,
+  -- pode ser reatribuída) — diferente de resolvido_por (quem de fato
+  -- marcou como concluído).
+  atribuido_a           text,
   resolvido_por         text,
   resolvido_em          timestamptz,
+  -- Foto anexada como evidência da execução do item (base64 data URI,
+  -- mesmo padrão de ocorrencias.photo/execucoes.photo).
+  foto                  text,
   created_at            timestamptz not null default now()
 );
 create index if not exists checklist_items_ambiente_id_idx on checklist_items(ambiente_id);

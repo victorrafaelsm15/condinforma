@@ -8,7 +8,7 @@ import { notifications } from '@mantine/notifications';
 import {
   Trash2, ClipboardList, QrCode, History, AlertTriangle, ArrowLeft, Pencil, ChevronRight, Clock, Plus, Archive,
 } from 'lucide-react';
-import { ambientesStore, checklistPeriodosStore, checklistItemsStore, ocorrenciasStore, condominiosStore } from '../lib/stores';
+import { ambientesStore, checklistPeriodosStore, checklistItemsStore, execucoesStore, ocorrenciasStore, condominiosStore } from '../lib/stores';
 import { getOrCreateActivePeriodo, closePeriodoAndStartNew } from '../lib/checklistPeriodos';
 import AmbienteQrCards from '../components/admin/AmbienteQrCards';
 import HistoryTab from '../components/admin/HistoryTab';
@@ -40,8 +40,14 @@ function ChecklistTab({ ambienteId, accountId }) {
   const [newDescricao, setNewDescricao] = useState('');
   const [adding, setAdding] = useState(false);
 
-  const [closeOpen, setCloseOpen] = useState(false);
-  const [closing, setClosing] = useState(false);
+  const [newPeriodoOpen, setNewPeriodoOpen] = useState(false);
+  const [novoCodigo, setNovoCodigo] = useState('');
+  const [novaDataInicio, setNovaDataInicio] = useState('');
+  const [novaDataFim, setNovaDataFim] = useState('');
+  const [creatingPeriodo, setCreatingPeriodo] = useState(false);
+
+  const [deletePeriodoOpen, setDeletePeriodoOpen] = useState(false);
+  const [deletingPeriodo, setDeletingPeriodo] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -93,17 +99,66 @@ function ChecklistTab({ ambienteId, accountId }) {
     load();
   };
 
-  const handleCloseAndStart = async () => {
-    setClosing(true);
+  const openNewPeriodo = () => {
+    setNovoCodigo('');
+    setNovaDataInicio(new Date().toISOString().slice(0, 10));
+    setNovaDataFim('');
+    setNewPeriodoOpen(true);
+  };
+
+  const handleCreateNewPeriodo = async () => {
+    setCreatingPeriodo(true);
     try {
-      await closePeriodoAndStartNew({ ambienteId, periodoAtivo, items, accountId });
+      await closePeriodoAndStartNew({
+        ambienteId, periodoAtivo, items, accountId,
+        novoCodigo, dataInicio: novaDataInicio, dataFimPrevista: novaDataFim || null,
+      });
       logAudit({ action: 'checklist_periodo.fechado', entityType: 'checklist_periodo', entityId: periodoAtivo.id, details: { nome: periodoAtivo.nome, itens: items.length } });
-      notifications.show({ color: 'green', message: 'Período fechado e novo período iniciado.' });
+      notifications.show({ color: 'green', message: 'Novo período iniciado.' });
     } catch {
-      notifications.show({ color: 'red', message: 'Não foi possível fechar o período.' });
+      notifications.show({ color: 'red', message: 'Não foi possível iniciar o novo período.' });
     } finally {
-      setClosing(false);
-      setCloseOpen(false);
+      setCreatingPeriodo(false);
+      setNewPeriodoOpen(false);
+      load();
+    }
+  };
+
+  // Excluir (não fechar) só é permitido pra um período ativo sem nenhum
+  // progresso real registrado — senão a exclusão apagaria histórico de
+  // verdade. Com progresso, a saída correta é "Novo período" (que fecha
+  // o atual como histórico em vez de descartá-lo).
+  const handleOpenDeletePeriodo = async () => {
+    const hasItemProgress = items.some((i) => i.status === 'concluido' || i.foto || i.resolvido_por);
+    if (hasItemProgress) {
+      notifications.show({
+        color: 'yellow',
+        message: 'Este período já tem itens concluídos ou com evidência registrada. Use "Novo período" para preservar o histórico, em vez de excluir.',
+      });
+      return;
+    }
+    const execs = await execucoesStore.list({ checklist_periodo_id: periodoAtivo.id });
+    if (execs.length) {
+      notifications.show({
+        color: 'yellow',
+        message: 'Este período já tem execuções registradas. Use "Novo período" para preservar o histórico, em vez de excluir.',
+      });
+      return;
+    }
+    setDeletePeriodoOpen(true);
+  };
+
+  const handleConfirmDeletePeriodo = async () => {
+    setDeletingPeriodo(true);
+    try {
+      await checklistPeriodosStore.remove(periodoAtivo.id);
+      logAudit({ action: 'checklist_periodo.excluido', entityType: 'checklist_periodo', entityId: periodoAtivo.id, details: { nome: periodoAtivo.nome } });
+      notifications.show({ color: 'green', message: 'Período excluído.' });
+    } catch {
+      notifications.show({ color: 'red', message: 'Não foi possível excluir o período.' });
+    } finally {
+      setDeletingPeriodo(false);
+      setDeletePeriodoOpen(false);
       load();
     }
   };
@@ -112,27 +167,26 @@ function ChecklistTab({ ambienteId, accountId }) {
 
   return (
     <div>
-      <div className="surface-card" style={{ padding: 20, marginBottom: 24 }}>
-        <Group justify="space-between" mb={16} wrap="wrap" gap={10}>
-          <Group gap={10}>
-            <span className="icon-tile" style={{ background: 'var(--green-light)', width: 38, height: 38, borderRadius: 11 }}>
-              <ClipboardList size={18} color="var(--green)" />
+      <div className="surface-card" style={{ padding: 24, marginBottom: 26 }}>
+        <Group justify="space-between" mb={20} wrap="wrap" gap={12}>
+          <Group gap={12}>
+            <span className="icon-tile" style={{ background: 'var(--green-light)', width: 42, height: 42, borderRadius: 12 }}>
+              <ClipboardList size={20} color="var(--green)" />
             </span>
             <div>
-              <Text fw={700} size="md">{periodoAtivo.nome}</Text>
-              <Text size="xs" c="dimmed">Iniciado em {new Date(periodoAtivo.started_at).toLocaleDateString('pt-BR')}</Text>
+              <Text fw={700} size="lg">{periodoAtivo.nome}</Text>
+              <Text size="sm" c="dimmed">Iniciado em {new Date(periodoAtivo.started_at).toLocaleDateString('pt-BR')}</Text>
             </div>
           </Group>
-          <Group gap={8}>
-            <Badge color="green" variant="light">Ativo</Badge>
-            <Button size="xs" variant="light" color="gray" leftSection={<Archive size={14} />} onClick={() => setCloseOpen(true)}>
-              Fechar período e iniciar novo
-            </Button>
+          <Group gap={8} wrap="wrap">
+            <Badge color="green" variant="light" size="lg">Ativo</Badge>
+            <Button size="sm" variant="light" leftSection={<Plus size={15} />} onClick={openNewPeriodo}>Novo período</Button>
+            <Button size="sm" variant="light" color="red" leftSection={<Trash2 size={15} />} onClick={handleOpenDeletePeriodo}>Excluir período</Button>
           </Group>
         </Group>
 
         {items.length ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
             {items.map((item, i) => {
               const isConcluido = item.status === 'concluido';
               return (
@@ -140,24 +194,24 @@ function ChecklistTab({ ambienteId, accountId }) {
                   key={item.id}
                   to={`/admin/ambientes/${ambienteId}/checklist/itens/${item.id}`}
                   className="surface-card surface-card--hover"
-                  style={{ display: 'block', padding: '12px 14px' }}
+                  style={{ display: 'block', padding: '16px 18px' }}
                 >
                   <Group justify="space-between" wrap="nowrap">
-                    <Group gap={10} wrap="nowrap" style={{ minWidth: 0 }}>
+                    <Group gap={12} wrap="nowrap" style={{ minWidth: 0 }}>
                       <span style={{
-                        width: 24, height: 24, borderRadius: 7, flexShrink: 0, fontSize: 11, fontWeight: 700,
+                        width: 28, height: 28, borderRadius: 8, flexShrink: 0, fontSize: 13, fontWeight: 700,
                         background: isConcluido ? 'var(--green)' : 'var(--blue-light)', color: isConcluido ? '#fff' : 'var(--blue)',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                       }}>
                         {i + 1}
                       </span>
-                      <Text size="sm" truncate style={{ opacity: isConcluido ? 0.7 : 1 }}>{item.task}</Text>
+                      <Text size="md" truncate style={{ opacity: isConcluido ? 0.7 : 1 }}>{item.task}</Text>
                     </Group>
-                    <Group gap={8} wrap="nowrap">
-                      <Badge size="xs" color={isConcluido ? 'green' : 'yellow'} variant="light">
+                    <Group gap={10} wrap="nowrap">
+                      <Badge size="sm" color={isConcluido ? 'green' : 'yellow'} variant="light">
                         {isConcluido ? 'Concluído' : 'Pendente'}
                       </Badge>
-                      <ChevronRight size={16} color="var(--text-faint)" />
+                      <ChevronRight size={18} color="var(--text-faint)" />
                     </Group>
                   </Group>
                 </Link>
@@ -165,13 +219,13 @@ function ChecklistTab({ ambienteId, accountId }) {
             })}
           </div>
         ) : (
-          <Text c="dimmed" size="sm" mb={16}>Nenhum item cadastrado neste período ainda.</Text>
+          <Text c="dimmed" size="sm" mb={20}>Nenhum item cadastrado neste período ainda.</Text>
         )}
 
         <Button variant="light" leftSection={<Plus size={15} />} onClick={openAdd}>Novo item</Button>
       </div>
 
-      <Text fw={700} size="sm" mb={10}>Histórico de períodos</Text>
+      <Text fw={700} size="md" mb={12}>Histórico de períodos</Text>
       {periodosFechados.length ? (
         <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
           {periodosFechados.map((p) => (
@@ -179,24 +233,24 @@ function ChecklistTab({ ambienteId, accountId }) {
               key={p.id}
               to={`/admin/ambientes/${ambienteId}/checklist/periodos/${p.id}`}
               className="surface-card surface-card--hover"
-              style={{ display: 'block', padding: 18 }}
+              style={{ display: 'block', padding: 20 }}
             >
               <Group justify="space-between">
-                <Group gap={10}>
-                  <span className="icon-tile" style={{ background: '#eef0f3', width: 36, height: 36, borderRadius: 10 }}>
-                    <Archive size={16} color="#6b7280" />
+                <Group gap={12}>
+                  <span className="icon-tile" style={{ background: '#eef0f3', width: 40, height: 40, borderRadius: 11 }}>
+                    <Archive size={18} color="#6b7280" />
                   </span>
                   <div>
-                    <Text fw={700} size="sm">{p.nome}</Text>
-                    <Text size="xs" c="dimmed">{itemCountByPeriodo[p.id] || 0} item(ns)</Text>
+                    <Text fw={700} size="md">{p.nome}</Text>
+                    <Text size="sm" c="dimmed">{itemCountByPeriodo[p.id] || 0} item(ns)</Text>
                   </div>
                 </Group>
-                <ChevronRight size={16} color="var(--text-faint)" />
+                <ChevronRight size={18} color="var(--text-faint)" />
               </Group>
-              <Group gap={6} mt={12} pt={10} style={{ borderTop: '1px solid var(--border)' }}>
-                <Badge size="xs" color="gray" variant="light">Fechado</Badge>
-                <Clock size={12} color="var(--text-muted)" />
-                <Text size="xs" c="dimmed">{p.closed_at ? new Date(p.closed_at).toLocaleDateString('pt-BR') : ''}</Text>
+              <Group gap={8} mt={14} pt={12} style={{ borderTop: '1px solid var(--border)' }}>
+                <Badge size="sm" color="gray" variant="light">Fechado</Badge>
+                <Clock size={13} color="var(--text-muted)" />
+                <Text size="sm" c="dimmed">{p.closed_at ? new Date(p.closed_at).toLocaleDateString('pt-BR') : ''}</Text>
               </Group>
             </Link>
           ))}
@@ -225,12 +279,45 @@ function ChecklistTab({ ambienteId, accountId }) {
         <Button fullWidth onClick={handleAdd} loading={adding}>Adicionar</Button>
       </Modal>
 
-      <Modal opened={closeOpen} onClose={() => setCloseOpen(false)} title="Fechar período e iniciar novo">
+      <Modal opened={newPeriodoOpen} onClose={() => setNewPeriodoOpen(false)} title="Novo período">
+        <TextInput
+          label="Código do período"
+          placeholder={`Ex: Período ${periodosFechados.length + 2}`}
+          value={novoCodigo}
+          onChange={(e) => setNovoCodigo(e.currentTarget.value)}
+          data-autofocus
+          mb="sm"
+        />
+        <TextInput
+          label="Data início"
+          type="date"
+          value={novaDataInicio}
+          onChange={(e) => setNovaDataInicio(e.currentTarget.value)}
+          mb="sm"
+        />
+        <TextInput
+          label="Data fim (opcional)"
+          type="date"
+          value={novaDataFim}
+          onChange={(e) => setNovaDataFim(e.currentTarget.value)}
+          mb="md"
+        />
         <Text size="sm" c="dimmed" mb="lg">
-          O período &quot;{periodoAtivo.nome}&quot; vira histórico (somente leitura), preservando o status de cada item exatamente como está agora. Um novo período é criado com {items.length ? `os mesmos ${items.length} item(ns)` : 'nenhum item'}, reiniciados como pendentes.
+          Os itens atuais do checklist entram automaticamente neste período, todos como pendentes.
         </Text>
-        <Button fullWidth color="orange" onClick={handleCloseAndStart} loading={closing}>Fechar e iniciar novo período</Button>
+        <Group gap={8} justify="flex-end">
+          <Button variant="default" onClick={() => setNewPeriodoOpen(false)}>Cancelar</Button>
+          <Button onClick={handleCreateNewPeriodo} loading={creatingPeriodo}>Iniciar período</Button>
+        </Group>
       </Modal>
+
+      <ConfirmDeleteModal
+        opened={deletePeriodoOpen}
+        onClose={() => setDeletePeriodoOpen(false)}
+        onConfirm={handleConfirmDeletePeriodo}
+        itemLabel={`o período "${periodoAtivo.nome}"`}
+        loading={deletingPeriodo}
+      />
     </div>
   );
 }

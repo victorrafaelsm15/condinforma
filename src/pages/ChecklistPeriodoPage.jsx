@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Text, Group, Breadcrumbs, Loader, Badge, ActionIcon, Tabs } from '@mantine/core';
-import { ArrowLeft, History, ClipboardCheck, Archive } from 'lucide-react';
+import { ArrowLeft, History, ClipboardCheck, Archive, ChevronRight } from 'lucide-react';
 import { ambientesStore, condominiosStore, checklistPeriodosStore, checklistItemsStore } from '../lib/stores';
 import HistoryTab from '../components/admin/HistoryTab';
 
@@ -98,32 +98,40 @@ export default function ChecklistPeriodoPage() {
         </Tabs.List>
 
         <Tabs.Panel value="itens" pt="lg">
-          <Text size="xs" c="dimmed" mb="md">
-            Período fechado — este é o estado exato de cada item no momento do fechamento.
+          <Text size="sm" c="dimmed" mb="md">
+            Período fechado — este é o estado exato de cada item no momento do fechamento. Clique num item para ver todos os detalhes.
           </Text>
           {items.length ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {items.map((item, i) => (
-                <div key={item.id} className="surface-card" style={{ padding: '12px 16px' }}>
+                <Link
+                  key={item.id}
+                  to={`/admin/ambientes/${ambienteId}/checklist/itens/${item.id}`}
+                  className="surface-card surface-card--hover"
+                  style={{ display: 'block', padding: '16px 18px' }}
+                >
                   <Group justify="space-between" wrap="nowrap">
-                    <Group gap={10} wrap="nowrap" style={{ minWidth: 0 }}>
+                    <Group gap={12} wrap="nowrap" style={{ minWidth: 0 }}>
                       <span style={{
-                        width: 24, height: 24, borderRadius: 7, flexShrink: 0, fontSize: 11, fontWeight: 700,
+                        width: 28, height: 28, borderRadius: 8, flexShrink: 0, fontSize: 13, fontWeight: 700,
                         background: item.status === 'concluido' ? 'var(--green)' : '#eef0f3', color: item.status === 'concluido' ? '#fff' : '#6b7280',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                       }}>
                         {i + 1}
                       </span>
                       <div style={{ minWidth: 0 }}>
-                        <Text size="sm" truncate>{item.task}</Text>
-                        {item.resolvido_por && <Text size="xs" c="dimmed">Concluído por {item.resolvido_por}</Text>}
+                        <Text size="md" truncate>{item.task}</Text>
+                        {item.resolvido_por && <Text size="sm" c="dimmed">Concluído por {item.resolvido_por}</Text>}
                       </div>
                     </Group>
-                    <Badge size="xs" color={item.status === 'concluido' ? 'green' : 'gray'} variant="light">
-                      {item.status === 'concluido' ? 'Concluído' : 'Pendente'}
-                    </Badge>
+                    <Group gap={10} wrap="nowrap">
+                      <Badge size="sm" color={item.status === 'concluido' ? 'green' : 'gray'} variant="light">
+                        {item.status === 'concluido' ? 'Concluído' : 'Pendente'}
+                      </Badge>
+                      <ChevronRight size={18} color="var(--text-faint)" />
+                    </Group>
                   </Group>
-                </div>
+                </Link>
               ))}
             </div>
           ) : (
