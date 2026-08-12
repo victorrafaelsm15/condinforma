@@ -1,14 +1,15 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
-  Text, Group, Breadcrumbs, Loader, TextInput, Button, ActionIcon,
+  Text, Group, Breadcrumbs, Loader, TextInput, Textarea, Button, ActionIcon,
   Tabs, Badge, Modal, SimpleGrid, Tooltip,
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import {
-  Trash2, ClipboardList, QrCode, History, AlertTriangle, ArrowLeft, Pencil, ChevronRight, Clock, FolderPlus,
+  Trash2, ClipboardList, QrCode, History, AlertTriangle, ArrowLeft, Pencil, ChevronRight, Clock, Plus, Archive,
 } from 'lucide-react';
-import { ambientesStore, checklistGruposStore, checklistItemsStore, execucoesStore, ocorrenciasStore, condominiosStore } from '../lib/stores';
+import { ambientesStore, checklistPeriodosStore, checklistItemsStore, ocorrenciasStore, condominiosStore } from '../lib/stores';
+import { getOrCreateActivePeriodo, closePeriodoAndStartNew } from '../lib/checklistPeriodos';
 import AmbienteQrCards from '../components/admin/AmbienteQrCards';
 import HistoryTab from '../components/admin/HistoryTab';
 import { logAudit } from '../lib/auditLog';
@@ -18,118 +19,217 @@ import { AMBIENTE_ICON_OPTIONS, getAmbienteIcon } from '../lib/ambienteIcons';
 import ConfirmDeleteModal from '../components/common/ConfirmDeleteModal';
 import OcorrenciaCard from '../components/admin/OcorrenciaCard';
 
-// Listagem de grupos de checklist do ambiente — cada card leva pra
-// página própria do grupo (GrupoChecklistPage), onde de fato se
-// gerencia itens/status/histórico. Mesmo padrão visual já usado na
-// listagem de condomínios → ambientes (ícone, nome, chevron, resumo
-// embaixo com separador).
+// Um checklist só por ambiente, organizado em "períodos de execução":
+// sempre existe exatamente UM período ativo (getOrCreateActivePeriodo cria
+// o primeiro sozinho, se ainda não existir nenhum). Cada item do período
+// ativo leva pra sua própria página (ChecklistItemPage), onde de fato se
+// edita/conclui/comenta. Fechar o período arquiva o estado atual como
+// histórico read-only (cards abaixo, cada um levando pra
+// ChecklistPeriodoPage) e copia os itens pro período novo, todos
+// reiniciados como pendentes.
 function ChecklistTab({ ambienteId, accountId }) {
-  const [grupos, setGrupos] = useState([]);
-  const [itemCountByGrupo, setItemCountByGrupo] = useState({});
-  const [lastExecByGrupo, setLastExecByGrupo] = useState({});
+  const [periodoAtivo, setPeriodoAtivo] = useState(null);
+  const [items, setItems] = useState([]);
+  const [periodosFechados, setPeriodosFechados] = useState([]);
+  const [itemCountByPeriodo, setItemCountByPeriodo] = useState({});
+  const [userEmail, setUserEmail] = useState('');
   const [loading, setLoading] = useState(true);
-  const [novoGrupoOpen, setNovoGrupoOpen] = useState(false);
-  const [novoGrupoNome, setNovoGrupoNome] = useState('');
-  const [savingGrupo, setSavingGrupo] = useState(false);
+
+  const [addOpen, setAddOpen] = useState(false);
+  const [newTask, setNewTask] = useState('');
+  const [newDescricao, setNewDescricao] = useState('');
+  const [adding, setAdding] = useState(false);
+
+  const [closeOpen, setCloseOpen] = useState(false);
+  const [closing, setClosing] = useState(false);
 
   const load = async () => {
     setLoading(true);
-    const [gruposList, itemsList, execs] = await Promise.all([
-      checklistGruposStore.list({ ambiente_id: ambienteId }),
+    const session = await getSession();
+    setUserEmail(session?.user?.email || '');
+    const ativo = await getOrCreateActivePeriodo(ambienteId, accountId);
+    setPeriodoAtivo(ativo);
+    const [itemsAtivo, todosPeriodos, allItems] = await Promise.all([
+      checklistItemsStore.list({ checklist_periodo_id: ativo.id }),
+      checklistPeriodosStore.list({ ambiente_id: ambienteId }),
       checklistItemsStore.list({ ambiente_id: ambienteId }),
-      execucoesStore.list({ ambiente_id: ambienteId }),
     ]);
-    setGrupos(gruposList);
+    setItems(itemsAtivo.sort((a, b) => (a.order_index || 0) - (b.order_index || 0)));
+    setPeriodosFechados(
+      todosPeriodos
+        .filter((p) => p.status === 'fechado')
+        .sort((a, b) => new Date(b.closed_at) - new Date(a.closed_at))
+    );
     const counts = {};
-    itemsList.forEach((item) => { counts[item.checklist_grupo_id] = (counts[item.checklist_grupo_id] || 0) + 1; });
-    setItemCountByGrupo(counts);
-    // execs já vem ordenado por created_at desc (ver stores.js) — a
-    // primeira ocorrência de cada grupo é a execução mais recente dele.
-    const lastByGrupo = {};
-    execs.forEach((e) => {
-      if (e.checklist_grupo_id && !lastByGrupo[e.checklist_grupo_id]) lastByGrupo[e.checklist_grupo_id] = e;
-    });
-    setLastExecByGrupo(lastByGrupo);
+    allItems.forEach((item) => { counts[item.checklist_periodo_id] = (counts[item.checklist_periodo_id] || 0) + 1; });
+    setItemCountByPeriodo(counts);
     setLoading(false);
   };
 
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [ambienteId]);
 
-  const openNovoGrupo = () => {
-    setNovoGrupoNome('');
-    setNovoGrupoOpen(true);
+  const openAdd = () => {
+    setNewTask('');
+    setNewDescricao('');
+    setAddOpen(true);
   };
 
-  const handleCreateGrupo = async () => {
-    if (!novoGrupoNome.trim()) return;
-    setSavingGrupo(true);
-    const created = await checklistGruposStore.create({ ambiente_id: ambienteId, nome: novoGrupoNome.trim(), status: 'ativo', account_id: accountId });
-    logAudit({ action: 'checklist_grupo.criado', entityType: 'checklist_grupo', entityId: created.id, details: { nome: created.nome } });
-    setSavingGrupo(false);
-    setNovoGrupoOpen(false);
+  const handleAdd = async () => {
+    if (!newTask.trim()) return;
+    setAdding(true);
+    const created = await checklistItemsStore.create({
+      ambiente_id: ambienteId,
+      checklist_periodo_id: periodoAtivo.id,
+      account_id: accountId,
+      task: newTask.trim(),
+      descricao: newDescricao.trim() || null,
+      order_index: items.length,
+      status: 'pendente',
+      criado_por: userEmail || null,
+    });
+    logAudit({ action: 'checklist.item_criado', entityType: 'checklist_item', entityId: created.id, details: { task: created.task } });
+    setAdding(false);
+    setAddOpen(false);
     load();
   };
 
-  if (loading) return <Loader size="sm" color="brand" />;
+  const handleCloseAndStart = async () => {
+    setClosing(true);
+    try {
+      await closePeriodoAndStartNew({ ambienteId, periodoAtivo, items, accountId });
+      logAudit({ action: 'checklist_periodo.fechado', entityType: 'checklist_periodo', entityId: periodoAtivo.id, details: { nome: periodoAtivo.nome, itens: items.length } });
+      notifications.show({ color: 'green', message: 'Período fechado e novo período iniciado.' });
+    } catch {
+      notifications.show({ color: 'red', message: 'Não foi possível fechar o período.' });
+    } finally {
+      setClosing(false);
+      setCloseOpen(false);
+      load();
+    }
+  };
+
+  if (loading || !periodoAtivo) return <Loader size="sm" color="brand" />;
 
   return (
     <div>
-      {grupos.length ? (
-        <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md" mb="lg">
-          {grupos.map((g) => {
-            const exec = lastExecByGrupo[g.id];
-            const isAtivo = g.status === 'ativo';
-            return (
-              <Link
-                key={g.id}
-                to={`/admin/ambientes/${ambienteId}/grupos/${g.id}`}
-                className="surface-card surface-card--hover"
-                style={{ display: 'block', padding: 20 }}
-              >
-                <Group justify="space-between">
-                  <Group gap={12}>
-                    <span className="icon-tile" style={{ background: isAtivo ? 'var(--green-light)' : '#eef0f3', width: 40, height: 40, borderRadius: 12 }}>
-                      <ClipboardList size={19} color={isAtivo ? 'var(--green)' : '#6b7280'} />
-                    </span>
-                    <div>
-                      <Text fw={700} size="md">{g.nome}</Text>
-                      <Text size="xs" c="dimmed">{itemCountByGrupo[g.id] || 0} item(ns)</Text>
-                    </div>
+      <div className="surface-card" style={{ padding: 20, marginBottom: 24 }}>
+        <Group justify="space-between" mb={16} wrap="wrap" gap={10}>
+          <Group gap={10}>
+            <span className="icon-tile" style={{ background: 'var(--green-light)', width: 38, height: 38, borderRadius: 11 }}>
+              <ClipboardList size={18} color="var(--green)" />
+            </span>
+            <div>
+              <Text fw={700} size="md">{periodoAtivo.nome}</Text>
+              <Text size="xs" c="dimmed">Iniciado em {new Date(periodoAtivo.started_at).toLocaleDateString('pt-BR')}</Text>
+            </div>
+          </Group>
+          <Group gap={8}>
+            <Badge color="green" variant="light">Ativo</Badge>
+            <Button size="xs" variant="light" color="gray" leftSection={<Archive size={14} />} onClick={() => setCloseOpen(true)}>
+              Fechar período e iniciar novo
+            </Button>
+          </Group>
+        </Group>
+
+        {items.length ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
+            {items.map((item, i) => {
+              const isConcluido = item.status === 'concluido';
+              return (
+                <Link
+                  key={item.id}
+                  to={`/admin/ambientes/${ambienteId}/checklist/itens/${item.id}`}
+                  className="surface-card surface-card--hover"
+                  style={{ display: 'block', padding: '12px 14px' }}
+                >
+                  <Group justify="space-between" wrap="nowrap">
+                    <Group gap={10} wrap="nowrap" style={{ minWidth: 0 }}>
+                      <span style={{
+                        width: 24, height: 24, borderRadius: 7, flexShrink: 0, fontSize: 11, fontWeight: 700,
+                        background: isConcluido ? 'var(--green)' : 'var(--blue-light)', color: isConcluido ? '#fff' : 'var(--blue)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      }}>
+                        {i + 1}
+                      </span>
+                      <Text size="sm" truncate style={{ opacity: isConcluido ? 0.7 : 1 }}>{item.task}</Text>
+                    </Group>
+                    <Group gap={8} wrap="nowrap">
+                      <Badge size="xs" color={isConcluido ? 'green' : 'yellow'} variant="light">
+                        {isConcluido ? 'Concluído' : 'Pendente'}
+                      </Badge>
+                      <ChevronRight size={16} color="var(--text-faint)" />
+                    </Group>
                   </Group>
-                  <ChevronRight size={18} color="var(--text-faint)" />
+                </Link>
+              );
+            })}
+          </div>
+        ) : (
+          <Text c="dimmed" size="sm" mb={16}>Nenhum item cadastrado neste período ainda.</Text>
+        )}
+
+        <Button variant="light" leftSection={<Plus size={15} />} onClick={openAdd}>Novo item</Button>
+      </div>
+
+      <Text fw={700} size="sm" mb={10}>Histórico de períodos</Text>
+      {periodosFechados.length ? (
+        <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
+          {periodosFechados.map((p) => (
+            <Link
+              key={p.id}
+              to={`/admin/ambientes/${ambienteId}/checklist/periodos/${p.id}`}
+              className="surface-card surface-card--hover"
+              style={{ display: 'block', padding: 18 }}
+            >
+              <Group justify="space-between">
+                <Group gap={10}>
+                  <span className="icon-tile" style={{ background: '#eef0f3', width: 36, height: 36, borderRadius: 10 }}>
+                    <Archive size={16} color="#6b7280" />
+                  </span>
+                  <div>
+                    <Text fw={700} size="sm">{p.nome}</Text>
+                    <Text size="xs" c="dimmed">{itemCountByPeriodo[p.id] || 0} item(ns)</Text>
+                  </div>
                 </Group>
-                <Group gap={6} mt={14} pt={12} style={{ borderTop: '1px solid var(--border)' }}>
-                  <Badge size="xs" color={isAtivo ? 'green' : 'gray'} variant="light">{isAtivo ? 'Ativo' : 'Inativo'}</Badge>
-                  <Clock size={13} color="var(--text-muted)" />
-                  {exec ? (
-                    <Badge size="xs" color="gray" variant="light">Última execução: {new Date(exec.created_at).toLocaleString('pt-BR')}</Badge>
-                  ) : (
-                    <Badge size="xs" color="yellow" variant="light">Nunca executado</Badge>
-                  )}
-                </Group>
-              </Link>
-            );
-          })}
+                <ChevronRight size={16} color="var(--text-faint)" />
+              </Group>
+              <Group gap={6} mt={12} pt={10} style={{ borderTop: '1px solid var(--border)' }}>
+                <Badge size="xs" color="gray" variant="light">Fechado</Badge>
+                <Clock size={12} color="var(--text-muted)" />
+                <Text size="xs" c="dimmed">{p.closed_at ? new Date(p.closed_at).toLocaleDateString('pt-BR') : ''}</Text>
+              </Group>
+            </Link>
+          ))}
         </SimpleGrid>
       ) : (
-        <Text c="dimmed" size="sm" mb="lg">Nenhum grupo de checklist cadastrado ainda. Crie um pra começar (ex: "Rotina Diária").</Text>
+        <Text c="dimmed" size="sm">Nenhum período fechado ainda.</Text>
       )}
 
-      <Button variant="light" leftSection={<FolderPlus size={16} />} onClick={openNovoGrupo}>Novo grupo de checklist</Button>
-
-      <Modal opened={novoGrupoOpen} onClose={() => setNovoGrupoOpen(false)} title="Novo grupo de checklist">
+      <Modal opened={addOpen} onClose={() => setAddOpen(false)} title="Novo item do checklist">
         <TextInput
-          label="Nome do grupo"
-          placeholder="Ex: Rotina Diária, Faxina Semanal"
-          value={novoGrupoNome}
-          onChange={(e) => setNovoGrupoNome(e.currentTarget.value)}
-          onKeyDown={(e) => e.key === 'Enter' && handleCreateGrupo()}
+          label="Tarefa"
+          placeholder="Ex: Varrer e passar pano no piso"
+          value={newTask}
+          onChange={(e) => setNewTask(e.currentTarget.value)}
           data-autofocus
+          mb="sm"
         />
-        <Text size="xs" c="dimmed" mt={8}>
-          O grupo nasce ativo e aparece pro colaborador na hora. Mais de um grupo pode ficar ativo ao mesmo tempo.
+        <Textarea
+          label="Descrição (opcional)"
+          placeholder="Detalhes adicionais sobre a tarefa"
+          value={newDescricao}
+          onChange={(e) => setNewDescricao(e.currentTarget.value)}
+          minRows={2}
+          mb="md"
+        />
+        <Button fullWidth onClick={handleAdd} loading={adding}>Adicionar</Button>
+      </Modal>
+
+      <Modal opened={closeOpen} onClose={() => setCloseOpen(false)} title="Fechar período e iniciar novo">
+        <Text size="sm" c="dimmed" mb="lg">
+          O período &quot;{periodoAtivo.nome}&quot; vira histórico (somente leitura), preservando o status de cada item exatamente como está agora. Um novo período é criado com {items.length ? `os mesmos ${items.length} item(ns)` : 'nenhum item'}, reiniciados como pendentes.
         </Text>
-        <Button fullWidth mt="lg" onClick={handleCreateGrupo} loading={savingGrupo}>Criar grupo</Button>
+        <Button fullWidth color="orange" onClick={handleCloseAndStart} loading={closing}>Fechar e iniciar novo período</Button>
       </Modal>
     </div>
   );

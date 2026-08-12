@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Text, Loader, Badge, Group } from '@mantine/core';
 import { CheckCircle2, Clock, Building2, ListChecks, HelpCircle, AlertTriangle } from 'lucide-react';
-import { ambientesStore, execucoesStore, checklistGruposStore, checklistItemsStore, ocorrenciasStore } from '../lib/stores';
+import { ambientesStore, execucoesStore, checklistPeriodosStore, checklistItemsStore, ocorrenciasStore } from '../lib/stores';
 import OcorrenciaForm from '../components/OcorrenciaForm';
 import Seo from '../components/common/Seo';
 
@@ -58,16 +58,16 @@ export default function StatusPublicoPage() {
     Promise.all([
       ambientesStore.getById(id),
       execucoesStore.list({ ambiente_id: id }),
-      checklistGruposStore.list({ ambiente_id: id, status: 'ativo' }),
-      checklistItemsStore.list({ ambiente_id: id }),
+      checklistPeriodosStore.list({ ambiente_id: id, status: 'ativo' }),
       ocorrenciasStore.list({ ambiente_id: id, status: 'pendente' }),
-    ]).then(([amb, execs, gruposAtivos, allItems, pendentes]) => {
-      const gruposAtivosIds = new Set(gruposAtivos.map((g) => g.id));
+    ]).then(async ([amb, execs, periodosAtivos, pendentes]) => {
       setAmbiente(amb);
       setLastExec(execs[0] || null);
-      // Só itens de grupos ATIVOS — só faz sentido o morador vincular a
+      // Só itens do período ATIVO — só faz sentido o morador vincular a
       // ocorrência a uma tarefa que está de fato em uso agora.
-      setChecklistItems(allItems.filter((i) => gruposAtivosIds.has(i.checklist_grupo_id)));
+      const periodoAtivo = periodosAtivos[0];
+      const items = periodoAtivo ? await checklistItemsStore.list({ checklist_periodo_id: periodoAtivo.id }) : [];
+      setChecklistItems(items);
       setPendingCount(pendentes.length);
       setLoading(false);
     });

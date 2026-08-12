@@ -5,7 +5,7 @@ import {
   Text, Checkbox, Button, TextInput, Textarea, Loader, FileButton, Group, Progress, Image as MantineImage, Badge, ActionIcon,
 } from '@mantine/core';
 import { CheckCircle2, Camera, Building2, WifiOff, CloudUpload, AlertTriangle, MessageSquareWarning } from 'lucide-react';
-import { ambientesStore, checklistGruposStore, checklistItemsStore, ocorrenciasStore } from '../lib/stores';
+import { ambientesStore, checklistPeriodosStore, checklistItemsStore, ocorrenciasStore } from '../lib/stores';
 import { enqueue, syncQueue, isPending, subscribeQueue, generateRecordId } from '../lib/offlineQueue';
 import { reporterLabel } from '../lib/ocorrenciaDisplay';
 import OcorrenciaForm from '../components/OcorrenciaForm';
@@ -20,12 +20,11 @@ function fileToBase64(file) {
   });
 }
 
-// Um card por grupo de checklist ATIVO — cada grupo tem sua própria
-// execução independente (nome do executor, foto, progresso, envio), que
-// vira uma linha própria em "execucoes" com checklist_grupo_id apontando
-// pra este grupo. Extraído do antigo formulário único da página, que
-// cobria só um checklist por ambiente.
-function GroupExecutionCard({ grupo, items, ambiente, isOnline, onReportItem }) {
+// Card único de execução do período ATIVO do ambiente (sempre existe
+// exatamente um) — nome do executor, foto, progresso, envio — que vira
+// uma linha em "execucoes" com checklist_periodo_id apontando pra esse
+// período.
+function PeriodoExecutionCard({ periodo, items, ambiente, isOnline, onReportItem }) {
   const [checked, setChecked] = useState({});
   const [executedBy, setExecutedBy] = useState('');
   const [photo, setPhoto] = useState(null);
@@ -79,7 +78,7 @@ function GroupExecutionCard({ grupo, items, ambiente, isOnline, onReportItem }) 
       id: generateRecordId(),
       created_at: new Date().toISOString(),
       ambiente_id: ambiente.id,
-      checklist_grupo_id: grupo.id,
+      checklist_periodo_id: periodo.id,
       // Sem sessão logada nesta página pública — o dono do registro é
       // copiado do próprio ambiente, não detectado por auth.
       account_id: ambiente.account_id,
@@ -126,7 +125,7 @@ function GroupExecutionCard({ grupo, items, ambiente, isOnline, onReportItem }) 
         }}>
           <CloudUpload size={28} color="var(--amber)" />
         </div>
-        <Text fw={800}>{grupo.nome} — salvo neste dispositivo</Text>
+        <Text fw={800}>{periodo.nome} — salvo neste dispositivo</Text>
         <Text size="sm" mt={8} style={{ color: '#92620a' }}>
           Ainda não confirmado pelo servidor. Será enviado automaticamente assim que a conexão voltar.
         </Text>
@@ -152,7 +151,7 @@ function GroupExecutionCard({ grupo, items, ambiente, isOnline, onReportItem }) 
         >
           <CheckCircle2 size={28} color="var(--green)" />
         </motion.div>
-        <Text fw={800}>{grupo.nome} — concluído!</Text>
+        <Text fw={800}>{periodo.nome} — concluído!</Text>
         {items.length > 0 ? (
           <Text size="xs" c="dimmed" mt={8}>{completedCount} de {items.length} tarefas marcadas como feitas</Text>
         ) : (
@@ -165,7 +164,7 @@ function GroupExecutionCard({ grupo, items, ambiente, isOnline, onReportItem }) 
 
   return (
     <div className="surface-card" style={{ padding: 22, marginBottom: 18 }}>
-      <Text fw={800} size="lg" mb={4}>{grupo.nome}</Text>
+      <Text fw={800} size="lg" mb={4}>{periodo.nome}</Text>
       <Text size="sm" c="dimmed" mb={16}>Marque as tarefas realizadas e confirme a execução.</Text>
 
       {items.length > 0 && (
@@ -179,7 +178,7 @@ function GroupExecutionCard({ grupo, items, ambiente, isOnline, onReportItem }) 
             color={progressPct === 100 ? 'green' : 'brand'}
             radius="xl"
             size={8}
-            aria-label={`Progresso do grupo ${grupo.nome}: ${completedCount} de ${items.length} tarefas concluídas`}
+            aria-label={`Progresso do período ${periodo.nome}: ${completedCount} de ${items.length} tarefas concluídas`}
           />
         </div>
       )}
@@ -250,7 +249,7 @@ function GroupExecutionCard({ grupo, items, ambiente, isOnline, onReportItem }) 
           })}
         </div>
       ) : (
-        <Text c="dimmed" size="sm" mb="lg">Nenhuma tarefa cadastrada neste grupo ainda. Você ainda pode confirmar um registro livre abaixo.</Text>
+        <Text c="dimmed" size="sm" mb="lg">Nenhuma tarefa cadastrada neste período ainda. Você ainda pode confirmar um registro livre abaixo.</Text>
       )}
 
       <Textarea
@@ -301,8 +300,8 @@ function GroupExecutionCard({ grupo, items, ambiente, isOnline, onReportItem }) 
 export default function ExecutarChecklistPage() {
   const { id } = useParams();
   const [ambiente, setAmbiente] = useState(null);
-  const [gruposAtivos, setGruposAtivos] = useState([]);
-  const [itemsByGrupo, setItemsByGrupo] = useState({});
+  const [periodoAtivo, setPeriodoAtivo] = useState(null);
+  const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [pendingOcorrencias, setPendingOcorrencias] = useState([]);
@@ -326,22 +325,21 @@ export default function ExecutarChecklistPage() {
     };
   }, []);
 
-  const load = () => {
-    Promise.all([
+  const load = async () => {
+    const [amb, periodos] = await Promise.all([
       ambientesStore.getById(id),
-      checklistGruposStore.list({ ambiente_id: id, status: 'ativo' }),
-      checklistItemsStore.list({ ambiente_id: id }),
-    ]).then(([amb, grupos, allItems]) => {
-      setAmbiente(amb);
-      setGruposAtivos(grupos);
-      const grouped = {};
-      allItems.forEach((item) => {
-        (grouped[item.checklist_grupo_id] ||= []).push(item);
-      });
-      Object.values(grouped).forEach((list) => list.sort((a, b) => (a.order_index || 0) - (b.order_index || 0)));
-      setItemsByGrupo(grouped);
-      setLoading(false);
-    });
+      checklistPeriodosStore.list({ ambiente_id: id, status: 'ativo' }),
+    ]);
+    setAmbiente(amb);
+    const ativo = periodos[0] || null;
+    setPeriodoAtivo(ativo);
+    if (ativo) {
+      const itemsList = await checklistItemsStore.list({ checklist_periodo_id: ativo.id });
+      setItems(itemsList.sort((a, b) => (a.order_index || 0) - (b.order_index || 0)));
+    } else {
+      setItems([]);
+    }
+    setLoading(false);
     loadPendingOcorrencias();
   };
 
@@ -378,11 +376,6 @@ export default function ExecutarChecklistPage() {
 
   if (loading) return <>{seoTag}<Group justify="center" py={80}><Loader color="brand" /></Group></>;
   if (!ambiente) return <>{seoTag}<Text ta="center" py={80}>Ambiente não encontrado.</Text></>;
-
-  // Itens de TODOS os grupos ativos combinados — é o que o dropdown
-  // "Relacionado a" do formulário de ocorrência oferece (só faz sentido
-  // vincular a uma tarefa que está de fato em uso agora).
-  const allActiveItems = gruposAtivos.flatMap((g) => itemsByGrupo[g.id] || []);
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
@@ -456,21 +449,18 @@ export default function ExecutarChecklistPage() {
           </div>
         )}
 
-        {gruposAtivos.length ? (
-          gruposAtivos.map((grupo) => (
-            <GroupExecutionCard
-              key={grupo.id}
-              grupo={grupo}
-              items={itemsByGrupo[grupo.id] || []}
-              ambiente={ambiente}
-              isOnline={isOnline}
-              onReportItem={handleReportItem}
-            />
-          ))
+        {periodoAtivo ? (
+          <PeriodoExecutionCard
+            periodo={periodoAtivo}
+            items={items}
+            ambiente={ambiente}
+            isOnline={isOnline}
+            onReportItem={handleReportItem}
+          />
         ) : (
           <div className="surface-card" style={{ padding: 22, marginBottom: 18, textAlign: 'center' }}>
             <Text fw={700}>Sem checklist ativo</Text>
-            <Text size="sm" c="dimmed" mt={6}>Este ambiente está sem nenhum grupo de checklist ativo no momento.</Text>
+            <Text size="sm" c="dimmed" mt={6}>Este ambiente está sem nenhum período de checklist ativo no momento.</Text>
           </div>
         )}
 
@@ -480,7 +470,7 @@ export default function ExecutarChecklistPage() {
             ambienteId={id}
             accountId={ambiente.account_id}
             reportedByRole="colaborador"
-            checklistItems={allActiveItems}
+            checklistItems={items}
             initiallyExpanded={!!reportItem}
             initialRelatedItemId={reportItem?.id || null}
           />

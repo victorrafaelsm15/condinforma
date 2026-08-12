@@ -24,10 +24,10 @@ function ComunicadoMenu({ label, icon, onPick, loading, disabled }) {
 }
 
 // Histórico de execuções — reaproveitado tanto na aba "Histórico" de
-// AmbientePage (ambiente inteiro, sem grupoId) quanto na página própria
-// de cada grupo de checklist (GrupoChecklistPage, passando grupoId pra
-// filtrar só as execuções daquele grupo especificamente).
-export default function HistoryTab({ ambienteId, ambienteName, condominioName, grupoId }) {
+// AmbientePage (ambiente inteiro, sem periodoId) quanto na página própria
+// de cada período fechado (ChecklistPeriodoPage, passando periodoId pra
+// filtrar só as execuções daquele período especificamente).
+export default function HistoryTab({ ambienteId, ambienteName, condominioName, periodoId }) {
   const [execs, setExecs] = useState([]);
   const [ocorrenciasVinculadas, setOcorrenciasVinculadas] = useState([]);
   const [itemsById, setItemsById] = useState({});
@@ -41,7 +41,7 @@ export default function HistoryTab({ ambienteId, ambienteName, condominioName, g
 
   const load = () => {
     setSelectedIds(new Set());
-    const execFilter = grupoId ? { ambiente_id: ambienteId, checklist_grupo_id: grupoId } : { ambiente_id: ambienteId };
+    const execFilter = periodoId ? { ambiente_id: ambienteId, checklist_periodo_id: periodoId } : { ambiente_id: ambienteId };
     Promise.all([
       execucoesStore.list(execFilter),
       ocorrenciasStore.list({ ambiente_id: ambienteId }),
@@ -56,7 +56,7 @@ export default function HistoryTab({ ambienteId, ambienteName, condominioName, g
     });
   };
 
-  useEffect(load, [ambienteId, grupoId]);
+  useEffect(load, [ambienteId, periodoId]);
 
   // Só faz sentido resumir "ocorrências vinculadas no período" quando o
   // comunicado cobre mais de uma execução (período/seleção) — pra uma
