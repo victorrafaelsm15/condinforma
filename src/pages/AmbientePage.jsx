@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Text, Group, Breadcrumbs, Loader, TextInput, Textarea, Button, ActionIcon,
   Tabs, Badge, Modal, SimpleGrid, Tooltip,
@@ -384,6 +384,7 @@ function OccurrencesTab({ ambienteId }) {
 export default function AmbientePage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [ambiente, setAmbiente] = useState(null);
   const [condominio, setCondominio] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -391,7 +392,12 @@ export default function AmbientePage() {
   const [editName, setEditName] = useState('');
   const [editIcon, setEditIcon] = useState(null);
   const [savingEdit, setSavingEdit] = useState(false);
-  const [activeTab, setActiveTab] = useState('checklist');
+  // Deep-link opcional (?tab=ocorrencias) — usado pelo ranking de
+  // ambientes em Relatórios, pra levar direto pra aba certa.
+  const tabParam = searchParams.get('tab');
+  const [activeTab, setActiveTab] = useState(
+    ['qrcode', 'checklist', 'ocorrencias', 'historico'].includes(tabParam) ? tabParam : 'checklist'
+  );
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [removing, setRemoving] = useState(false);
 

@@ -143,6 +143,10 @@ create table if not exists ocorrencias (
   -- própria, ver push_subscriptions), só registra a escolha.
   notificar_morador         boolean,
   morador_avisado_em        timestamptz,
+  -- Setado automaticamente por trigger quando status vira 'resolvido'
+  -- (ver set_ocorrencia_resolvido_em() mais abaixo) — usado pro
+  -- indicador "tempo médio de resolução" em Relatórios.
+  resolvido_em              timestamptz,
   created_at                timestamptz not null default now()
 );
 create index if not exists ocorrencias_ambiente_id_idx on ocorrencias(ambiente_id);
@@ -506,12 +510,17 @@ create policy "ambientes_subusuario_all" on ambientes
   using (has_subusuario_access(condominio_id))
   with check (has_subusuario_access(condominio_id) and account_id = condominio_owner_account(condominio_id));
 
-create policy "checklist_grupos_subusuario_all" on checklist_grupos
+create policy "checklist_periodos_subusuario_all" on checklist_periodos
   for all to authenticated
   using (has_subusuario_access_via_ambiente(ambiente_id))
   with check (has_subusuario_access_via_ambiente(ambiente_id) and account_id = ambiente_owner_account(ambiente_id));
 
 create policy "checklist_items_subusuario_all" on checklist_items
+  for all to authenticated
+  using (has_subusuario_access_via_ambiente(ambiente_id))
+  with check (has_subusuario_access_via_ambiente(ambiente_id) and account_id = ambiente_owner_account(ambiente_id));
+
+create policy "checklist_item_comentarios_subusuario_all" on checklist_item_comentarios
   for all to authenticated
   using (has_subusuario_access_via_ambiente(ambiente_id))
   with check (has_subusuario_access_via_ambiente(ambiente_id) and account_id = ambiente_owner_account(ambiente_id));
@@ -742,9 +751,14 @@ create trigger trg_block_inactive_ambientes
   before insert or update or delete on ambientes
   for each row execute function block_writes_when_inactive();
 
-drop trigger if exists trg_block_inactive_checklist_grupos on checklist_grupos;
-create trigger trg_block_inactive_checklist_grupos
-  before insert or update or delete on checklist_grupos
+drop trigger if exists trg_block_inactive_checklist_periodos on checklist_periodos;
+create trigger trg_block_inactive_checklist_periodos
+  before insert or update or delete on checklist_periodos
+  for each row execute function block_writes_when_inactive();
+
+drop trigger if exists trg_block_inactive_checklist_item_comentarios on checklist_item_comentarios;
+create trigger trg_block_inactive_checklist_item_comentarios
+  before insert or update or delete on checklist_item_comentarios
   for each row execute function block_writes_when_inactive();
 
 drop trigger if exists trg_block_inactive_checklist_items on checklist_items;
@@ -770,3 +784,133 @@ create trigger trg_block_inactive_ocorrencias
 insert into storage.buckets (id, name, public)
 values ('data-backups', 'data-backups', false)
 on conflict (id) do nothing;
+
+-- ============================================================
+-- Relatórios — ver supabase/relatorios_migration.sql pro comentário
+-- completo. Trigger que grava ocorrencias.resolvido_em automaticamente
+-- + functions de agregação (security invoker, RLS de quem chama se
+-- aplica normalmente) pros indicadores/gráfico/rankings da página.
+-- ============================================================
+create or replace function set_ocorrencia_resolvido_em()
+returns trigger language plpgsql as $$
+begin
+  if new.status = 'resolvido' and old.status is distinct from 'resolvido' then
+    new.resolvido_em := now();
+  elsif new.status is distinct from 'resolvido' then
+    new.resolvido_em := null;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_set_ocorrencia_resolvido_em on ocorrencias;
+create trigger trg_set_ocorrencia_resolvido_em
+  before update on ocorrencias
+  for each row execute function set_ocorrencia_resolvido_em();
+
+create or replace function report_execucoes_indicators(
+  p_condominio_id text default null,
+  p_date_from timestamptz default null,
+  p_date_to timestamptz default null
+) returns table (total_execucoes bigint, completed_sum bigint, total_sum bigint)
+language sql stable as $$
+  select
+    count(*) as total_execucoes,
+    coalesce(sum(e.completed_count), 0) as completed_sum,
+    coalesce(sum(e.total_count), 0) as total_sum
+  from execucoes e
+  join ambientes a on a.id = e.ambiente_id
+  where (p_condominio_id is null or a.condominio_id = p_condominio_id)
+    and (p_date_from is null or e.created_at >= p_date_from)
+    and (p_date_to is null or e.created_at <= p_date_to);
+$$;
+
+create or replace function report_ocorrencias_indicators(
+  p_condominio_id text default null,
+  p_date_from timestamptz default null,
+  p_date_to timestamptz default null
+) returns table (abertas bigint, resolvidas bigint, tempo_medio_resolucao_horas numeric)
+language sql stable as $$
+  select
+    count(*) filter (where o.status <> 'resolvido') as abertas,
+    count(*) filter (where o.status = 'resolvido') as resolvidas,
+    avg(extract(epoch from (o.resolvido_em - o.created_at)) / 3600.0)
+      filter (where o.status = 'resolvido' and o.resolvido_em is not null) as tempo_medio_resolucao_horas
+  from ocorrencias o
+  join ambientes a on a.id = o.ambiente_id
+  where (p_condominio_id is null or a.condominio_id = p_condominio_id)
+    and (p_date_from is null or o.created_at >= p_date_from)
+    and (p_date_to is null or o.created_at <= p_date_to);
+$$;
+
+create or replace function report_checklist_items_indicators(
+  p_condominio_id text default null,
+  p_date_from timestamptz default null,
+  p_date_to timestamptz default null
+) returns table (total_itens bigint, concluidos bigint)
+language sql stable as $$
+  select
+    count(*) as total_itens,
+    count(*) filter (where i.status = 'concluido') as concluidos
+  from checklist_items i
+  join ambientes a on a.id = i.ambiente_id
+  where (p_condominio_id is null or a.condominio_id = p_condominio_id)
+    and (p_date_from is null or i.created_at >= p_date_from)
+    and (p_date_to is null or i.created_at <= p_date_to);
+$$;
+
+create or replace function report_execucoes_series(
+  p_condominio_id text default null,
+  p_date_from timestamptz default null,
+  p_date_to timestamptz default null,
+  p_bucket text default 'day'
+) returns table (bucket_date date, total bigint)
+language sql stable as $$
+  select date_trunc(p_bucket, e.created_at)::date as bucket_date, count(*) as total
+  from execucoes e
+  join ambientes a on a.id = e.ambiente_id
+  where (p_condominio_id is null or a.condominio_id = p_condominio_id)
+    and (p_date_from is null or e.created_at >= p_date_from)
+    and (p_date_to is null or e.created_at <= p_date_to)
+  group by 1
+  order by 1;
+$$;
+
+create or replace function report_ocorrencias_ranking_ambiente(
+  p_condominio_id text default null,
+  p_date_from timestamptz default null,
+  p_date_to timestamptz default null,
+  p_limit integer default 10
+) returns table (ambiente_id text, ambiente_name text, condominio_name text, total bigint)
+language sql stable as $$
+  select a.id, a.name, c.name, count(*) as total
+  from ocorrencias o
+  join ambientes a on a.id = o.ambiente_id
+  join condominios c on c.id = a.condominio_id
+  where (p_condominio_id is null or a.condominio_id = p_condominio_id)
+    and (p_date_from is null or o.created_at >= p_date_from)
+    and (p_date_to is null or o.created_at <= p_date_to)
+  group by a.id, a.name, c.name
+  order by total desc, a.name asc
+  limit p_limit;
+$$;
+
+create or replace function report_checklist_item_ranking(
+  p_condominio_id text default null,
+  p_date_from timestamptz default null,
+  p_date_to timestamptz default null,
+  p_limit integer default 10
+) returns table (item_id text, task text, ambiente_id text, ambiente_name text, total bigint)
+language sql stable as $$
+  select i.id, i.task, a.id, a.name, count(o.id) as total
+  from ocorrencias o
+  join checklist_items i on i.id = o.related_checklist_item_id
+  join ambientes a on a.id = i.ambiente_id
+  where o.related_checklist_item_id is not null
+    and (p_condominio_id is null or a.condominio_id = p_condominio_id)
+    and (p_date_from is null or o.created_at >= p_date_from)
+    and (p_date_to is null or o.created_at <= p_date_to)
+  group by i.id, i.task, a.id, a.name
+  order by total desc, i.task asc
+  limit p_limit;
+$$;
