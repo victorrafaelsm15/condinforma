@@ -147,7 +147,7 @@ export default function StatusPublicoPage() {
           )}
         </motion.div>
 
-        <div style={{ marginTop: 24, borderTop: '1px solid var(--border)', paddingTop: 20 }}>
+        <div style={{ marginTop: 24, padding: 16, border: '2px solid var(--red)', borderRadius: 16 }}>
           <OcorrenciaForm
             ambienteId={id}
             accountId={ambiente.account_id}

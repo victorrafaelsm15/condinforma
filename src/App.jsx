@@ -58,6 +58,7 @@ const QrCodesPickerPage = lazyWithChunkRetry(() => import('./pages/QrCodesPicker
 const AmbientePage = lazyWithChunkRetry(() => import('./pages/AmbientePage'));
 const ChecklistItemPage = lazyWithChunkRetry(() => import('./pages/ChecklistItemPage'));
 const ChecklistPeriodoPage = lazyWithChunkRetry(() => import('./pages/ChecklistPeriodoPage'));
+const OcorrenciaDetailPage = lazyWithChunkRetry(() => import('./pages/OcorrenciaDetailPage'));
 const OcorrenciasPage = lazyWithChunkRetry(() => import('./pages/OcorrenciasPage'));
 const RelatoriosPage = lazyWithChunkRetry(() => import('./pages/RelatoriosPage'));
 const SubUsuariosPage = lazyWithChunkRetry(() => import('./pages/SubUsuariosPage'));
@@ -100,6 +101,7 @@ export default function App() {
             <Route path="/admin/ambientes/:id" element={<AmbientePage />} />
             <Route path="/admin/ambientes/:ambienteId/checklist/itens/:itemId" element={<ChecklistItemPage />} />
             <Route path="/admin/ambientes/:ambienteId/checklist/periodos/:periodoId" element={<ChecklistPeriodoPage />} />
+            <Route path="/admin/ambientes/:ambienteId/ocorrencias/:ocorrenciaId" element={<OcorrenciaDetailPage />} />
             <Route path="/admin/ocorrencias" element={<OcorrenciasPage />} />
             <Route path="/admin/relatorios" element={<RelatoriosPage />} />
             <Route path="/admin/sub-usuarios" element={<SubUsuariosPage />} />

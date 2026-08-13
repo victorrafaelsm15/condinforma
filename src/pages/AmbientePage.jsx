@@ -14,10 +14,9 @@ import AmbienteQrCards from '../components/admin/AmbienteQrCards';
 import HistoryTab from '../components/admin/HistoryTab';
 import { logAudit } from '../lib/auditLog';
 import { getSession } from '../lib/authService';
-import { getSubUsuarioInfo } from '../lib/subUsuario';
 import { AMBIENTE_ICON_OPTIONS, getAmbienteIcon } from '../lib/ambienteIcons';
 import ConfirmDeleteModal from '../components/common/ConfirmDeleteModal';
-import OcorrenciaCard from '../components/admin/OcorrenciaCard';
+import OcorrenciaRow from '../components/admin/OcorrenciaRow';
 
 // Um checklist só por ambiente, organizado em "períodos de execução":
 // sempre existe exatamente UM período ativo (getOrCreateActivePeriodo cria
@@ -347,77 +346,37 @@ function QrCodeTab({ ambiente }) {
   return <AmbienteQrCards ambiente={ambiente} />;
 }
 
-function OccurrencesTab({ ambienteId, canDelete }) {
+function OccurrencesTab({ ambienteId }) {
   const [list, setList] = useState([]);
-  const [itemsById, setItemsById] = useState({});
   const [loading, setLoading] = useState(true);
-  const [resolvingId, setResolvingId] = useState(null);
-  const [deleting, setDeleting] = useState(null);
-  const [removing, setRemoving] = useState(false);
 
   const load = () => {
     setLoading(true);
-    Promise.all([
-      ocorrenciasStore.list({ ambiente_id: ambienteId }),
-      checklistItemsStore.list({ ambiente_id: ambienteId }),
-    ]).then(([occs, checklistItems]) => {
+    ocorrenciasStore.list({ ambiente_id: ambienteId }).then((occs) => {
       setList(occs);
-      setItemsById(Object.fromEntries(checklistItems.map((i) => [i.id, i.task])));
       setLoading(false);
     });
   };
 
   useEffect(load, [ambienteId]);
 
-  const handleResolve = async (id) => {
-    setResolvingId(id);
-    try {
-      await ocorrenciasStore.update(id, { status: 'resolvido' });
-      load();
-    } finally {
-      setResolvingId(null);
-    }
-  };
-
-  const handleDelete = async () => {
-    if (!deleting) return;
-    setRemoving(true);
-    try {
-      await ocorrenciasStore.remove(deleting.id);
-      logAudit({ action: 'ocorrencia.excluida', entityType: 'ocorrencia', entityId: deleting.id, details: { description: deleting.description } });
-      notifications.show({ color: 'green', message: 'Ocorrência excluída.' });
-    } catch {
-      notifications.show({ color: 'red', message: 'Não foi possível excluir a ocorrência.' });
-    } finally {
-      setRemoving(false);
-      setDeleting(null);
-      load();
-    }
-  };
-
   if (loading) return <Loader size="sm" color="brand" />;
-  if (!list.length) return <Text c="dimmed" size="sm">Nenhuma ocorrência registrada.</Text>;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      {list.map((o) => (
-        <OcorrenciaCard
-          key={o.id}
-          ocorrencia={o}
-          relatedTask={o.related_checklist_item_id ? itemsById[o.related_checklist_item_id] : null}
-          onResolve={o.status !== 'resolvido' ? () => handleResolve(o.id) : undefined}
-          resolving={resolvingId === o.id}
-          onDelete={canDelete ? () => setDeleting(o) : undefined}
-        />
-      ))}
-
-      <ConfirmDeleteModal
-        opened={!!deleting}
-        onClose={() => setDeleting(null)}
-        onConfirm={handleDelete}
-        itemLabel="esta ocorrência"
-        loading={removing}
-      />
+    <div>
+      <Group justify="space-between" mb={16}>
+        <Text fw={700} size="lg">Ocorrências</Text>
+        <Text size="sm" c="dimmed">Toque para ver detalhes</Text>
+      </Group>
+      {list.length ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {list.map((o) => (
+            <OcorrenciaRow key={o.id} ocorrencia={o} to={`/admin/ambientes/${ambienteId}/ocorrencias/${o.id}`} />
+          ))}
+        </div>
+      ) : (
+        <Text c="dimmed" size="sm">Nenhuma ocorrência registrada.</Text>
+      )}
     </div>
   );
 }
@@ -435,14 +394,8 @@ export default function AmbientePage() {
   const [activeTab, setActiveTab] = useState('checklist');
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [removing, setRemoving] = useState(false);
-  const [isSubUsuario, setIsSubUsuario] = useState(false);
 
   const load = async () => {
-    const session = await getSession();
-    if (session) {
-      const subInfo = await getSubUsuarioInfo(session.user.id);
-      setIsSubUsuario(!!subInfo);
-    }
     const data = await ambientesStore.getById(id);
     setAmbiente(data);
     if (data) {
@@ -591,7 +544,7 @@ export default function AmbientePage() {
         <Tabs.Panel value="checklist" pt="lg">
           <ChecklistTab ambienteId={id} accountId={ambiente.account_id} />
         </Tabs.Panel>
-        <Tabs.Panel value="ocorrencias" pt="lg"><OccurrencesTab ambienteId={id} canDelete={!isSubUsuario} /></Tabs.Panel>
+        <Tabs.Panel value="ocorrencias" pt="lg"><OccurrencesTab ambienteId={id} /></Tabs.Panel>
         <Tabs.Panel value="historico" pt="lg"><HistoryTab ambienteId={id} ambienteName={ambiente.name} condominioName={condominio?.name} /></Tabs.Panel>
       </Tabs>
 

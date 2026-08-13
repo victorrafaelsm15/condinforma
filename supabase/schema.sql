@@ -138,6 +138,11 @@ create table if not exists ocorrencias (
   -- Item do checklist a que essa ocorrência se refere, opcional (ex.:
   -- "a tarefa X não foi feita e por isso encontrei esse problema").
   related_checklist_item_id text references checklist_items(id) on delete set null,
+  -- Decisão do gestor ao resolver, sobre avisar o morador que reportou —
+  -- não confirma entrega de fato (moradores não têm login/inscrição push
+  -- própria, ver push_subscriptions), só registra a escolha.
+  notificar_morador         boolean,
+  morador_avisado_em        timestamptz,
   created_at                timestamptz not null default now()
 );
 create index if not exists ocorrencias_ambiente_id_idx on ocorrencias(ambiente_id);
@@ -222,6 +227,8 @@ begin
       or new.created_at is distinct from old.created_at
       or new.code is distinct from old.code
       or new.related_checklist_item_id is distinct from old.related_checklist_item_id
+      or new.notificar_morador is distinct from old.notificar_morador
+      or new.morador_avisado_em is distinct from old.morador_avisado_em
     then
       raise exception 'Só é permitido marcar a ocorrência como resolvida.' using errcode = '42501';
     end if;

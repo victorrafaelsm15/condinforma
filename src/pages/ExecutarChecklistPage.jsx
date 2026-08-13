@@ -417,7 +417,10 @@ export default function ExecutarChecklistPage() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {pendingOcorrencias.map((o) => (
                 <div key={o.id} style={{ padding: 12, borderRadius: 10, background: 'var(--red-light)' }}>
-                  <Badge size="sm" color="red" variant="light" mb={6}>Pendente</Badge>
+                  <Group gap={8} mb={6}>
+                    <Badge size="sm" color="red" variant="light">Pendente</Badge>
+                    {o.code && <Text size="xs" fw={700} c="dimmed">{o.code}</Text>}
+                  </Group>
                   <Text size="sm">{o.description}</Text>
                   {reporterLabel(o) && <Text size="xs" c="dimmed" mt={4}>{reporterLabel(o)}</Text>}
                   {o.photo && (
@@ -464,7 +467,7 @@ export default function ExecutarChecklistPage() {
           </div>
         )}
 
-        <div id="ocorrencia-form-anchor" style={{ marginTop: 28, borderTop: '1px solid var(--border)', paddingTop: 20 }}>
+        <div id="ocorrencia-form-anchor" style={{ marginTop: 28, padding: 16, border: '2px solid var(--red)', borderRadius: 16 }}>
           <OcorrenciaForm
             key={reportItem?.id || 'default'}
             ambienteId={id}
