@@ -10,7 +10,15 @@ export type CouponResult =
   | { ok: true; finalValue: number; couponId: string }
   | { ok: false; message: string };
 
-const MIN_VALUE = 1; // Asaas não aceita cobrança zerada/negativa.
+// Asaas rejeita cobranças abaixo de R$ 5 (mínimo documentado pra criação
+// de cobranças — Pix/boleto; cartão não tem mínimo, mas usamos o mesmo
+// piso pra manter a regra simples e uniforme). Um cupom com desconto
+// agressivo (ex: 99%) sem esse piso calculava um valor tipo R$ 0,49, que
+// a Asaas recusava — e esse erro chegava como o genérico "Não foi
+// possível criar a assinatura agora" porque a causa raiz nunca era
+// diferenciada de uma falha de comunicação de verdade (ver catch em
+// subscribe/index.ts).
+const MIN_VALUE = 5;
 
 export async function validateAndApplyCoupon(
   supabaseAdmin: SupabaseAdminClient,

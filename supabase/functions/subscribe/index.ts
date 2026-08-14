@@ -165,7 +165,29 @@ Deno.serve(async (req: Request) => {
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    console.error('Erro ao criar assinatura no Asaas:', message);
+    const status = (err as { status?: number })?.status;
+    const asaasResponse = (err as { asaasResponse?: unknown })?.asaasResponse;
+    // Log detalhado pra causa raiz nunca mais ficar escondida atrás da
+    // mensagem genérica que o usuário vê — inclui o corpo de erro que a
+    // Asaas devolveu, não só a mensagem resumida.
+    console.error('Erro ao criar assinatura no Asaas:', {
+      message, status, asaasResponse, planName, billingType, couponApplied: !!couponId, finalValue,
+    });
+
+    // Se um cupom foi aplicado e a Asaas rejeitou por causa do valor
+    // (ex.: desconto grande demais deixando a cobrança abaixo do mínimo
+    // aceito), isso é um problema do CUPOM, não uma falha genérica de
+    // comunicação — devolve erro específico no campo do cupom em vez do
+    // "tente novamente" (o piso em validateAndApplyCoupon já evita isso
+    // no caso comum; isto é só uma rede de segurança pra qualquer outra
+    // situação de valor que a Asaas venha a rejeitar).
+    if (couponId && /m[íi]nimo|valor/i.test(message)) {
+      return jsonResponse({
+        error: 'Esse cupom deixa o valor da assinatura abaixo do mínimo aceito para cobrança. Tente outro cupom ou continue sem cupom.',
+        field: 'coupon',
+      }, 400);
+    }
+
     return jsonResponse({ error: 'Não foi possível criar a assinatura agora. Tente novamente em instantes.' }, 502);
   }
 });

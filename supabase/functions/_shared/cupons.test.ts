@@ -46,13 +46,25 @@ describe('validateAndApplyCoupon', () => {
     expect(result).toEqual({ ok: true, finalValue: 80, couponId: 'c2' });
   });
 
-  it('nunca deixa o valor final cair abaixo do mínimo cobrável (R$1)', async () => {
+  it('nunca deixa o valor final cair abaixo do mínimo cobrável pela Asaas (R$5)', async () => {
     const { client } = mockSupabase({
       id: 'c3', codigo: 'QUASETUDO', ativo: true, tipo: 'fixo', valor: 999, validade: future, limite_usos: null, usos: 0,
     });
     const result = await validateAndApplyCoupon(client as never, 'QUASETUDO', 100);
     expect(result.ok).toBe(true);
-    if (result.ok) expect(result.finalValue).toBe(1);
+    if (result.ok) expect(result.finalValue).toBe(5);
+  });
+
+  it('aplica o piso de R$5 quando um desconto percentual agressivo deixaria o valor abaixo disso', async () => {
+    // Caso real que causava o bug: plano de R$49 + cupom de 99% de
+    // desconto = R$0,49, que a Asaas rejeitava por estar abaixo do
+    // mínimo cobrável — devia virar R$5, não R$0,49 nem R$1.
+    const { client } = mockSupabase({
+      id: 'c8', codigo: 'VICTOR', ativo: true, tipo: 'percentual', valor: 99, validade: null, limite_usos: 2, usos: 0,
+    });
+    const result = await validateAndApplyCoupon(client as never, 'VICTOR', 49);
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.finalValue).toBe(5);
   });
 
   it('rejeita cupom inexistente', async () => {

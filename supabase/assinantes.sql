@@ -34,6 +34,19 @@ create index if not exists assinantes_account_id_idx on assinantes(account_id);
 -- alter table assinantes add column if not exists phone text;
 -- alter table assinantes add column if not exists cpf_cnpj text;
 -- create index if not exists assinantes_account_id_idx on assinantes(account_id);
+--
+-- ATENÇÃO: esse bloco comentado ficou sem rodar em produção por um bom
+-- tempo depois que account_id passou a fazer parte do "create table if
+-- not exists" acima — como a tabela já existia de uma instalação
+-- anterior, o "if not exists" não tinha efeito nenhum, e ninguém rodou
+-- o ALTER TABLE manual. Resultado: TODO upsert em assinantes (feito por
+-- subscribe/index.ts) falhava silenciosamente por causa da coluna
+-- ausente, e a tabela ficou com 0 linhas — nenhuma assinatura real ficou
+-- registrada aqui. Corrigido em 2026-08-14 via
+-- supabase/assinantes_account_id_migration.sql. Lição: qualquer coluna
+-- nova adicionada só dentro do "create table if not exists" também
+-- precisa de um ALTER TABLE rodado de fato pra quem já tem a tabela —
+-- não deixar como comentário "pra rodar se precisar".
 
 alter table assinantes enable row level security;
 
