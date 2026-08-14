@@ -289,7 +289,8 @@ function SubUsuariosTab() {
   );
 }
 
-const CUPOM_EMPTY_FORM = { codigo: '', tipo: 'percentual', valor: '', validade: '', limite_usos: '', ativo: true };
+const CUPOM_EMPTY_FORM = { codigo: '', tipo: 'percentual', valor: '', validade: '', limite_usos: '', ativo: true, planos: [] };
+const CUPOM_PLANO_OPTIONS = [{ value: 'Start', label: 'Start' }, { value: 'Pro', label: 'Pro' }, { value: 'Business', label: 'Business' }];
 
 function formatValor(cupom) {
   return cupom.tipo === 'percentual' ? `${cupom.valor}%` : `R$ ${Number(cupom.valor).toFixed(2)}`;
@@ -319,6 +320,7 @@ function CuponsTab() {
     validade: form.validade || null,
     limite_usos: form.limite_usos === '' ? null : Number(form.limite_usos),
     ativo: form.ativo,
+    planos: form.planos?.length ? form.planos : null,
   });
 
   const openCreate = () => {
@@ -355,6 +357,7 @@ function CuponsTab() {
       validade: cupom.validade || '',
       limite_usos: cupom.limite_usos == null ? '' : String(cupom.limite_usos),
       ativo: cupom.ativo,
+      planos: cupom.planos || [],
     });
     setEditError('');
   };
@@ -433,6 +436,15 @@ function CuponsTab() {
         mb="sm"
       />
       <NumberInput label="Limite de usos (opcional)" min={1} value={form.limite_usos} onChange={(v) => setForm((f) => ({ ...f, limite_usos: v ?? '' }))} mb="sm" />
+      <MultiSelect
+        label="Planos permitidos"
+        description="Vazio = vale para qualquer plano"
+        placeholder="Todos os planos"
+        data={CUPOM_PLANO_OPTIONS}
+        value={form.planos}
+        onChange={(v) => setForm((f) => ({ ...f, planos: v }))}
+        mb="sm"
+      />
       <Switch
         label="Cupom ativo"
         checked={form.ativo}
@@ -461,6 +473,11 @@ function CuponsTab() {
                     <Text fw={700} size="sm" ff="monospace">{c.codigo}</Text>
                     <Badge color="brand" variant="light">{formatValor(c)}</Badge>
                     <Badge color={c.ativo ? 'green' : 'gray'} variant="light">{c.ativo ? 'Ativo' : 'Inativo'}</Badge>
+                    {c.planos?.length ? (
+                      <Badge color="grape" variant="light">Só {c.planos.join('/')}</Badge>
+                    ) : (
+                      <Badge color="gray" variant="outline">Todos os planos</Badge>
+                    )}
                   </Group>
                   <Text size="xs" c="dimmed" mt={6}>
                     {c.usos} uso(s){c.limite_usos != null ? ` de ${c.limite_usos}` : ''}

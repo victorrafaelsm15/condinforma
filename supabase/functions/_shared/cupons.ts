@@ -24,6 +24,7 @@ export async function validateAndApplyCoupon(
   supabaseAdmin: SupabaseAdminClient,
   code: string,
   price: number,
+  planName?: string,
 ): Promise<CouponResult> {
   const { data: coupon, error } = await supabaseAdmin
     .from('cupons')
@@ -42,6 +43,9 @@ export async function validateAndApplyCoupon(
   }
   if (coupon.limite_usos != null && coupon.usos >= coupon.limite_usos) {
     return { ok: false, message: 'Este cupom já atingiu o limite de usos.' };
+  }
+  if (Array.isArray(coupon.planos) && coupon.planos.length && !coupon.planos.includes(planName)) {
+    return { ok: false, message: `Este cupom não é válido para o plano ${planName}.` };
   }
 
   const discount = coupon.tipo === 'percentual'

@@ -21,6 +21,9 @@ create table if not exists cupons (
   limite_usos  integer check (limite_usos is null or limite_usos > 0),
   usos         integer not null default 0,
   ativo        boolean not null default true,
+  -- Planos em que o cupom pode ser usado (ex.: {Start,Pro}) — null ou
+  -- array vazio vale pra qualquer plano. Ver cupons_planos_migration.sql.
+  planos       text[],
   created_at   timestamptz not null default now()
 );
 create unique index if not exists cupons_codigo_upper_idx on cupons (upper(codigo));

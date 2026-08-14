@@ -84,7 +84,7 @@ Deno.serve(async (req: Request) => {
   let finalValue = price;
   let couponId: string | null = null;
   if (couponCode?.trim()) {
-    const result = await validateAndApplyCoupon(supabaseAdmin, couponCode, price);
+    const result = await validateAndApplyCoupon(supabaseAdmin, couponCode, price, planName);
     if (!result.ok) {
       return jsonResponse({ error: result.message, field: 'coupon' }, 400);
     }

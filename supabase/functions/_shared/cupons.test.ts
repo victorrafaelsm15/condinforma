@@ -105,6 +105,30 @@ describe('validateAndApplyCoupon', () => {
     expect(result.ok).toBe(true);
   });
 
+  it('rejeita cupom restrito a outro(s) plano(s)', async () => {
+    const { client } = mockSupabase({
+      id: 'c9', codigo: 'SOPRO', ativo: true, tipo: 'percentual', valor: 10, validade: future, limite_usos: null, usos: 0, planos: ['Pro', 'Business'],
+    });
+    const result = await validateAndApplyCoupon(client as never, 'SOPRO', 149, 'Start');
+    expect(result).toEqual({ ok: false, message: 'Este cupom não é válido para o plano Start.' });
+  });
+
+  it('aceita cupom restrito quando o plano está na lista permitida', async () => {
+    const { client } = mockSupabase({
+      id: 'c10', codigo: 'SOPRO', ativo: true, tipo: 'percentual', valor: 10, validade: future, limite_usos: null, usos: 0, planos: ['Pro', 'Business'],
+    });
+    const result = await validateAndApplyCoupon(client as never, 'SOPRO', 149, 'Pro');
+    expect(result.ok).toBe(true);
+  });
+
+  it('cupom sem restrição de plano (planos null) vale pra qualquer plano', async () => {
+    const { client } = mockSupabase({
+      id: 'c11', codigo: 'GERAL', ativo: true, tipo: 'percentual', valor: 10, validade: future, limite_usos: null, usos: 0, planos: null,
+    });
+    const result = await validateAndApplyCoupon(client as never, 'GERAL', 49, 'Start');
+    expect(result.ok).toBe(true);
+  });
+
   it('trata erro de consulta como cupom não encontrado', async () => {
     const { client } = mockSupabase(null, { selectError: true });
     const result = await validateAndApplyCoupon(client as never, 'ERRO', 100);

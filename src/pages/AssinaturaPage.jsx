@@ -1,12 +1,19 @@
 import { useEffect, useState } from 'react';
-import { useSearchParams, Link } from 'react-router-dom';
+import { useSearchParams, Link, useNavigate } from 'react-router-dom';
 import { useForm, Controller } from 'react-hook-form';
 import { Button, TextInput, PasswordInput, Text, SegmentedControl, Checkbox, Loader, Group, CopyButton, Image as MantineImage } from '@mantine/core';
 import { Check, Copy, Download, CheckCircle2, XCircle } from 'lucide-react';
 import { plans } from '../data/landingContent';
 import { signUp, getSession } from '../lib/authService';
+import { accountsStore } from '../lib/stores';
 import Seo from '../components/common/Seo';
 import SectionErrorBoundary from '../components/common/SectionErrorBoundary';
+
+// A cada quanto tempo verifica se accounts.status já virou 'ativo' depois
+// de gerar o QR Code/boleto — e por quanto tempo tenta antes de desistir
+// do polling automático e oferecer um botão de verificação manual.
+const POLL_INTERVAL_MS = 4500;
+const POLL_TIMEOUT_MS = 10 * 60 * 1000;
 
 function translateSignUpError(message) {
   if (message?.includes('User already registered')) {
@@ -113,8 +120,22 @@ function PaymentResult({ result, planName }) {
   );
 }
 
+function ConfirmedScreen({ planName, onGoToLogin }) {
+  return (
+    <div style={{ textAlign: 'center' }}>
+      <CheckCircle2 size={44} color="var(--green)" style={{ margin: '0 auto 14px' }} />
+      <Text fw={800} size="lg" mb={6}>Pagamento confirmado!</Text>
+      <Text size="sm" c="dimmed" mb="lg">
+        Sua conta do plano {planName} está ativa. Você será redirecionado para o login em instantes.
+      </Text>
+      <Button fullWidth onClick={onGoToLogin}>Ir para login agora</Button>
+    </div>
+  );
+}
+
 export default function AssinaturaPage() {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const planName = searchParams.get('plano');
   const plan = plans.find((p) => p.name === planName);
 
@@ -122,6 +143,10 @@ export default function AssinaturaPage() {
   const [session, setSession] = useState(null);
   const [errorMsg, setErrorMsg] = useState('');
   const [paymentResult, setPaymentResult] = useState(null);
+  const [accountId, setAccountId] = useState(null);
+  const [accountActivated, setAccountActivated] = useState(false);
+  const [pollTimedOut, setPollTimedOut] = useState(false);
+  const [checkingNow, setCheckingNow] = useState(false);
   const {
     register, handleSubmit, control, watch, setError, formState: { isSubmitting, errors },
   } = useForm({ defaultValues: { billingType: 'PIX' } });
@@ -135,6 +160,48 @@ export default function AssinaturaPage() {
       setCheckingSession(false);
     });
   }, []);
+
+  // Depois de gerar o QR Code/boleto (ou aprovar no cartão), essa tela
+  // ficava parada mesmo com o pagamento já confirmado pelo webhook do
+  // outro lado — verifica periodicamente se accounts.status virou
+  // 'ativo' e reage assim que detectar, em vez de exigir que a pessoa
+  // abra outra aba pra saber que já pode entrar. Cartão recusado não
+  // entra aqui — já é um estado final, sem nada pra esperar.
+  useEffect(() => {
+    if (!paymentResult || !accountId || accountActivated) return undefined;
+    if (paymentResult.type === 'CREDIT_CARD' && !paymentResult.approved) return undefined;
+
+    let cancelled = false;
+    let elapsed = 0;
+    let timer;
+
+    const checkStatus = async () => {
+      if (cancelled) return;
+      const account = await accountsStore.getById(accountId);
+      if (cancelled) return;
+      if (account?.status === 'ativo') {
+        setAccountActivated(true);
+        return;
+      }
+      elapsed += POLL_INTERVAL_MS;
+      if (elapsed >= POLL_TIMEOUT_MS) {
+        setPollTimedOut(true);
+        return;
+      }
+      timer = setTimeout(checkStatus, POLL_INTERVAL_MS);
+    };
+    timer = setTimeout(checkStatus, POLL_INTERVAL_MS);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [paymentResult, accountId, accountActivated]);
+
+  // Confirmação detectada: mostra a mensagem de sucesso por alguns
+  // segundos e manda pro login sozinho (ainda dá pra usar o botão
+  // manual antes disso).
+  useEffect(() => {
+    if (!accountActivated) return undefined;
+    const t = setTimeout(() => navigate('/admin/login'), 3500);
+    return () => clearTimeout(t);
+  }, [accountActivated, navigate]);
 
   if (!plan) {
     return (
@@ -157,6 +224,7 @@ export default function AssinaturaPage() {
     setErrorMsg('');
     try {
       let accessToken = session?.access_token;
+      let currentAccountId = session?.user?.id || null;
 
       // Não logado: cria a conta (login do painel) antes de assinar. Logado
       // (fluxo de troca de plano vindo de Configurações): reaproveita a
@@ -172,6 +240,7 @@ export default function AssinaturaPage() {
           return;
         }
         accessToken = signUpData.session.access_token;
+        currentAccountId = signUpData.session.user.id;
       }
 
       const functionsUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/subscribe`;
@@ -200,9 +269,24 @@ export default function AssinaturaPage() {
         setErrorMsg(data.error || 'Não foi possível iniciar a assinatura. Tente novamente.');
         return;
       }
+      setAccountId(currentAccountId);
       setPaymentResult(data);
     } catch {
       setErrorMsg('Falha de conexão. Verifique sua internet e tente novamente.');
+    }
+  };
+
+  const handleManualCheck = async () => {
+    if (!accountId) return;
+    setCheckingNow(true);
+    try {
+      const account = await accountsStore.getById(accountId);
+      if (account?.status === 'ativo') {
+        setAccountActivated(true);
+        setPollTimedOut(false);
+      }
+    } finally {
+      setCheckingNow(false);
     }
   };
 
@@ -253,7 +337,32 @@ export default function AssinaturaPage() {
 
           {paymentResult ? (
             <div className="surface-card" style={{ padding: 32 }}>
-              <PaymentResult result={paymentResult} planName={plan.name} />
+              {accountActivated ? (
+                <ConfirmedScreen planName={plan.name} onGoToLogin={() => navigate('/admin/login')} />
+              ) : (
+                <>
+                  <PaymentResult result={paymentResult} planName={plan.name} />
+                  {(paymentResult.type !== 'CREDIT_CARD' || paymentResult.approved) && (
+                    <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--border)', textAlign: 'center' }}>
+                      {!pollTimedOut ? (
+                        <Group gap={8} justify="center">
+                          <Loader size="xs" color="brand" />
+                          <Text size="xs" c="dimmed">Aguardando confirmação do pagamento...</Text>
+                        </Group>
+                      ) : (
+                        <>
+                          <Text size="xs" c="dimmed" mb={8}>
+                            Ainda não identificamos a confirmação automaticamente.
+                          </Text>
+                          <Button size="xs" variant="light" onClick={handleManualCheck} loading={checkingNow}>
+                            Verificar agora
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           ) : (
             <div className="surface-card" style={{ padding: 32 }}>
