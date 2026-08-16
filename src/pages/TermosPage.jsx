@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Text, Button } from '@mantine/core';
 import { ArrowLeft } from 'lucide-react';
-import { termosSections } from '../data/landingContent';
+import { termosSections, legalInfo } from '../data/landingContent';
 import Seo from '../components/common/Seo';
 
 export default function TermosPage() {
@@ -17,12 +17,18 @@ export default function TermosPage() {
           Voltar
         </Button>
         <Text fw={800} size="1.8rem" className="font-display" mb={4}>Termos de Uso e Condições Gerais de Contratação</Text>
-        <Text c="dimmed" size="sm" mb="xl">Cond-Informa</Text>
+        <Text c="dimmed" size="sm" mb="xl">Cond-Informa · Data de publicação: {legalInfo.dataPublicacao}</Text>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
           {termosSections.map((section) => (
             <section key={section.number}>
-              <Text fw={800} size="md" className="font-display" mb={10} style={{ color: 'var(--text)' }}>
+              <Text
+                fw={800}
+                size={section.number.includes('.') ? 'sm' : 'md'}
+                className="font-display"
+                mb={10}
+                style={{ color: 'var(--text)' }}
+              >
                 {section.number}. {section.title}
               </Text>
               {section.paragraphs?.map((p, i) => (
@@ -39,6 +45,11 @@ export default function TermosPage() {
                   ))}
                 </ul>
               )}
+              {section.trailingParagraphs?.map((p, i) => (
+                <Text key={i} size="sm" c="var(--text-muted)" mb={10} style={{ lineHeight: 1.7 }}>
+                  {p}
+                </Text>
+              ))}
             </section>
           ))}
         </div>

@@ -100,26 +100,28 @@ export const plans = [
   },
 ];
 
-// Dados jurídicos da empresa, usados nos Termos de Uso. Ainda não
-// definidos — quando forem, é só editar aqui, num lugar só, que atualiza
-// em todo o texto dos Termos de uma vez (ver src/pages/TermosPage.jsx).
+// Dados jurídicos da empresa, usados nos Termos de Uso — num lugar só,
+// que atualiza em todo o texto dos Termos de uma vez (ver
+// src/pages/TermosPage.jsx).
 export const legalInfo = {
-  razaoSocial: '[A DEFINIR]',
-  cnpj: '[A DEFINIR]',
-  endereco: '[A DEFINIR]',
-  cidadeUf: '[A DEFINIR]',
-  emailContato: '[A DEFINIR]',
+  razaoSocial: 'Victor Rafael',
+  cnpj: '68.304.031/0001-70',
+  endereco: 'Rua Luís Pires de Lima, Teresina/PI, CEP 64047-020',
+  cidadeUf: 'Teresina/PI',
+  emailContato: 'condinforma@gmail.com',
+  dataPublicacao: '16/08/2026',
 };
 
 // Conteúdo completo dos Termos de Uso e Condições Gerais de Contratação,
 // em seções numeradas (algumas com lista) pra renderizar com hierarquia
-// clara em TermosPage.jsx.
+// clara em TermosPage.jsx. Números com sufixo (ex: '5.1') são subseções
+// da seção anterior, renderizadas com o mesmo componente.
 export const termosSections = [
   {
     number: '1',
     title: 'Aceitação dos Termos',
     paragraphs: [
-      `Estes Termos de Uso e Condições Gerais de Contratação ("Termos") regem o acesso e uso da plataforma Cond-Informa ("Plataforma", "Serviço"), de titularidade de ${legalInfo.razaoSocial}, inscrita no CNPJ sob o nº ${legalInfo.cnpj}, com sede em ${legalInfo.endereco} ("Cond-Informa", "nós").`,
+      `Estes Termos de Uso e Condições Gerais de Contratação ("Termos") regem o acesso e uso da plataforma Cond-Informa ("Plataforma", "Serviço"), de titularidade de ${legalInfo.razaoSocial}, inscrito no CNPJ sob o nº ${legalInfo.cnpj}, com sede na ${legalInfo.endereco} ("Cond-Informa", "nós").`,
       'Ao criar uma conta, contratar um plano ou de qualquer forma utilizar a Plataforma, o usuário ("Cliente", "Usuário", "você") declara ter lido, compreendido e aceitado integralmente estes Termos, bem como a Política de Privacidade, que é parte integrante deste documento.',
       'Caso não concorde com qualquer disposição destes Termos, o Cliente não deverá utilizar a Plataforma.',
     ],
@@ -128,12 +130,14 @@ export const termosSections = [
     number: '2',
     title: 'Definições',
     list: [
-      'Plataforma: o sistema Cond-Informa, incluindo site, painel administrativo, páginas públicas de execução de checklist e status, acessíveis via navegador ou aplicativo.',
+      'Plataforma: o sistema Cond-Informa, incluindo site, painel administrativo, páginas públicas de execução de checklist e status, acessíveis via navegador ou aplicativo (PWA instalável).',
       'Conta: cadastro único vinculado a um e-mail e senha, pertencente ao Cliente que contrata um plano.',
       'Sub-usuário: acesso adicional criado pelo Cliente dentro de sua Conta, com permissões limitadas a condomínios específicos, conforme os limites do plano contratado.',
       'Condomínio: unidade cadastrada pelo Cliente na Plataforma, à qual se vinculam Ambientes, Checklists, Execuções e Ocorrências.',
+      'Período de Execução: janela de tempo dentro da qual os itens de um checklist são acompanhados; ao ser encerrado, um novo período é iniciado e o anterior passa a integrar o histórico, preservando o estado de cada item no momento do fechamento.',
       'Colaborador: pessoa que executa checklists através de QR Code, sem necessidade de login.',
       'Morador: pessoa que consulta o status público de um Ambiente através de QR Code, sem necessidade de login, podendo também registrar ocorrências.',
+      'Cupom: código promocional que, quando aplicado e validado, concede desconto sobre o valor do plano contratado, respeitadas as condições de validade, limite de uso e restrição de plano definidas pelo Cond-Informa.',
     ],
   },
   {
@@ -156,114 +160,115 @@ export const termosSections = [
   {
     number: '5',
     title: 'Planos, preços e forma de pagamento',
+    paragraphs: ['A Plataforma é oferecida nas seguintes modalidades de plano:'],
+    list: [
+      'Start — R$ 49,00/mês: até 1 (um) condomínio e 2 (dois) sub-usuários;',
+      'Pro — R$ 149,00/mês: até 5 (cinco) condomínios e 10 (dez) sub-usuários;',
+      'Business — R$ 299,00/mês: até 10 (dez) condomínios e 30 (trinta) sub-usuários.',
+    ],
+    trailingParagraphs: [
+      'Todos os planos incluem suporte contínuo. Os valores são cobrados de forma recorrente (mensal), por meio de gateway de pagamento parceiro, aceitando-se Pix, boleto bancário e cartão de crédito, com processamento realizado diretamente na Plataforma (checkout transparente), sem redirecionamento a ambiente externo.',
+      'O Cond-Informa poderá reajustar os valores dos planos, mediante comunicação prévia ao Cliente com antecedência mínima de 30 (trinta) dias. O não pagamento na data de vencimento poderá acarretar a suspensão do acesso às funcionalidades administrativas da Plataforma até a regularização.',
+    ],
+  },
+  {
+    number: '5.1',
+    title: 'Cupons de desconto',
     paragraphs: [
-      'A Plataforma é oferecida nas modalidades de plano descritas no site no momento da contratação, cada qual com limites específicos de quantidade de condomínios cadastráveis e de sub-usuários, além de outras características descritas na página de planos.',
-      'Os valores são cobrados de forma recorrente (mensal), por meio de gateway de pagamento parceiro, aceitando-se Pix, boleto bancário e cartão de crédito, conforme disponibilidade.',
-      'O Cond-Informa poderá reajustar os valores dos planos, mediante comunicação prévia ao Cliente com antecedência mínima de 30 (trinta) dias, aplicando-se o novo valor a partir do ciclo de cobrança subsequente.',
-      'O não pagamento na data de vencimento poderá acarretar a suspensão do acesso às funcionalidades administrativas da Plataforma até a regularização, sem prejuízo da manutenção, a critério do Cond-Informa, do funcionamento dos QR Codes já publicados.',
+      'O Cond-Informa poderá disponibilizar cupons de desconto promocionais, aplicáveis no momento da contratação ou renovação do plano, com condições próprias de validade, quantidade máxima de usos e, quando aplicável, restrição a planos específicos. Cupons não são cumulativos entre si, salvo disposição expressa em contrário.',
     ],
   },
   {
     number: '6',
     title: 'Alteração, cancelamento e renovação',
     paragraphs: [
-      'O Cliente poderá solicitar upgrade ou downgrade de plano a qualquer momento pelo painel administrativo, passando a vigorar as novas condições e limites a partir da confirmação do pagamento correspondente.',
-      'Caso o Cliente reduza de plano e possua, no momento da alteração, quantidade de condomínios ou sub-usuários acima do novo limite contratado, os cadastros excedentes existentes permanecerão ativos e visíveis, sendo vedada apenas a criação de novos registros até que a quantidade se enquadre no novo limite.',
-      'A assinatura é renovada automaticamente a cada ciclo mensal, salvo cancelamento realizado pelo Cliente antes da data de renovação. O cancelamento não gera direito a reembolso de valores já pagos referentes ao ciclo em curso, ressalvadas as hipóteses legais de arrependimento previstas no Código de Defesa do Consumidor.',
+      'O Cliente poderá solicitar upgrade ou downgrade de plano a qualquer momento pelo painel administrativo. Caso reduza de plano e possua quantidade de condomínios ou sub-usuários acima do novo limite, os cadastros excedentes permanecem ativos, sendo vedada apenas a criação de novos registros até se enquadrar no novo limite.',
+      'A assinatura é renovada automaticamente a cada ciclo mensal, salvo cancelamento antes da renovação. O cancelamento não gera direito a reembolso de valores já pagos, ressalvadas as hipóteses legais do Código de Defesa do Consumidor.',
+      'O acesso às funcionalidades administrativas é bloqueado imediatamente após o cancelamento ou confirmação de inadimplência. As páginas públicas (execução de checklist e status) permanecem funcionando normalmente.',
+    ],
+  },
+  {
+    number: '6.1',
+    title: 'Retenção e exclusão de dados após cancelamento',
+    paragraphs: [
+      'O Cond-Informa enviará avisos ao Cliente 15 (quinze) e 3 (três) dias antes do prazo final de retenção. Persistindo a inadimplência por 90 (noventa) dias consecutivos, o Cond-Informa poderá excluir definitivamente os dados vinculados à Conta, sem necessidade de notificação adicional. O Cliente poderá, antes desse prazo, solicitar a exportação de seus dados.',
     ],
   },
   {
     number: '7',
     title: 'Uso permitido e obrigações do Cliente',
-    paragraphs: ['O Cliente compromete-se a utilizar a Plataforma exclusivamente para as finalidades a que se destina, sendo vedado:'],
+    paragraphs: ['É vedado:'],
     list: [
-      'Utilizar a Plataforma para fins ilícitos ou que violem direitos de terceiros;',
-      'Tentar acessar áreas, contas ou dados de outros Clientes sem autorização;',
-      'Realizar engenharia reversa, cópia, distribuição ou exploração comercial não autorizada do código ou da estrutura da Plataforma;',
-      'Inserir conteúdo ofensivo, discriminatório, ilegal ou que viole direitos de imagem de terceiros nos registros de execução, ocorrências ou comunicados gerados pela Plataforma;',
-      'Utilizar meios automatizados para sobrecarregar ou comprometer a disponibilidade da Plataforma.',
+      'Utilizar a Plataforma para fins ilícitos;',
+      'Acessar áreas ou dados de outros Clientes sem autorização;',
+      'Realizar engenharia reversa ou exploração comercial não autorizada;',
+      'Inserir conteúdo ofensivo, discriminatório ou que viole direitos de imagem de terceiros;',
+      'Utilizar meios automatizados para sobrecarregar a Plataforma.',
     ],
   },
   {
     number: '8',
     title: 'Propriedade intelectual',
     paragraphs: [
-      'Todos os direitos de propriedade intelectual sobre a Plataforma, incluindo mas não se limitando a código-fonte, layout, marca, logotipo e funcionalidades, pertencem exclusivamente ao Cond-Informa, sendo vedada sua reprodução, distribuição ou uso não autorizado.',
-      'Os dados inseridos pelo Cliente (fotos, textos de checklist, informações de condomínios e ambientes) permanecem de titularidade do Cliente, concedendo este ao Cond-Informa licença não exclusiva para processá-los estritamente para a prestação do Serviço.',
+      'Todos os direitos sobre a Plataforma (código-fonte, layout, marca, funcionalidades) pertencem exclusivamente ao Cond-Informa. Os dados inseridos pelo Cliente permanecem de sua titularidade, com licença não exclusiva concedida ao Cond-Informa para processá-los na prestação do Serviço.',
     ],
   },
   {
     number: '9',
     title: 'Proteção de dados pessoais',
     paragraphs: [
-      'O Cond-Informa realiza o tratamento de dados pessoais em conformidade com a Lei nº 13.709/2018 (Lei Geral de Proteção de Dados Pessoais, LGPD).',
-      'Os dados pessoais coletados (nome, e-mail, telefone, CPF/CNPJ e demais informações fornecidas no cadastro, na execução de checklists ou no registro de ocorrências) são utilizados exclusivamente para viabilizar a prestação do Serviço, comunicação com o Cliente, processamento de pagamentos e cumprimento de obrigações legais.',
-      'O Cliente, seus Colaboradores e Moradores que interagem com a Plataforma possuem os direitos previstos no artigo 18 da LGPD, incluindo confirmação de tratamento, acesso, correção, anonimização, portabilidade e eliminação de dados pessoais, mediante solicitação ao canal de contato indicado no site.',
-      'Fotos registradas nas execuções de checklist e ocorrências são armazenadas para fins de comprovação operacional e histórico, podendo o Cliente solicitar sua exclusão nos termos da legislação aplicável, ressalvadas hipóteses de guarda obrigatória por prazo legal.',
+      'O Cond-Informa trata dados pessoais em conformidade com a LGPD (Lei nº 13.709/2018).',
+      `Os dados coletados (nome, e-mail, telefone, CPF/CNPJ, dados de inscrição para notificações push, entre outros) são usados exclusivamente para a prestação do Serviço, comunicação, pagamentos e cumprimento de obrigações legais. O Cliente possui os direitos do art. 18 da LGPD, incluindo acesso, correção, portabilidade e eliminação, mediante solicitação a ${legalInfo.emailContato}.`,
+      'Fotos de execuções e ocorrências são armazenadas para comprovação operacional, podendo ter exclusão solicitada.',
     ],
   },
   {
     number: '10',
     title: 'Disponibilidade do Serviço',
     paragraphs: [
-      'O Cond-Informa empenha-se em manter a Plataforma disponível de forma contínua, porém não garante disponibilidade ininterrupta, podendo ocorrer interrupções para manutenção programada, atualizações, ou por motivos de força maior, caso fortuito, falhas de terceiros (incluindo provedores de nuvem, gateway de pagamento e conectividade) alheios à sua vontade.',
-      'O Cond-Informa não se responsabiliza por indisponibilidades decorrentes de falhas na conexão à internet do Cliente, Colaborador ou Morador.',
+      'O Cond-Informa não garante disponibilidade ininterrupta, podendo ocorrer interrupções por manutenção, força maior ou falhas de terceiros (nuvem, gateway de pagamento, conectividade).',
     ],
   },
   {
     number: '11',
     title: 'Limitação de responsabilidade',
     paragraphs: [
-      'A Plataforma é uma ferramenta de apoio à gestão operacional de condomínios, não substituindo a responsabilidade do síndico, administradora ou empresa de zeladoria pela efetiva realização das tarefas de limpeza e manutenção, nem constituindo garantia de qualidade dos serviços executados pelos Colaboradores.',
-      'O Cond-Informa não se responsabiliza por decisões tomadas pelo Cliente com base nos dados, relatórios ou comunicados gerados pela Plataforma, nem por eventuais divergências entre o registrado na Plataforma e a realidade fática, cuja veracidade é de responsabilidade de quem realiza o registro (Colaborador ou Cliente).',
-      'Em qualquer hipótese, a responsabilidade do Cond-Informa por danos comprovadamente causados ao Cliente em razão de falha direta e exclusiva da Plataforma fica limitada ao valor total pago pelo Cliente nos 3 (três) meses anteriores ao evento danoso.',
+      'A Plataforma é ferramenta de apoio à gestão operacional, não substituindo a responsabilidade do síndico/administradora pela efetiva execução das tarefas. A responsabilidade do Cond-Informa por danos fica limitada ao valor pago pelo Cliente nos 3 meses anteriores ao evento danoso.',
     ],
   },
   {
     number: '12',
     title: 'Rescisão',
     paragraphs: [
-      'O Cond-Informa poderá suspender ou encerrar o acesso do Cliente à Plataforma, mediante notificação prévia, em caso de descumprimento destes Termos, inadimplência não regularizada, ou uso indevido conforme descrito na Cláusula 7.',
-      'O Cliente poderá encerrar sua Conta a qualquer momento, mediante solicitação pelos canais disponibilizados, observado o disposto na Cláusula 6 quanto a valores já pagos.',
+      'O Cond-Informa pode suspender o acesso em caso de descumprimento destes Termos ou inadimplência não regularizada. O Cliente pode encerrar sua Conta a qualquer momento.',
     ],
   },
   {
     number: '13',
-    title: 'Retenção e exclusão de dados após cancelamento ou inadimplência',
+    title: 'Alterações destes Termos',
     paragraphs: [
-      'Conforme a Cláusula 5, o não pagamento na data de vencimento ou o cancelamento da assinatura suspendem imediatamente o acesso às funcionalidades administrativas da Conta (cadastro e gestão de condomínios, ambientes, checklists e sub-usuários), sem apagar nenhum dado já registrado e sem interromper o funcionamento dos QR Codes já publicados (execução de checklist pelo Colaborador e registro de status/ocorrências pelo Morador continuam disponíveis normalmente).',
-      'Caso a pendência não seja regularizada, o Cond-Informa enviará avisos ao Cliente aos 15 (quinze) e aos 3 (três) dias que antecedem o prazo final abaixo, para que a situação seja regularizada e nenhum dado seja perdido.',
-      'Decorridos 90 (noventa) dias consecutivos de inadimplência ou cancelamento não regularizado, todos os dados vinculados à Conta — condomínios, ambientes, checklists, execuções, ocorrências, fotos e sub-usuários — serão excluídos de forma permanente e irreversível dos sistemas do Cond-Informa, não sendo possível sua recuperação após esse prazo.',
-      'A regularização do pagamento a qualquer momento antes do prazo final descrito acima restabelece integralmente o acesso e mantém todos os dados intactos, sem necessidade de novo cadastro.',
+      'Alterações relevantes serão comunicadas com antecedência razoável. A continuidade do uso após a vigência caracteriza aceitação tácita.',
     ],
   },
   {
     number: '14',
-    title: 'Alterações destes Termos',
+    title: 'Disposições gerais',
     paragraphs: [
-      'O Cond-Informa poderá alterar estes Termos a qualquer tempo, visando adequação legal, regulatória ou evolução da Plataforma. Alterações relevantes serão comunicadas ao Cliente com antecedência razoável, por e-mail ou aviso na própria Plataforma. A continuidade do uso após a vigência das alterações caracteriza aceitação tácita das novas condições.',
+      'A nulidade de qualquer disposição não afeta as demais. A tolerância quanto ao descumprimento não constitui renúncia ao direito de exigi-lo.',
     ],
   },
   {
     number: '15',
-    title: 'Disposições gerais',
+    title: 'Legislação aplicável e foro',
     paragraphs: [
-      'Caso qualquer disposição destes Termos seja considerada nula ou inaplicável, as demais disposições permanecerão em pleno vigor e efeito.',
-      'A tolerância de qualquer das partes quanto ao descumprimento de qualquer obrigação prevista nestes Termos não constituirá novação ou renúncia ao direito de exigi-la a qualquer tempo.',
+      `Regidos pelas leis brasileiras. Fica eleito o foro da Comarca de ${legalInfo.cidadeUf}, ressalvado o direito do Cliente-consumidor de optar pelo foro de seu domicílio.`,
     ],
   },
   {
     number: '16',
-    title: 'Legislação aplicável e foro',
-    paragraphs: [
-      `Estes Termos são regidos pelas leis da República Federativa do Brasil. Fica eleito o foro da Comarca de ${legalInfo.cidadeUf}, com renúncia expressa a qualquer outro, por mais privilegiado que seja, para dirimir eventuais controvérsias oriundas destes Termos, ressalvado o direito do Cliente, quando enquadrado como consumidor, de optar pelo foro de seu domicílio, nos termos do Código de Defesa do Consumidor.`,
-    ],
-  },
-  {
-    number: '17',
     title: 'Contato',
     paragraphs: [
-      `Dúvidas, solicitações ou exercício de direitos previstos na LGPD podem ser encaminhados para: ${legalInfo.emailContato} ou através do canal de suporte disponível na própria Plataforma.`,
+      `Dúvidas ou solicitações: ${legalInfo.emailContato}.`,
     ],
   },
 ];
