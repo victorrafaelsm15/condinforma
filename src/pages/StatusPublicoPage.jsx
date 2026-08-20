@@ -52,7 +52,7 @@ export default function StatusPublicoPage() {
 
   // Página pública específica de um ambiente/condomínio — sem valor de
   // busca genérica, fica fora da indexação (mesmo critério do sitemap.xml).
-  const seoTag = <Seo noindex title="Status da limpeza — Cond-Informa" path={`/ambiente/${id}/status`} />;
+  const seoTag = <Seo noindex title="Status da limpeza — Cond Informa" path={`/ambiente/${id}/status`} />;
 
   useEffect(() => {
     Promise.all([
@@ -87,7 +87,7 @@ export default function StatusPublicoPage() {
           <span className="icon-tile" style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--blue-light)' }}>
             <Building2 size={14} color="var(--blue)" />
           </span>
-          <Text size="xs" c="dimmed" fw={700} tt="uppercase" style={{ letterSpacing: '0.06em' }}>Cond-Informa</Text>
+          <Text size="xs" c="dimmed" fw={700} tt="uppercase" style={{ letterSpacing: '0.06em' }}>Cond Informa</Text>
         </Group>
         <Text fw={800} size="xl" ta="center" mb={28}>{ambiente.name}</Text>
 

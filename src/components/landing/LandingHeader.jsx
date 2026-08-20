@@ -31,7 +31,7 @@ export default function LandingHeader() {
       <div className="container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 72 }}>
         <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 10, fontWeight: 800, fontSize: 18, color: '#fff', textTransform: 'uppercase' }}>
           <img src={`${import.meta.env.BASE_URL}logo-icon.png`} alt="" style={{ height: 34, width: 'auto' }} />
-          Cond-Informa
+          Cond Informa
         </Link>
         <nav style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <a href="#como-funciona" onClick={scrollToSection('como-funciona')} className="nav-link">Como funciona</a>

@@ -27,7 +27,7 @@ export default function AdminLogin() {
 
   return (
     <div style={{ minHeight: '100vh', display: 'grid', gridTemplateColumns: '1fr 1fr' }} className="login-grid">
-      <Seo title="Entrar no painel — Cond-Informa" description="Acesse o painel do Cond-Informa para gerenciar checklists, ocorrências e relatórios dos seus condomínios." path="/admin/login" />
+      <Seo title="Entrar no painel — Cond Informa" description="Acesse o painel do Cond Informa para gerenciar checklists, ocorrências e relatórios dos seus condomínios." path="/admin/login" />
       <div style={{
         background: 'var(--gradient-dark)', color: '#fff', position: 'relative', overflow: 'hidden',
         display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '60px 64px',
@@ -37,7 +37,7 @@ export default function AdminLogin() {
         <div style={{ position: 'relative', zIndex: 1 }}>
           <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 10, fontWeight: 800, fontSize: 18, color: '#fff', marginBottom: 44, textTransform: 'uppercase' }}>
             <img src={`${import.meta.env.BASE_URL}logo-icon.png`} alt="" style={{ height: 34, width: 'auto' }} />
-            Cond-Informa
+            Cond Informa
           </Link>
           <h1 style={{ fontSize: 'clamp(26px,3vw,34px)', fontWeight: 800, lineHeight: 1.2, margin: '0 0 16px', maxWidth: 420 }}>
             O painel completo para gerir limpeza e manutenção do seu condomínio
@@ -67,7 +67,7 @@ export default function AdminLogin() {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, background: 'var(--bg)' }}>
         <div style={{ width: '100%', maxWidth: 380 }}>
           <div className="login-mobile-brand" style={{ display: 'none', alignItems: 'center', gap: 10, fontWeight: 800, fontSize: 17, color: 'var(--blue-dark)', marginBottom: 28, justifyContent: 'center', textTransform: 'uppercase' }}>
-            <img src={`${import.meta.env.BASE_URL}logo-icon.png`} alt="" style={{ height: 26, width: 'auto' }} /> Cond-Informa
+            <img src={`${import.meta.env.BASE_URL}logo-icon.png`} alt="" style={{ height: 26, width: 'auto' }} /> Cond Informa
           </div>
           <div className="surface-card" style={{ padding: 36, textAlign: 'center' }}>
             <div style={{

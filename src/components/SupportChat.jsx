@@ -3,7 +3,7 @@ import { Modal, ScrollArea, TextInput, ActionIcon, Text, Loader } from '@mantine
 import { Send, Headphones } from 'lucide-react';
 import { sendSupportMessage } from '../lib/supportChat';
 
-const GREETING = 'Oi! Eu sou o assistente de suporte do Cond-Informa. Posso ajudar com dúvidas sobre planos, funcionalidades ou como usar o painel. No que posso ajudar?';
+const GREETING = 'Oi! Eu sou o assistente de suporte do Cond Informa. Posso ajudar com dúvidas sobre planos, funcionalidades ou como usar o painel. No que posso ajudar?';
 
 export default function SupportChat({ opened, onClose }) {
   const [messages, setMessages] = useState([{ role: 'assistant', content: GREETING }]);

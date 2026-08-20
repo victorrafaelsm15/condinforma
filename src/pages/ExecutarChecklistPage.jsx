@@ -312,7 +312,7 @@ export default function ExecutarChecklistPage() {
   // busca genérica, então fica fora da indexação (mesmo critério do
   // sitemap.xml/robots.txt). Definida uma vez e reaproveitada em todo
   // "return" (loading, não encontrado, formulário).
-  const seoTag = <Seo noindex title="Executar checklist — Cond-Informa" path={`/ambiente/${id}/executar`} />;
+  const seoTag = <Seo noindex title="Executar checklist — Cond Informa" path={`/ambiente/${id}/executar`} />;
 
   useEffect(() => {
     const goOnline = () => setIsOnline(true);
@@ -388,7 +388,7 @@ export default function ExecutarChecklistPage() {
           <span className="icon-tile" style={{ width: 30, height: 30, borderRadius: 9, background: 'var(--blue-light)' }}>
             <Building2 size={15} color="var(--blue)" />
           </span>
-          <Text size="xs" c="dimmed" fw={700} tt="uppercase" style={{ letterSpacing: '0.06em' }}>Cond-Informa</Text>
+          <Text size="xs" c="dimmed" fw={700} tt="uppercase" style={{ letterSpacing: '0.06em' }}>Cond Informa</Text>
         </Group>
 
         <Text fw={800} size="xl" mb={18}>{ambiente.name}</Text>

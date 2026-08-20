@@ -98,7 +98,7 @@ Deno.serve(async (req: Request) => {
     const subscription = await createSubscription({
       customerId: customer.id,
       value: finalValue,
-      description: `Cond-Informa — Plano ${planName}`,
+      description: `Cond Informa — Plano ${planName}`,
       billingType,
       creditCard: creditCardPayload,
       creditCardHolderInfo: creditCardHolderInfoPayload,

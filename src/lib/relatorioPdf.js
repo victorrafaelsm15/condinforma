@@ -16,7 +16,7 @@ function renderHeader(doc, { escopoLabel, periodoLabel }) {
   doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(14);
-  doc.text('COND-INFORMA', marginX, 12);
+  doc.text('COND INFORMA', marginX, 12);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
   doc.text('Relatório de operação', marginX, 19);
@@ -36,7 +36,7 @@ function renderFooter(doc) {
   doc.setFontSize(8);
   doc.setTextColor(...MUTED);
   doc.text(
-    `Gerado automaticamente por Cond-Informa em ${new Date().toLocaleString('pt-BR')}`,
+    `Gerado automaticamente por Cond Informa em ${new Date().toLocaleString('pt-BR')}`,
     14,
     pageHeight - 10,
   );

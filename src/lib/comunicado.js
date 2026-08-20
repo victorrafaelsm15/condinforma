@@ -24,7 +24,7 @@ function renderExecucaoPage(doc, { condominioName, ambienteName, execucao }) {
   doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(14);
-  doc.text('COND-INFORMA', marginX, 12);
+  doc.text('COND INFORMA', marginX, 12);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
   doc.text('Comunicado de execução de manutenção/limpeza', marginX, 19);
@@ -116,7 +116,7 @@ function renderExecucaoPage(doc, { condominioName, ambienteName, execucao }) {
   doc.setFontSize(8);
   doc.setTextColor(...MUTED);
   doc.text(
-    `Gerado automaticamente por Cond-Informa em ${new Date().toLocaleString('pt-BR')}`,
+    `Gerado automaticamente por Cond Informa em ${new Date().toLocaleString('pt-BR')}`,
     marginX,
     pageHeight - 10,
   );
@@ -131,7 +131,7 @@ function renderVinculosPage(doc, { condominioName, ambienteName, itemOcorrenciaC
   doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(14);
-  doc.text('COND-INFORMA', marginX, 12);
+  doc.text('COND INFORMA', marginX, 12);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
   doc.text('Ocorrências vinculadas ao checklist no período', marginX, 19);
@@ -195,7 +195,7 @@ export async function sharePdf(doc, filename) {
 
   if (navigator.canShare && navigator.canShare({ files: [file] })) {
     try {
-      await navigator.share({ files: [file], title: filename, text: 'Comunicado gerado pelo Cond-Informa' });
+      await navigator.share({ files: [file], title: filename, text: 'Comunicado gerado pelo Cond Informa' });
       return 'shared';
     } catch (err) {
       if (err?.name === 'AbortError') return 'cancelled';

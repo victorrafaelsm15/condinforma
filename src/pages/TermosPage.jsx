@@ -8,8 +8,8 @@ export default function TermosPage() {
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)', padding: '48px 24px' }}>
       <Seo
-        title="Termos de Uso — Cond-Informa"
-        description="Termos de Uso e Condições Gerais de Contratação da plataforma Cond-Informa."
+        title="Termos de Uso — Cond Informa"
+        description="Termos de Uso e Condições Gerais de Contratação da plataforma Cond Informa."
         path="/termos"
       />
       <div style={{ maxWidth: 760, margin: '0 auto' }}>
@@ -17,7 +17,7 @@ export default function TermosPage() {
           Voltar
         </Button>
         <Text fw={800} size="1.8rem" className="font-display" mb={4}>Termos de Uso e Condições Gerais de Contratação</Text>
-        <Text c="dimmed" size="sm" mb="xl">Cond-Informa · Data de publicação: {legalInfo.dataPublicacao}</Text>
+        <Text c="dimmed" size="sm" mb="xl">Cond Informa · Data de publicação: {legalInfo.dataPublicacao}</Text>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
           {termosSections.map((section) => (

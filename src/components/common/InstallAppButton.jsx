@@ -26,7 +26,7 @@ export default function InstallAppButton({ label = 'Instalar app', installSource
     if (canInstall) {
       const outcome = await promptInstall();
       if (outcome === 'accepted') {
-        notifications.show({ color: 'green', message: 'App instalado! Procure o ícone do Cond-Informa na tela inicial.' });
+        notifications.show({ color: 'green', message: 'App instalado! Procure o ícone do Cond Informa na tela inicial.' });
       } else {
         setInstallSource(null);
       }
@@ -43,7 +43,7 @@ export default function InstallAppButton({ label = 'Instalar app', installSource
         <span className="install-btn-label">{label}</span>
       </Button>
 
-      <Modal opened={iosModalOpen} onClose={() => setIosModalOpen(false)} title="Instalar o Cond-Informa" centered>
+      <Modal opened={iosModalOpen} onClose={() => setIosModalOpen(false)} title="Instalar o Cond Informa" centered>
         <Text size="sm" c="dimmed" mb="md">
           No iPhone/iPad, a instalação é feita pelo próprio Safari:
         </Text>

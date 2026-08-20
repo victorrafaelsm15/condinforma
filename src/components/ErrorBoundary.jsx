@@ -18,7 +18,7 @@ export default class ErrorBoundary extends Component {
 
   componentDidCatch(error, info) {
     // eslint-disable-next-line no-console
-    console.error('Erro não tratado na renderização do Cond-Informa:', error, info);
+    console.error('Erro não tratado na renderização do Cond Informa:', error, info);
   }
 
   render() {
@@ -30,7 +30,7 @@ export default class ErrorBoundary extends Component {
           fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif', background: '#f5f6fc', color: '#10142c',
         }}>
           <h1 style={{ fontSize: 22, fontWeight: 800, margin: '0 0 10px' }}>
-            Algo deu errado ao carregar o Cond-Informa.
+            Algo deu errado ao carregar o Cond Informa.
           </h1>
           <p style={{ fontSize: 15, color: '#5b6178', maxWidth: 440, margin: '0 0 24px' }}>
             Verifique a configuração ou tente novamente em instantes.

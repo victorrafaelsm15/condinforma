@@ -152,7 +152,7 @@ export default function AssinaturaPage() {
   } = useForm({ defaultValues: { billingType: 'PIX' } });
   const termsAccepted = watch('termsAccepted');
   const billingType = watch('billingType');
-  const seoTag = <Seo title="Assine um plano — Cond-Informa" description="Assine o Cond-Informa e comece a organizar checklists digitais de limpeza e manutenção com QR Code no seu condomínio." path="/assinar" />;
+  const seoTag = <Seo title="Assine um plano — Cond Informa" description="Assine o Cond Informa e comece a organizar checklists digitais de limpeza e manutenção com QR Code no seu condomínio." path="/assinar" />;
 
   useEffect(() => {
     getSession().then((s) => {
@@ -305,7 +305,7 @@ export default function AssinaturaPage() {
         <div style={{ position: 'relative', zIndex: 1 }}>
           <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 10, fontWeight: 800, fontSize: 18, color: '#fff', marginBottom: 40, textTransform: 'uppercase' }}>
             <img src={`${import.meta.env.BASE_URL}logo-icon.png`} alt="" style={{ height: 32, width: 'auto' }} />
-            Cond-Informa
+            Cond Informa
           </Link>
           <Text size="md" fw={700} tt="uppercase" style={{ opacity: 0.7, letterSpacing: '0.06em' }}>Plano selecionado</Text>
           <Text fw={800} size="3rem" className="font-display" mt={10}>{plan.name}</Text>
@@ -332,7 +332,7 @@ export default function AssinaturaPage() {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, background: 'var(--bg)' }}>
         <div style={{ width: '100%', maxWidth: 420 }}>
           <div className="assinar-mobile-brand" style={{ display: 'none', alignItems: 'center', gap: 10, fontWeight: 800, fontSize: 17, color: 'var(--blue-dark)', marginBottom: 20, justifyContent: 'center', textTransform: 'uppercase' }}>
-            <img src={`${import.meta.env.BASE_URL}logo-icon.png`} alt="" style={{ height: 26, width: 'auto' }} /> Cond-Informa
+            <img src={`${import.meta.env.BASE_URL}logo-icon.png`} alt="" style={{ height: 26, width: 'auto' }} /> Cond Informa
           </div>
 
           {paymentResult ? (

@@ -15,7 +15,7 @@ const DESCRIPTION = 'Checklists digitais com QR Code para condomínios: organize
 const ORGANIZATION_JSON_LD = {
   '@context': 'https://schema.org',
   '@type': 'Organization',
-  name: 'Cond-Informa',
+  name: 'Cond Informa',
   url: SITE_URL,
   logo: `${SITE_URL}/logo-icon.png`,
   description: DESCRIPTION,
@@ -38,7 +38,7 @@ export default function LandingPage() {
   return (
     <div className="landing-scope" style={{ background: 'var(--navy-950)' }}>
       <Seo
-        title="Cond-Informa — Checklists digitais com QR Code para condomínios"
+        title="Cond Informa — Checklists digitais com QR Code para condomínios"
         description={DESCRIPTION}
         path="/"
         jsonLd={ORGANIZATION_JSON_LD}

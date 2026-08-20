@@ -22,7 +22,7 @@ export default function MissingEnvScreen({ missingVars }) {
           : `As variáveis de ambiente ${missingVars.join(' e ')} não foram definidas ou estão com valores inválidos.`}
       </p>
       <p style={{ fontSize: 13, color: '#8890a6', maxWidth: 460 }}>
-        O Cond-Informa precisa dessa configuração pra funcionar. Defina no arquivo <code>.env</code> (local)
+        O Cond Informa precisa dessa configuração pra funcionar. Defina no arquivo <code>.env</code> (local)
         ou nas variáveis de ambiente do provedor de deploy — confira se VITE_SUPABASE_URL está completa,
         com "https://" no início e sem espaços — e publique novamente.
       </p>

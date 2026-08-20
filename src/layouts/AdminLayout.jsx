@@ -93,7 +93,7 @@ export default function AdminLayout() {
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
-      <Seo title="Painel — Cond-Informa" noindex path={location.pathname} />
+      <Seo title="Painel — Cond Informa" noindex path={location.pathname} />
       <header style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '14px 28px', background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(12px)',
@@ -101,7 +101,7 @@ export default function AdminLayout() {
       }} className="admin-header">
         <Link to="/admin" style={{ display: 'flex', alignItems: 'center', gap: 10, fontWeight: 800, fontSize: 16.5, color: 'var(--blue-dark)', textTransform: 'uppercase' }}>
           <img src={`${import.meta.env.BASE_URL}logo-icon.png`} alt="" style={{ height: 30, width: 'auto' }} />
-          Cond-Informa
+          Cond Informa
         </Link>
 
         <Button variant="filled" color="gray" leftSection={<Settings size={14} />} onClick={() => setSettingsOpen(true)} className="admin-settings-btn">

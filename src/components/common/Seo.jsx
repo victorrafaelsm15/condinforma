@@ -29,7 +29,7 @@ export default function Seo({ title, description, path = '/', noindex = false, o
           <meta property="og:type" content="website" />
           <meta property="og:url" content={url} />
           <meta property="og:image" content={ogImage} />
-          <meta property="og:site_name" content="Cond-Informa" />
+          <meta property="og:site_name" content="Cond Informa" />
           <meta property="og:locale" content="pt_BR" />
           <meta name="twitter:card" content="summary_large_image" />
           <meta name="twitter:title" content={title} />

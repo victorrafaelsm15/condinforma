@@ -29,9 +29,9 @@ export default function LandingFooter() {
         <div className="container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 14 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 9, color: '#fff', fontWeight: 700, textTransform: 'uppercase' }}>
             <img src={`${import.meta.env.BASE_URL}logo-icon.png`} alt="" style={{ height: 26, width: 'auto' }} />
-            Cond-Informa
+            Cond Informa
           </div>
-          <span style={{ fontSize: 12.5 }}>© {new Date().getFullYear()} <span style={{ textTransform: 'uppercase' }}>Cond-Informa</span>. Todos os direitos reservados.</span>
+          <span style={{ fontSize: 12.5 }}>© {new Date().getFullYear()} <span style={{ textTransform: 'uppercase' }}>Cond Informa</span>. Todos os direitos reservados.</span>
         </div>
       </footer>
     </>

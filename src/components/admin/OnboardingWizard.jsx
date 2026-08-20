@@ -73,7 +73,7 @@ export default function OnboardingWizard({
   };
 
   return (
-    <Modal opened={opened} onClose={finish} title="Bem-vindo ao Cond-Informa" size="lg" centered>
+    <Modal opened={opened} onClose={finish} title="Bem-vindo ao Cond Informa" size="lg" centered>
       <Stepper active={step} onStepClick={setStep} allowNextStepsSelect={false} size="sm" mb="lg">
         <Stepper.Step label="Condomínio" icon={<Building2 size={16} />}>
           <Group gap={12} mb="lg" wrap="nowrap" align="flex-start">
@@ -81,7 +81,7 @@ export default function OnboardingWizard({
               <Sparkles size={20} color="var(--blue)" />
             </span>
             <div>
-              <Text fw={800} size="md">Bem-vindo(a) ao Cond-Informa!</Text>
+              <Text fw={800} size="md">Bem-vindo(a) ao Cond Informa!</Text>
               <Text size="sm" c="dimmed" mt={2}>Vamos te ajudar a configurar tudo em poucos passos.</Text>
             </div>
           </Group>

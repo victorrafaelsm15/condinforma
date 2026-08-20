@@ -22,7 +22,7 @@ export default class SectionErrorBoundary extends Component {
 
   componentDidCatch(error, info) {
     // eslint-disable-next-line no-console
-    console.error('Erro isolado numa seção do Cond-Informa:', error, info);
+    console.error('Erro isolado numa seção do Cond Informa:', error, info);
   }
 
   render() {

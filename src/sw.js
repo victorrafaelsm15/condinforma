@@ -66,9 +66,9 @@ self.addEventListener('push', (event) => {
   try {
     data = event.data ? event.data.json() : {};
   } catch {
-    data = { title: 'Cond-Informa', body: event.data ? event.data.text() : '' };
+    data = { title: 'Cond Informa', body: event.data ? event.data.text() : '' };
   }
-  const title = data.title || 'Cond-Informa';
+  const title = data.title || 'Cond Informa';
   const options = {
     body: data.body || '',
     icon: `${self.registration.scope}pwa-192x192.png`,
