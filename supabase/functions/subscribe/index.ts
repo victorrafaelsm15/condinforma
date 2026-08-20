@@ -16,7 +16,7 @@
 // webhook não teria como saber qual conta liberar quando o pagamento cair.
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
-import { findOrCreateCustomer, createSubscription, getFirstPayment, getPixQrCode } from '../_shared/asaas.ts';
+import { findOrCreateCustomer, createSubscription, getFirstPayment, getPixQrCode, updatePaymentValue } from '../_shared/asaas.ts';
 import { corsHeaders, jsonResponse } from '../_shared/cors.ts';
 import { PLAN_PRICES } from '../_shared/plans.ts';
 import { validateAndApplyCoupon, incrementCouponUsage } from '../_shared/cupons.ts';
@@ -90,14 +90,32 @@ Deno.serve(async (req: Request) => {
     }
     finalValue = result.finalValue;
     couponId = result.couponId;
+
+    // Cartão é cobrado de forma síncrona dentro da própria criação da
+    // assinatura (Asaas tenta a captura na hora) — não dá pra aplicar o
+    // desconto DEPOIS via updatePaymentValue nesse caso, e cobrar o valor
+    // cheio no cartão enquanto a tela mostra o valor com desconto seria
+    // uma cobrança errada de verdade no cartão da pessoa. Até existir um
+    // fluxo que aplique o desconto antes da captura do cartão, cupom só
+    // funciona com Pix/Boleto.
+    if (billingType === 'CREDIT_CARD') {
+      return jsonResponse({
+        error: 'Cupons de desconto são válidos apenas para pagamento via Pix ou Boleto no momento. Escolha um desses métodos para usar o cupom, ou continue no cartão sem cupom.',
+        field: 'coupon',
+      }, 400);
+    }
   }
 
   try {
     const customer = await findOrCreateCustomer({ name, email, cpfCnpj: cleanCpfCnpj, phone: cleanPhone });
 
+    // Sempre cria a assinatura pelo valor CHEIO do plano — o desconto do
+    // cupom nunca entra aqui, senão ele se propagaria pra todas as
+    // cobranças recorrentes (é o valor da assinatura que a Asaas usa como
+    // template pra gerar cada cobrança futura do ciclo mensal).
     const subscription = await createSubscription({
       customerId: customer.id,
-      value: finalValue,
+      value: price,
       description: `Cond Informa — Plano ${planName}`,
       billingType,
       creditCard: creditCardPayload,
@@ -109,7 +127,25 @@ Deno.serve(async (req: Request) => {
       externalReference: `${accountId}:${planName}`,
     });
 
-    const payment = await getFirstPayment(subscription.id);
+    let payment = await getFirstPayment(subscription.id);
+
+    // Desconto do cupom vai só nesta cobrança específica (nunca na
+    // assinatura). Só é possível quando a cobrança ainda está PENDING — a
+    // Asaas rejeita alterar valor de cobrança já paga, e cartão é
+    // capturado de forma síncrona na própria criação da assinatura acima
+    // (chega aqui já CONFIRMED/RECEIVED/DENIED), então pra CREDIT_CARD o
+    // desconto do cupom não tem como ser aplicado por este caminho.
+    if (couponId && finalValue !== price) {
+      if (payment.status === 'PENDING') {
+        try {
+          payment = await updatePaymentValue(payment.id, finalValue);
+        } catch (updateErr) {
+          console.error('Erro ao aplicar desconto do cupom na primeira cobrança:', updateErr instanceof Error ? updateErr.message : updateErr);
+        }
+      } else {
+        console.warn(`Cupom aplicado mas cobrança ${payment.id} já não está PENDING (status ${payment.status}) — desconto não pôde ser aplicado (billingType ${billingType}).`);
+      }
+    }
 
     // Registra o assinante como "pendente" já de cara — o webhook depois
     // atualiza o status conforme os eventos de pagamento chegarem.

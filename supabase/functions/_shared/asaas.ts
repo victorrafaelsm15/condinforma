@@ -118,3 +118,84 @@ export async function getPixQrCode(paymentId: string) {
 export async function cancelSubscription(subscriptionId: string) {
   return asaasFetch(`/subscriptions/${subscriptionId}`, { method: 'DELETE' });
 }
+
+// Atualiza o valor de UMA cobrança específica (nunca a assinatura toda) —
+// usado pra aplicar o desconto do cupom só na primeira cobrança, mantendo
+// o valor cheio nas cobranças seguintes. A Asaas só aceita alterar o valor
+// de cobranças com status PENDING; chamar isso numa cobrança já paga
+// (cartão, cuja captura é síncrona na criação da assinatura) retorna erro —
+// por isso o chamador deve checar payment.status antes de chamar.
+// IMPORTANTE: nunca passar updatePendingPayments — isso propagaria o novo
+// valor pra cobranças futuras da assinatura, que é exatamente o oposto do
+// que queremos aqui.
+export async function updatePaymentValue(paymentId: string, newValue: number) {
+  return asaasFetch(`/payments/${paymentId}`, {
+    method: 'PUT',
+    body: JSON.stringify({ value: newValue }),
+  });
+}
+
+type PixAutomaticAuthorizationInput = {
+  customerId: string;
+  contractId: string;
+  value: number;
+  description: string;
+  startDate: string; // YYYY-MM-DD
+};
+
+// Cria a autorização de Pix Automático + QR Code imediato da primeira
+// cobrança, num único request (POST /v3/pix/automatic/authorizations).
+// paymentCreationMode 'MANUAL': a autorização em si NÃO gera cobrança
+// nenhuma sozinha a partir do mês 2 — é o app que precisa criar cada
+// cobrança futura chamando POST /v3/payments com
+// pixAutomaticAuthorizationId (ver createPixAutomaticCharge abaixo),
+// sempre entre 2 e 10 dias úteis antes do vencimento (exigência da Asaas,
+// não escolha nossa). Ver supabase/functions/_shared/asaas.ts — a
+// alternativa (paymentCreationMode: 'SUBSCRIPTION') deixaria a Asaas gerar
+// as cobranças futuras sozinha, mas ainda não foi validada nesta
+// integração — não trocar sem confirmar o comportamento real com a Asaas.
+export async function createPixAutomaticAuthorization({
+  customerId, contractId, value, description, startDate,
+}: PixAutomaticAuthorizationInput) {
+  return asaasFetch('/pix/automatic/authorizations', {
+    method: 'POST',
+    body: JSON.stringify({
+      customerId,
+      contractId,
+      startDate,
+      value,
+      description,
+      paymentCreationMode: 'MANUAL',
+      immediateQrCode: {
+        expirationSeconds: 3600,
+        originalValue: value,
+        description,
+      },
+    }),
+  });
+}
+
+// Cria a cobrança de um mês (2º em diante) vinculada a uma autorização de
+// Pix Automático já ATIVA. A Asaas debita automaticamente do pagador sem
+// novo QR Code/confirmação manual — mas só aceita a criação entre 2 e 10
+// dias úteis antes do vencimento escolhido (dueDate), por isso não pode
+// ser criada com muita antecedência.
+export async function createPixAutomaticCharge({
+  customerId, value, description, dueDate, pixAutomaticAuthorizationId, externalReference,
+}: {
+  customerId: string; value: number; description: string; dueDate: string;
+  pixAutomaticAuthorizationId: string; externalReference?: string;
+}) {
+  return asaasFetch('/payments', {
+    method: 'POST',
+    body: JSON.stringify({
+      customer: customerId,
+      billingType: 'PIX',
+      value,
+      description,
+      dueDate,
+      pixAutomaticAuthorizationId,
+      externalReference,
+    }),
+  });
+}
