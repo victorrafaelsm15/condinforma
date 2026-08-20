@@ -350,7 +350,10 @@ export default function ExecutarChecklistPage() {
   // tarefas, sem nenhum aviso de que já existe uma ocorrência aberta
   // nesse mesmo ambiente.
   const loadPendingOcorrencias = () => {
-    ocorrenciasStore.list({ ambiente_id: id, status: 'pendente' }).then(setPendingOcorrencias);
+    // '*' explícito aqui: essa listagem é sempre 1 ambiente + status
+    // pendente (poucos itens) e a UI mostra a foto anexada — diferente da
+    // listagem padrão de ocorrenciasStore, que omite "photo" por padrão.
+    ocorrenciasStore.list({ ambiente_id: id, status: 'pendente' }, { columns: '*' }).then(setPendingOcorrencias);
   };
 
   const handleResolveOcorrencia = async (ocorrenciaId) => {

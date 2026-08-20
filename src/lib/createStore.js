@@ -41,15 +41,23 @@ async function getFreshAccountId() {
  * registros é sempre o da conta PRINCIPAL, nunca o do sub-usuário. Ver
  * supabase/sub_usuarios_migration.sql.
  */
-export function createStore(table, { orderBy = 'created_at', ascending = false } = {}) {
+export function createStore(table, { orderBy = 'created_at', ascending = false, columns = '*', limit = null } = {}) {
   const localKey = `condinforma_${table}_v1`;
 
   return {
-    async list(filters = {}) {
+    // columns: por padrão '*', mas tabelas com coluna pesada (ex.:
+    // ocorrencias.photo/execucoes.photo, base64 direto na coluna) devem
+    // passar uma lista explícita sem essa coluna aqui — telas de lista não
+    // precisam da foto, só a de detalhe (via getById, que sempre traz '*').
+    // limit: corta a listagem nos N mais recentes (por orderBy) — evita
+    // baixar o histórico inteiro em telas que só mostram os últimos
+    // registros.
+    async list(filters = {}, { columns: columnsOverride } = {}) {
       if (isSupabaseConfigured) {
         try {
-          let query = supabase.from(table).select('*').order(orderBy, { ascending });
+          let query = supabase.from(table).select(columnsOverride || columns).order(orderBy, { ascending });
           Object.entries(filters).forEach(([k, v]) => { query = query.eq(k, v); });
+          if (limit) query = query.limit(limit);
           const { data, error } = await query;
           if (error) throw error;
           return data;
@@ -61,7 +69,7 @@ export function createStore(table, { orderBy = 'created_at', ascending = false }
       Object.entries(filters).forEach(([k, v]) => {
         list = list.filter((item) => item[k] === v);
       });
-      return list.sort((a, b) => {
+      list = list.sort((a, b) => {
         const av = a[orderBy] ?? '';
         const bv = b[orderBy] ?? '';
         if (typeof av === 'number' && typeof bv === 'number') {
@@ -70,6 +78,7 @@ export function createStore(table, { orderBy = 'created_at', ascending = false }
         const cmp = String(av).localeCompare(String(bv));
         return ascending ? cmp : -cmp;
       });
+      return limit ? list.slice(0, limit) : list;
     },
 
     async getById(id) {
