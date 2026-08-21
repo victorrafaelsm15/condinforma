@@ -42,3 +42,25 @@ export function parseExternalReference(externalRef: string | undefined | null): 
 export function shouldLogPlanChange(previousPlan: string | null, newPlanKey: string): boolean {
   return previousPlan !== newPlanKey;
 }
+
+// Eventos de autorização de Pix Automático (diferente dos eventos de
+// pagamento acima — vêm com "authorization" no corpo, não "payment"). Ver
+// https://docs.asaas.com/docs/eventos-para-pix-automático.
+export function isPixAutomaticAuthorizationEvent(event: string): boolean {
+  return event.startsWith('PIX_AUTOMATIC_RECURRING_AUTHORIZATION_');
+}
+
+// ACTIVATED conta como "em dia" — é o equivalente, pra Pix Automático, de
+// PAYMENT_CONFIRMED/PAYMENT_RECEIVED: só vira ACTIVE depois que a primeira
+// cobrança (QR Code imediato) foi paga e o banco do cliente confirmou a
+// autorização recorrente. CANCELLED/REFUSED derrubam o acesso, igual às
+// falhas de pagamento. CREATED é só o passo intermediário (autorização
+// pendente de confirmação no app do banco) — não muda status de conta.
+export function resolveStatusFromAuthorizationEvent(event: string): AccountStatus {
+  if (event === 'PIX_AUTOMATIC_RECURRING_AUTHORIZATION_ACTIVATED') return 'ativo';
+  if (
+    event === 'PIX_AUTOMATIC_RECURRING_AUTHORIZATION_CANCELLED'
+    || event === 'PIX_AUTOMATIC_RECURRING_AUTHORIZATION_REFUSED'
+  ) return 'inativo';
+  return null;
+}

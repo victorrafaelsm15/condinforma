@@ -139,6 +139,7 @@ type PixAutomaticAuthorizationInput = {
   customerId: string;
   contractId: string;
   value: number;
+  firstChargeValue?: number;
   description: string;
   startDate: string; // YYYY-MM-DD
 };
@@ -155,7 +156,7 @@ type PixAutomaticAuthorizationInput = {
 // as cobranças futuras sozinha, mas ainda não foi validada nesta
 // integração — não trocar sem confirmar o comportamento real com a Asaas.
 export async function createPixAutomaticAuthorization({
-  customerId, contractId, value, description, startDate,
+  customerId, contractId, value, firstChargeValue, description, startDate,
 }: PixAutomaticAuthorizationInput) {
   return asaasFetch('/pix/automatic/authorizations', {
     method: 'POST',
@@ -163,12 +164,16 @@ export async function createPixAutomaticAuthorization({
       customerId,
       contractId,
       startDate,
-      value,
+      value, // valor recorrente (mês 2 em diante) — sempre cheio, nunca com desconto de cupom
       description,
       paymentCreationMode: 'MANUAL',
       immediateQrCode: {
         expirationSeconds: 3600,
-        originalValue: value,
+        // originalValue é só da 1ª cobrança (o QR Code imediato) — é aqui
+        // que o desconto do cupom entra, igual ao updatePaymentValue faz
+        // pra Boleto/Cartão, só que nativo da própria criação da
+        // autorização em vez de um PUT separado depois.
+        originalValue: firstChargeValue ?? value,
         description,
       },
     }),

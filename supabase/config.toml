@@ -470,3 +470,9 @@ enabled = true
 verify_jwt = false
 import_map = "./functions/data-retention-sweep/deno.json"
 entrypoint = "./functions/data-retention-sweep/index.ts"
+
+[functions.pix-automatic-billing]
+enabled = true
+verify_jwt = false
+import_map = "./functions/pix-automatic-billing/deno.json"
+entrypoint = "./functions/pix-automatic-billing/index.ts"

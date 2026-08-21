@@ -16,7 +16,10 @@
 // webhook não teria como saber qual conta liberar quando o pagamento cair.
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
-import { findOrCreateCustomer, createSubscription, getFirstPayment, getPixQrCode, updatePaymentValue } from '../_shared/asaas.ts';
+import {
+  findOrCreateCustomer, createSubscription, getFirstPayment, updatePaymentValue,
+  createPixAutomaticAuthorization,
+} from '../_shared/asaas.ts';
 import { corsHeaders, jsonResponse } from '../_shared/cors.ts';
 import { PLAN_PRICES } from '../_shared/plans.ts';
 import { validateAndApplyCoupon, incrementCouponUsage } from '../_shared/cupons.ts';
@@ -109,6 +112,63 @@ Deno.serve(async (req: Request) => {
   try {
     const customer = await findOrCreateCustomer({ name, email, cpfCnpj: cleanCpfCnpj, phone: cleanPhone });
 
+    // Pix Automático: diferente de Boleto/Cartão, aqui não existe uma
+    // "subscription" clássica da Asaas — a autorização de débito recorrente
+    // É o mecanismo recorrente. As cobranças do mês 2 em diante são criadas
+    // por fora, pela função agendada pix-automatic-billing (ver
+    // supabase/pix_automatico_migration.sql), sempre na janela de 2 a 10
+    // dias úteis antes do vencimento exigida pela Asaas.
+    if (billingType === 'PIX') {
+      const startDate = new Date().toISOString().slice(0, 10);
+      const authorization = await createPixAutomaticAuthorization({
+        customerId: customer.id,
+        // Contrato precisa ser único e <= 35 caracteres — accountId (uuid)
+        // sem hífens já garante isso e é suficiente pra rastrear no painel
+        // Asaas; a conta em si é resolvida no webhook por
+        // pix_automatic_authorization_id, não pelo contractId.
+        contractId: accountId.replace(/-/g, ''),
+        value: price,
+        firstChargeValue: finalValue,
+        description: `Cond Informa — Plano ${planName}`,
+        startDate,
+      });
+
+      const { error: dbError } = await supabaseAdmin.from('assinantes').upsert({
+        // Chave primária da tabela é asaas_subscription_id (texto, não
+        // nulo) — não existe subscription id aqui, então usamos um valor
+        // sintético derivado da autorização pra manter a mesma tabela sem
+        // precisar migrar a PK. A correlação real de verdade pro webhook é
+        // pix_automatic_authorization_id.
+        asaas_subscription_id: `pixauto_${authorization.id}`,
+        asaas_customer_id: customer.id,
+        account_id: accountId,
+        name,
+        email,
+        phone: cleanPhone,
+        cpf_cnpj: cleanCpfCnpj,
+        plan_name: planName,
+        status: 'pendente',
+        last_event: 'PIX_AUTOMATIC_RECURRING_AUTHORIZATION_CREATED',
+        pix_automatic_authorization_id: authorization.id,
+        pix_automatic_status: authorization.status || 'CREATED',
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'asaas_subscription_id' });
+      if (dbError) {
+        console.error('Erro ao gravar assinante (Pix Automático) no Supabase:', dbError.message);
+      }
+
+      if (couponId) await incrementCouponUsage(supabaseAdmin, couponId);
+
+      return jsonResponse({
+        type: 'PIX',
+        value: finalValue,
+        qrCodeImage: authorization.encodedImage,
+        copyPaste: authorization.payload,
+        expirationDate: authorization.immediateQrCode?.expirationDate,
+      });
+    }
+
+    // Boleto/Cartão continuam no modelo de assinatura clássico da Asaas.
     // Sempre cria a assinatura pelo valor CHEIO do plano — o desconto do
     // cupom nunca entra aqui, senão ele se propagaria pra todas as
     // cobranças recorrentes (é o valor da assinatura que a Asaas usa como
@@ -172,16 +232,7 @@ Deno.serve(async (req: Request) => {
 
     // Monta a resposta do checkout transparente — só o necessário pra
     // renderizar o pagamento na própria tela, nada da conta da plataforma.
-    if (billingType === 'PIX') {
-      const pix = await getPixQrCode(payment.id);
-      return jsonResponse({
-        type: 'PIX',
-        value: finalValue,
-        qrCodeImage: pix.encodedImage,
-        copyPaste: pix.payload,
-        expirationDate: pix.expirationDate,
-      });
-    }
+    // PIX não chega aqui (retorna mais acima, via Pix Automático).
     if (billingType === 'BOLETO') {
       return jsonResponse({
         type: 'BOLETO',
