@@ -119,7 +119,10 @@ Deno.serve(async (req: Request) => {
     // supabase/pix_automatico_migration.sql), sempre na janela de 2 a 10
     // dias úteis antes do vencimento exigida pela Asaas.
     if (billingType === 'PIX') {
-      const startDate = new Date().toISOString().slice(0, 10);
+      // Igual ao nextDueDate de createSubscription (assinatura clássica,
+      // logo abaixo): data de HOJE é rejeitada pela Asaas nesse tipo de
+      // criação — precisa ser pelo menos o dia seguinte.
+      const startDate = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
       const authorization = await createPixAutomaticAuthorization({
         customerId: customer.id,
         // Contrato precisa ser único e <= 35 caracteres — accountId (uuid)
@@ -275,6 +278,16 @@ Deno.serve(async (req: Request) => {
       }, 400);
     }
 
-    return jsonResponse({ error: 'Não foi possível criar a assinatura agora. Tente novamente em instantes.' }, 502);
+    // A mensagem de erro da Asaas (ex.: "startDate: data inválida",
+    // "value abaixo do mínimo") é texto descritivo de validação, não
+    // segredo nenhum — devolver ela junto do genérico deixa o problema
+    // diagnosticável na hora, direto na tela, sem precisar abrir o painel
+    // do Supabase pra ler o log. Só inclui quando o erro realmente veio da
+    // API da Asaas (status presente) — erro interno (Supabase fora do ar
+    // etc.) continua só com a mensagem genérica.
+    const genericMessage = 'Não foi possível criar a assinatura agora. Tente novamente em instantes.';
+    return jsonResponse({
+      error: status ? `${genericMessage} (${message})` : genericMessage,
+    }, 502);
   }
 });

@@ -3,7 +3,8 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { Button, TextInput, PasswordInput, Text } from '@mantine/core';
 import { ShieldCheck, QrCode, BarChart3, MailCheck } from 'lucide-react';
-import { signUp } from '../lib/authService';
+import { signUp, signIn } from '../lib/authService';
+import { accountsStore } from '../lib/stores';
 import Seo from '../components/common/Seo';
 
 function translateAuthError(message) {
@@ -23,6 +24,23 @@ export default function AdminSignup() {
     setError('');
     const { data, error: authError } = await signUp(email, password);
     if (authError) {
+      // "Já registrado" pode ser alguém tentando de novo depois de uma
+      // assinatura que falhou (conta criada no signUp, mas o pagamento
+      // Asaas não completou — ver subscribe/index.ts) — a pessoa fica sem
+      // conseguir se cadastrar de novo com o mesmo e-mail. Em vez de só
+      // mostrar o erro, tenta entrar com a senha que ela ACABOU de digitar
+      // aqui: só reaproveita a conta se a senha bater (nunca assume que
+      // "e-mail já existe" seja a mesma pessoa) — se bater e a conta ainda
+      // não tiver plano ativo, manda direto pra assinatura em vez de
+      // travar num beco sem saída.
+      if (authError.message?.includes('User already registered')) {
+        const { data: loginData, error: loginError } = await signIn(email, password);
+        if (!loginError && loginData.session) {
+          const account = await accountsStore.getById(loginData.session.user.id);
+          navigate(account && account.status !== 'ativo' ? '/assinar' : '/admin');
+          return;
+        }
+      }
       setError(translateAuthError(authError.message));
       return;
     }
