@@ -63,10 +63,9 @@ function PaymentResult({ result, planName }) {
         <Text fw={800} size="lg" mb={4}>Pague com Pix</Text>
         <Text size="sm" c="dimmed" mb="lg">
           Escaneie o QR Code ou copie o código abaixo no app do seu banco. Assim que o pagamento
-          for identificado, sua conta do plano {planName} é liberada automaticamente. Depois de
-          pagar, o app do seu banco vai pedir uma autorização de <strong>Pix Automático</strong> —
-          é assim que as próximas mensalidades são cobradas sozinhas, sem precisar gerar um novo
-          QR Code todo mês.
+          for identificado, sua conta do plano {planName} é liberada automaticamente. A cada mês um
+          novo QR Code é gerado para a mensalidade seguinte — sem autorização de débito automático,
+          o pagamento é feito manualmente todo mês.
         </Text>
         <div style={{ textAlign: 'center', marginBottom: 16 }}>
           <MantineImage src={`data:image/png;base64,${result.qrCodeImage}`} w={220} h={220} mx="auto" radius="md" />
