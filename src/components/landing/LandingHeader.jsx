@@ -21,15 +21,14 @@ export default function LandingHeader() {
         position: 'sticky',
         top: 0,
         zIndex: 100,
-        background: scrolled ? 'rgba(10,14,39,0.78)' : 'rgba(10,14,39,0.28)',
-        backdropFilter: 'blur(14px) saturate(180%)',
-        borderBottom: scrolled ? '1px solid var(--on-navy-border)' : '1px solid transparent',
-        boxShadow: scrolled ? '0 8px 24px rgba(0,0,0,0.2)' : 'none',
+        background: 'var(--card)',
+        borderBottom: scrolled ? '1px solid var(--border)' : '1px solid transparent',
+        boxShadow: scrolled ? '0 8px 24px rgba(16,20,44,0.08)' : 'none',
         transition: 'all 0.3s var(--ease)',
       }}
     >
       <div className="container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 72 }}>
-        <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 10, fontWeight: 800, fontSize: 18, color: '#fff', textTransform: 'uppercase' }}>
+        <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 10, fontWeight: 800, fontSize: 18, color: 'var(--text)', textTransform: 'uppercase' }}>
           <img src={`${import.meta.env.BASE_URL}logo-icon.png`} alt="" style={{ height: 34, width: 'auto' }} />
           Cond Informa
         </Link>
@@ -42,9 +41,9 @@ export default function LandingHeader() {
             variant="subtle"
             size="sm"
             className="header-install-btn"
-            styles={{ root: { color: '#fff' } }}
+            styles={{ root: { color: 'var(--text)' } }}
           />
-          <Button component={Link} to="/admin/login" variant="subtle" size="sm" ml={6} className="header-manager-btn header-manager-btn--full" styles={{ root: { color: '#fff' } }}>Painel do gestor</Button>
+          <Button component={Link} to="/admin/login" variant="subtle" size="sm" ml={6} className="header-manager-btn header-manager-btn--full" styles={{ root: { color: 'var(--text)' } }}>Painel do gestor</Button>
           <ActionIcon
             component={Link}
             to="/admin/login"
@@ -52,7 +51,7 @@ export default function LandingHeader() {
             size="lg"
             radius="xl"
             className="header-manager-btn--icon"
-            style={{ color: '#fff' }}
+            style={{ color: 'var(--text)' }}
             aria-label="Painel do gestor"
           >
             <ShieldCheck size={19} />
@@ -62,10 +61,10 @@ export default function LandingHeader() {
       </div>
       <style>{`
         .nav-link {
-          font-size: 14px; font-weight: 600; color: var(--on-navy-muted);
+          font-size: 14px; font-weight: 600; color: var(--text-muted);
           padding: 8px 12px; border-radius: 8px; transition: all 0.2s var(--ease);
         }
-        .nav-link:hover { color: #fff; background: var(--on-navy-chip-bg); }
+        .nav-link:hover { color: var(--text); background: var(--bg-soft); }
         .header-manager-btn--icon { display: none; }
         @media (max-width: 860px) {
           .nav-link { display: none; }
