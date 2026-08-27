@@ -3,6 +3,7 @@ import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { Button, ActionIcon, Menu, Text, Group, Loader } from '@mantine/core';
 import {
   Settings, Building2, AlertTriangle, BarChart3, Users, Menu as MenuIcon, QrCode, UserPlus, History, Lock, LogOut,
+  Wallet,
 } from 'lucide-react';
 import { signOut, getSession } from '../lib/authService';
 import { accountsStore } from '../lib/stores';
@@ -26,6 +27,7 @@ const BASE_NAV_ITEMS = [
 // conta principal — mesmo critério que já existia dentro do Drawer de
 // Configurações, só que agora como itens de sidebar em vez de seções.
 const PRINCIPAL_NAV_ITEMS = [
+  { to: '/admin/financeiro', label: 'Financeiro', icon: Wallet, match: (p) => p.startsWith('/admin/financeiro') },
   { to: '/admin/sub-usuarios', label: 'Sub-usuários', icon: UserPlus, match: (p) => p.startsWith('/admin/sub-usuarios') },
   { to: '/admin/auditoria', label: 'Auditoria', icon: History, match: (p) => p.startsWith('/admin/auditoria') },
 ];

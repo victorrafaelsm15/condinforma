@@ -61,6 +61,7 @@ const ChecklistPeriodoPage = lazyWithChunkRetry(() => import('./pages/ChecklistP
 const OcorrenciaDetailPage = lazyWithChunkRetry(() => import('./pages/OcorrenciaDetailPage'));
 const OcorrenciasPage = lazyWithChunkRetry(() => import('./pages/OcorrenciasPage'));
 const RelatoriosPage = lazyWithChunkRetry(() => import('./pages/RelatoriosPage'));
+const FinanceiroPage = lazyWithChunkRetry(() => import('./pages/FinanceiroPage'));
 const SubUsuariosPage = lazyWithChunkRetry(() => import('./pages/SubUsuariosPage'));
 const AuditoriaPage = lazyWithChunkRetry(() => import('./pages/AuditoriaPage'));
 const SegurancaPage = lazyWithChunkRetry(() => import('./pages/SegurancaPage'));
@@ -104,6 +105,7 @@ export default function App() {
             <Route path="/admin/ambientes/:ambienteId/ocorrencias/:ocorrenciaId" element={<OcorrenciaDetailPage />} />
             <Route path="/admin/ocorrencias" element={<OcorrenciasPage />} />
             <Route path="/admin/relatorios" element={<RelatoriosPage />} />
+            <Route path="/admin/financeiro" element={<FinanceiroPage />} />
             <Route path="/admin/sub-usuarios" element={<SubUsuariosPage />} />
             <Route path="/admin/auditoria" element={<AuditoriaPage />} />
             <Route path="/admin/seguranca" element={<SegurancaPage />} />

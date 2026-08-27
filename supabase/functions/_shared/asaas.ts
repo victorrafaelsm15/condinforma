@@ -113,6 +113,23 @@ export async function getPixQrCode(paymentId: string) {
   return asaasFetch(`/payments/${paymentId}/pixQrCode`);
 }
 
+// Dados atuais da assinatura — usado pela tela Financeiro pra mostrar forma
+// de pagamento e data da próxima cobrança (nenhuma das duas fica espelhada
+// na nossa tabela "assinantes", só existem no lado da Asaas).
+export async function getSubscription(subscriptionId: string) {
+  return asaasFetch(`/subscriptions/${subscriptionId}`);
+}
+
+// Cobrança mais recente da assinatura (maior dueDate) — a API não documenta
+// a ordem de retorno de /subscriptions/{id}/payments, então ordena aqui em
+// vez de assumir que o primeiro/último item já vem na ordem certa.
+export async function getLatestPayment(subscriptionId: string) {
+  const payments = await asaasFetch(`/subscriptions/${subscriptionId}/payments`);
+  const list = payments?.data || [];
+  if (!list.length) return null;
+  return [...list].sort((a, b) => new Date(b.dueDate).getTime() - new Date(a.dueDate).getTime())[0];
+}
+
 // Cancela uma assinatura no Asaas — usado quando o cliente troca de plano,
 // pra não deixar a assinatura antiga cobrando em paralelo com a nova.
 export async function cancelSubscription(subscriptionId: string) {
