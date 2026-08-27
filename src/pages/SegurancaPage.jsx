@@ -1,9 +1,78 @@
-import { useState } from 'react';
-import { Text, PasswordInput, Button } from '@mantine/core';
+import { useEffect, useState } from 'react';
+import { Text, PasswordInput, TextInput, Button } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { ShieldCheck } from 'lucide-react';
+import { ShieldCheck, MessageCircle } from 'lucide-react';
 import { getSession, signIn } from '../lib/authService';
 import { supabase } from '../lib/supabaseClient';
+import { accountsStore } from '../lib/stores';
+import { getSubUsuarioInfo } from '../lib/subUsuario';
+import { onlyDigits } from '../lib/whatsapp';
+
+function WhatsAppSection() {
+  const [accountId, setAccountId] = useState(null);
+  const [whatsapp, setWhatsapp] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    (async () => {
+      const session = await getSession();
+      if (!session?.user?.id) { setLoading(false); return; }
+      // WhatsApp é da conta principal (o número do síndico), nunca do
+      // login individual — sub-usuário nem consegue gravar aqui mesmo
+      // (RLS de accounts só libera update quando id = auth.uid(), e o uid
+      // do sub-usuário nunca é o id da conta dona), então a seção some pra
+      // ele em vez de deixar salvar sem efeito nenhum.
+      const subInfo = await getSubUsuarioInfo(session.user.id);
+      if (subInfo) { setLoading(false); return; }
+      setAccountId(session.user.id);
+      const account = await accountsStore.getById(session.user.id);
+      setWhatsapp(account?.whatsapp_phone || '');
+      setLoading(false);
+    })();
+  }, []);
+
+  const handleSave = async () => {
+    setError('');
+    const digits = onlyDigits(whatsapp);
+    if (digits.length < 10) {
+      setError('Informe um WhatsApp válido, com DDD.');
+      return;
+    }
+    setSaving(true);
+    try {
+      await accountsStore.update(accountId, { whatsapp_phone: digits });
+      notifications.show({ color: 'green', message: 'WhatsApp de contato atualizado.' });
+    } catch {
+      setError('Não foi possível salvar agora. Tente novamente.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading || !accountId) return null;
+
+  return (
+    <div className="surface-card" style={{ padding: 24, maxWidth: 420, marginTop: 20 }}>
+      <Text fw={700} mb={4}>WhatsApp de contato</Text>
+      <Text size="sm" c="dimmed" mb="md">
+        Exibido no botão "Falar com o síndico" das páginas públicas de QR Code (colaborador e morador).
+      </Text>
+      <TextInput
+        label="WhatsApp (com DDD)"
+        placeholder="(00) 00000-0000"
+        value={whatsapp}
+        onChange={(e) => setWhatsapp(e.currentTarget.value)}
+        mb="md"
+      />
+      {error && <Text size="sm" c="red" mb="md">{error}</Text>}
+      <Button fullWidth leftSection={<MessageCircle size={16} />} onClick={handleSave} loading={saving}>
+        Salvar WhatsApp
+      </Button>
+    </div>
+  );
+}
 
 export default function SegurancaPage() {
   const [currentPassword, setCurrentPassword] = useState('');
@@ -96,6 +165,8 @@ export default function SegurancaPage() {
           Trocar senha
         </Button>
       </div>
+
+      <WhatsAppSection />
     </div>
   );
 }

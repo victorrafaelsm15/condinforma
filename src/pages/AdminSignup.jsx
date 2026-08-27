@@ -5,6 +5,7 @@ import { Button, TextInput, PasswordInput, Text } from '@mantine/core';
 import { ShieldCheck, QrCode, BarChart3, MailCheck } from 'lucide-react';
 import { signUp, signIn } from '../lib/authService';
 import { accountsStore } from '../lib/stores';
+import { onlyDigits } from '../lib/whatsapp';
 import Seo from '../components/common/Seo';
 
 function translateAuthError(message) {
@@ -20,9 +21,9 @@ export default function AdminSignup() {
   const [awaitingConfirmation, setAwaitingConfirmation] = useState(false);
   const { register, handleSubmit, watch, formState: { isSubmitting, errors } } = useForm();
 
-  const onSubmit = async ({ email, password }) => {
+  const onSubmit = async ({ email, password, whatsapp }) => {
     setError('');
-    const { data, error: authError } = await signUp(email, password);
+    const { data, error: authError } = await signUp(email, password, onlyDigits(whatsapp));
     if (authError) {
       // "Já registrado" pode ser alguém tentando de novo depois de uma
       // assinatura que falhou (conta criada no signUp, mas o pagamento
@@ -132,6 +133,14 @@ export default function AdminSignup() {
                 placeholder="voce@condinforma.com"
                 error={errors.email && 'Informe um e-mail válido'}
                 {...register('email', { required: true, pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/ })}
+              />
+              <TextInput
+                label="WhatsApp (com DDD)"
+                placeholder="(00) 00000-0000"
+                mt="md"
+                description="Usado no botão 'Falar com o síndico' das páginas públicas de QR Code"
+                error={errors.whatsapp && 'Informe um WhatsApp válido'}
+                {...register('whatsapp', { required: true, minLength: 10 })}
               />
               <PasswordInput
                 label="Senha"

@@ -10,6 +10,7 @@ import { enqueue, syncQueue, isPending, subscribeQueue, generateRecordId } from 
 import { reporterLabel } from '../lib/ocorrenciaDisplay';
 import OcorrenciaForm from '../components/OcorrenciaForm';
 import Seo from '../components/common/Seo';
+import FalarComSindicoButton from '../components/common/FalarComSindicoButton';
 
 function fileToBase64(file) {
   return new Promise((resolve, reject) => {
@@ -392,6 +393,8 @@ export default function ExecutarChecklistPage() {
         </Group>
 
         <Text fw={800} size="xl" mb={18}>{ambiente.name}</Text>
+
+        <FalarComSindicoButton ambienteId={id} />
 
         {!isOnline && (
           <div

@@ -6,6 +6,7 @@ import { CheckCircle2, Clock, Building2, ListChecks, HelpCircle, AlertTriangle }
 import { ambientesStore, execucoesStore, checklistPeriodosStore, checklistItemsStore, ocorrenciasStore } from '../lib/stores';
 import OcorrenciaForm from '../components/OcorrenciaForm';
 import Seo from '../components/common/Seo';
+import FalarComSindicoButton from '../components/common/FalarComSindicoButton';
 
 // Quatro estados possíveis, dos mais pros menos "tudo certo" — uma
 // ocorrência pendente pesa mais que checklist incompleto (um problema
@@ -89,7 +90,9 @@ export default function StatusPublicoPage() {
           </span>
           <Text size="xs" c="dimmed" fw={700} tt="uppercase" style={{ letterSpacing: '0.06em' }}>Cond Informa</Text>
         </Group>
-        <Text fw={800} size="xl" ta="center" mb={28}>{ambiente.name}</Text>
+        <Text fw={800} size="xl" ta="center" mb={16}>{ambiente.name}</Text>
+
+        <FalarComSindicoButton ambienteId={id} />
 
         <motion.div
           initial={{ opacity: 0, y: 18 }}

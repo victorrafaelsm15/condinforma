@@ -4,10 +4,15 @@
 // usam auth.uid() como account_id dono de cada registro.
 import { supabase } from './supabaseClient';
 
-export async function signUp(email, password) {
+// whatsappPhone vai em options.data (user_metadata) — não é coluna nativa
+// de auth.users, só chega em accounts.whatsapp_phone porque
+// handle_new_user_account() (schema.sql) lê raw_user_meta_data no INSERT
+// automático que dispara na criação do usuário.
+export async function signUp(email, password, whatsappPhone) {
   const { data, error } = await supabase.auth.signUp({
     email: email.trim(),
     password,
+    options: { data: { whatsapp_phone: whatsappPhone || null } },
   });
   return { data, error };
 }
