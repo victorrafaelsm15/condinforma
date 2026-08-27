@@ -10,6 +10,7 @@
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { corsHeaders, jsonResponse } from '../_shared/cors.ts';
+import { checkRateLimit, rateLimitResponse } from '../_shared/rateLimit.ts';
 
 const ANTHROPIC_MODEL = 'claude-haiku-4-5-20251001';
 const MAX_MESSAGES = 20;
@@ -75,6 +76,14 @@ Deno.serve(async (req: Request) => {
   if (userError || !userData.user) {
     return jsonResponse({ error: 'Sessão inválida ou expirada.' }, 401);
   }
+
+  // Rota autenticada: limite por conta. Cada chamada custa uma requisição
+  // real à API da Anthropic — 20 a cada 10 minutos cobre uma conversa
+  // inteira de suporte com folga, sem deixar a cota aberta pra abuso.
+  const allowed = await checkRateLimit({
+    supabaseAdmin, key: `support-chat:acc:${userData.user.id}`, max: 20, windowSeconds: 600,
+  });
+  if (!allowed) return rateLimitResponse();
 
   const { messages } = await req.json().catch(() => ({}));
   if (!isValidMessages(messages)) {

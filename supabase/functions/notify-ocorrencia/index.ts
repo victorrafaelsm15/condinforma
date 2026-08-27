@@ -14,6 +14,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { corsHeaders, jsonResponse } from '../_shared/cors.ts';
 import { sendPushToAccounts } from '../_shared/pushNotify.ts';
+import { checkRateLimit, rateLimitResponse, getClientIp } from '../_shared/rateLimit.ts';
 
 const supabaseAdmin = createClient(
   Deno.env.get('SUPABASE_URL') ?? '',
@@ -27,6 +28,14 @@ Deno.serve(async (req: Request) => {
   if (req.method !== 'POST') {
     return jsonResponse({ error: 'Método não permitido.' }, 405);
   }
+
+  // Rota anônima (colaborador/morador sem login): limite por IP. 20 a cada
+  // 10 minutos cobre um prédio inteiro registrando ocorrências em sequência
+  // sem abrir brecha pra um script martelar o envio de push.
+  const allowed = await checkRateLimit({
+    supabaseAdmin, key: `notify-ocorrencia:ip:${getClientIp(req)}`, max: 20, windowSeconds: 600,
+  });
+  if (!allowed) return rateLimitResponse();
 
   const { ocorrenciaId } = await req.json().catch(() => ({}));
   if (!ocorrenciaId) {

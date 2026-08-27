@@ -23,6 +23,7 @@ import { corsHeaders, jsonResponse } from '../_shared/cors.ts';
 import { PLAN_PRICES } from '../_shared/plans.ts';
 import { validateAndApplyCoupon, incrementCouponUsage } from '../_shared/cupons.ts';
 import { validateSubscribeInput, onlyDigits } from '../_shared/subscribeValidation.ts';
+import { checkRateLimit, rateLimitResponse } from '../_shared/rateLimit.ts';
 
 const supabaseAdmin = createClient(
   Deno.env.get('SUPABASE_URL') ?? '',
@@ -49,6 +50,15 @@ Deno.serve(async (req: Request) => {
     return jsonResponse({ error: 'Sessão inválida ou expirada. Cadastre-se novamente.' }, 401);
   }
   const accountId = userData.user.id;
+
+  // Rota autenticada: limite por conta. Cria cliente/assinatura de verdade
+  // no Asaas a cada chamada — 5 tentativas a cada 10 minutos é sobra pra
+  // alguém corrigindo um cartão recusado ou um cupom digitado errado, mas
+  // barra um loop automatizado gerando assinaturas.
+  const allowed = await checkRateLimit({
+    supabaseAdmin, key: `subscribe:acc:${accountId}`, max: 5, windowSeconds: 600,
+  });
+  if (!allowed) return rateLimitResponse();
 
   const {
     planName, name, email, cpfCnpj, phone, billingType, couponCode, creditCard, cep, addressNumber,

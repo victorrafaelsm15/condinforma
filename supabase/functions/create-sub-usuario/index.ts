@@ -13,6 +13,7 @@
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { corsHeaders, jsonResponse } from '../_shared/cors.ts';
+import { checkRateLimit, rateLimitResponse } from '../_shared/rateLimit.ts';
 
 const supabaseAdmin = createClient(
   Deno.env.get('SUPABASE_URL') ?? '',
@@ -41,6 +42,14 @@ Deno.serve(async (req: Request) => {
     return jsonResponse({ error: 'Sessão inválida ou expirada.' }, 401);
   }
   const accountId = userData.user.id;
+
+  // Rota autenticada: limite por conta. Criar sub-usuário não é uma ação
+  // do dia a dia — 10 por hora já é bem mais do que o limite de qualquer
+  // plano permite cadastrar de uma vez.
+  const allowed = await checkRateLimit({
+    supabaseAdmin, key: `create-sub-usuario:acc:${accountId}`, max: 10, windowSeconds: 3600,
+  });
+  if (!allowed) return rateLimitResponse();
 
   const { nome, email, password, condominioIds } = await req.json().catch(() => ({}));
 

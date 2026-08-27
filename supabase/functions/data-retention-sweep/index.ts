@@ -12,6 +12,11 @@
 // Sem infraestrutura de e-mail no projeto — os avisos ficam registrados no
 // audit_log (visível na aba Auditoria do painel), como o pedido previu
 // como alternativa quando não há e-mail disponível.
+//
+// Também aproveita essa varredura diária pra limpar rate_limit_buckets
+// (ver _shared/rateLimit.ts / rate_limit_migration.sql) — sem isso a
+// tabela cresceria pra sempre, uma linha por IP/conta que já bateu numa
+// rota limitada.
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { corsHeaders, jsonResponse } from '../_shared/cors.ts';
@@ -99,6 +104,9 @@ Deno.serve(async (req: Request) => {
         result.errors.push(`${acc.id}: ${message}`);
       }
     }
+
+    const { error: cleanupError } = await supabaseAdmin.rpc('cleanup_rate_limit_buckets');
+    if (cleanupError) console.error('Erro ao limpar rate_limit_buckets:', cleanupError.message);
 
     return jsonResponse({ ok: true, ...result });
   } catch (err) {
