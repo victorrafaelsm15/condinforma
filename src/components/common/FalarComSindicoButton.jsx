@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Button } from '@mantine/core';
-import { MessageCircle } from 'lucide-react';
+import { IconBrandWhatsappFilled } from '@tabler/icons-react';
 import { fetchSindicoWhatsapp, buildWhatsAppLink } from '../../lib/whatsapp';
 
 // Botão "Falar com o síndico" das páginas públicas de QR Code
@@ -26,11 +26,11 @@ export default function FalarComSindicoButton({ ambienteId }) {
       href={link}
       target="_blank"
       rel="noreferrer"
-      variant="outline"
+      variant="filled"
       color="green"
       fullWidth
       size="md"
-      leftSection={<MessageCircle size={16} />}
+      leftSection={<IconBrandWhatsappFilled size={18} />}
       mb={18}
       style={{ minHeight: 44 }}
     >

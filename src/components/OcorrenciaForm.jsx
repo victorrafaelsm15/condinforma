@@ -117,7 +117,7 @@ export default function OcorrenciaForm({
       {!expanded ? (
         <motion.div key="btn" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
           <Button
-            variant="subtle"
+            variant="filled"
             color="red"
             fullWidth
             size="md"
