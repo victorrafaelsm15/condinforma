@@ -36,7 +36,7 @@ export default function AdminLogin() {
         <div className="blob" style={{ width: 360, height: 360, bottom: -140, right: -100, background: 'radial-gradient(circle, rgba(51,85,232,0.4), transparent 70%)' }} />
         <div style={{ position: 'relative', zIndex: 1 }}>
           <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 10, fontWeight: 800, fontSize: 18, color: '#fff', marginBottom: 44, textTransform: 'uppercase' }}>
-            <img src={`${import.meta.env.BASE_URL}logo-icon.png`} alt="" style={{ height: 34, width: 'auto' }} />
+            <img src={`${import.meta.env.BASE_URL}logo-icon-white.png`} alt="" style={{ height: 34, width: 'auto' }} />
             Cond Informa
           </Link>
           <h1 style={{ fontSize: 'clamp(26px,3vw,34px)', fontWeight: 800, lineHeight: 1.2, margin: '0 0 16px', maxWidth: 420 }}>

@@ -306,7 +306,7 @@ export default function AssinaturaPage() {
         <div className="blob" style={{ width: 420, height: 420, top: -140, left: -140, background: 'radial-gradient(circle, rgba(124,108,246,0.45), transparent 70%)' }} />
         <div style={{ position: 'relative', zIndex: 1 }}>
           <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 10, fontWeight: 800, fontSize: 18, color: '#fff', marginBottom: 40, textTransform: 'uppercase' }}>
-            <img src={`${import.meta.env.BASE_URL}logo-icon.png`} alt="" style={{ height: 32, width: 'auto' }} />
+            <img src={`${import.meta.env.BASE_URL}logo-icon-white.png`} alt="" style={{ height: 32, width: 'auto' }} />
             Cond Informa
           </Link>
           <Text size="md" fw={700} tt="uppercase" style={{ opacity: 0.7, letterSpacing: '0.06em' }}>Plano selecionado</Text>
