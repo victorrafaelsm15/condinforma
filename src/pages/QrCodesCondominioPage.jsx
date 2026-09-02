@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Text, Group, Loader, ActionIcon, Breadcrumbs, Button, TextInput } from '@mantine/core';
-import { ArrowLeft, Printer, DoorOpen, LayoutGrid, ChevronDown, ChevronUp, Search } from 'lucide-react';
+import { notifications } from '@mantine/notifications';
+import { ArrowLeft, FileDown, DoorOpen, LayoutGrid, ChevronDown, ChevronUp, Search } from 'lucide-react';
 import { condominiosStore, ambientesStore } from '../lib/stores';
-import AmbienteQrCards from '../components/admin/AmbienteQrCards';
+import { getSession } from '../lib/authService';
+import AmbienteQrCards, { getAmbienteQrCardDefs } from '../components/admin/AmbienteQrCards';
+import { generateQrCodesPdf, downloadQrCodesPdf } from '../lib/qrCodesPdf';
 
 const PAGE_SIZE = 3;
 
@@ -15,6 +18,7 @@ export default function QrCodesCondominioPage() {
   const [showAll, setShowAll] = useState(false);
   const [search, setSearch] = useState('');
   const [selectedIds, setSelectedIds] = useState(() => new Set());
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -51,11 +55,45 @@ export default function QrCodesCondominioPage() {
   const deselectAll = () => setSelectedIds(new Set());
   const hasSelection = selectedIds.size > 0;
 
+  // Sem seleção: exporta todos os QR Codes dos ambientes visíveis (mesmo
+  // critério do botão antigo "Imprimir todos"). Com seleção: só os
+  // marcados — e o ambiente inteiro some se nenhum dos seus 2 QR Codes
+  // foi marcado. É a mesma função pra 1 ou pra vários: o card completo
+  // (cor, título, nome do ambiente, QR Code) sai igual em ambos os casos.
+  const handleExportPdf = async () => {
+    setExporting(true);
+    try {
+      const sections = filteredAmbientes
+        .map((a) => {
+          const cards = getAmbienteQrCardDefs(a).filter((c) => !hasSelection || selectedIds.has(c.id));
+          return { ambienteName: a.name, cards };
+        })
+        .filter((section) => section.cards.length);
+
+      if (!sections.length) {
+        notifications.show({ color: 'yellow', message: 'Nenhum QR Code selecionado para exportar.' });
+        return;
+      }
+
+      const session = await getSession();
+      const { doc } = await generateQrCodesPdf({
+        condominioName: condominio?.name,
+        sections,
+        userEmail: session?.user?.email,
+      });
+      downloadQrCodesPdf(doc, `qrcodes-${condominio?.name || 'condominio'}.pdf`);
+    } catch {
+      notifications.show({ color: 'red', message: 'Não foi possível gerar o PDF agora. Tente novamente.' });
+    } finally {
+      setExporting(false);
+    }
+  };
+
   if (loading) return <Group justify="center" py={60}><Loader color="brand" /></Group>;
 
   return (
-    <div className={hasSelection ? 'has-selection' : ''}>
-      <Group gap={10} mb="md" className="no-print">
+    <div>
+      <Group gap={10} mb="md">
         <ActionIcon component={Link} to={`/admin/condominios/${id}/dashboard`} variant="light" color="gray" radius="xl" size="lg" aria-label="Voltar">
           <ArrowLeft size={18} />
         </ActionIcon>
@@ -66,18 +104,18 @@ export default function QrCodesCondominioPage() {
         </Breadcrumbs>
       </Group>
 
-      <Group justify="space-between" align="flex-start" mb="lg" className="no-print" wrap="wrap">
+      <Group justify="space-between" align="flex-start" mb="lg" wrap="wrap">
         <div>
           <Text fw={800} size="1.6rem">QR Codes: {condominio?.name}</Text>
           <Text size="md" c="dimmed" mt={2}>Todos os ambientes em um só lugar, prontos pra reimprimir.</Text>
         </div>
-        <Button leftSection={<Printer size={16} />} onClick={() => window.print()} disabled={!ambientes.length}>
-          {hasSelection ? `Imprimir selecionados (${selectedIds.size})` : 'Imprimir todos'}
+        <Button leftSection={<FileDown size={16} />} onClick={handleExportPdf} loading={exporting} disabled={!ambientes.length}>
+          {hasSelection ? `Baixar PDF (${selectedIds.size})` : 'Baixar PDF (todos)'}
         </Button>
       </Group>
 
       {!!ambientes.length && (
-        <Group justify="space-between" align="center" mb="xl" className="no-print" wrap="wrap" gap={10}>
+        <Group justify="space-between" align="center" mb="xl" wrap="wrap" gap={10}>
           <TextInput
             placeholder="Buscar ambiente..."
             leftSection={<Search size={15} />}
@@ -92,19 +130,11 @@ export default function QrCodesCondominioPage() {
         </Group>
       )}
 
-      <div className="print-title" style={{ display: 'none', marginBottom: 24 }}>
-        <Text fw={800} size="xl">{condominio?.name}: QR Codes dos ambientes</Text>
-      </div>
-
       {ambientes.length ? (
         filteredAmbientes.length ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
             {filteredAmbientes.map((a, i) => (
-              <div
-                key={a.id}
-                className={i >= PAGE_SIZE ? 'qr-print-block qr-extra' : 'qr-print-block'}
-                style={{ pageBreakInside: 'avoid', display: i >= PAGE_SIZE && !showAll ? 'none' : undefined }}
-              >
+              <div key={a.id} style={{ display: i >= PAGE_SIZE && !showAll ? 'none' : undefined }}>
                 <Group gap={10} mb={12}>
                   <span className="icon-tile" style={{ background: 'var(--blue-light)', width: 32, height: 32, borderRadius: 10 }}>
                     <DoorOpen size={16} color="var(--blue)" />
@@ -120,14 +150,13 @@ export default function QrCodesCondominioPage() {
                 color="gray"
                 onClick={() => setShowAll((v) => !v)}
                 leftSection={showAll ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                className="no-print"
               >
                 {showAll ? 'Ver menos' : `Ver mais ambientes (${filteredAmbientes.length - PAGE_SIZE})`}
               </Button>
             )}
           </div>
         ) : (
-          <div className="surface-card no-print" style={{ textAlign: 'center', padding: '56px 24px' }}>
+          <div className="surface-card" style={{ textAlign: 'center', padding: '56px 24px' }}>
             <Text c="dimmed">Nenhum ambiente encontrado para &quot;{search}&quot;.</Text>
           </div>
         )
@@ -139,24 +168,6 @@ export default function QrCodesCondominioPage() {
           <Text c="dimmed">Nenhum ambiente cadastrado neste condomínio ainda.</Text>
         </div>
       )}
-
-      <style>{`
-        @media print {
-          .no-print { display: none !important; }
-          .print-title { display: block !important; }
-          .admin-nav-link, header { display: none !important; }
-          main { padding: 0 !important; max-width: 100% !important; }
-          .qr-print-block { break-inside: avoid; margin-bottom: 24px; }
-          /* "Imprimir todos" sempre sai completo, mesmo com "Ver mais" ainda
-             recolhido na tela — a paginação é só uma conveniência visual. */
-          .qr-extra { display: block !important; }
-          /* Com seleção ativa, só os QR Codes marcados saem impressos — e o
-             bloco do ambiente inteiro some se nenhum dos seus QR Codes foi
-             selecionado. Sem seleção nenhuma, imprime tudo (regra acima). */
-          .has-selection .qr-card:not(.selected) { display: none !important; }
-          .has-selection .qr-print-block:not(:has(.qr-card.selected)) { display: none !important; }
-        }
-      `}</style>
     </div>
   );
 }

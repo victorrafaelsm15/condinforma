@@ -12,39 +12,52 @@ export function getAmbienteQrUrls(ambienteId) {
   };
 }
 
+// Serializa o <svg> do QR Code (renderizado pelo qrcode.react) pra um PNG em
+// canvas, com uma margem branca ao redor (câmera de celular precisa dessa
+// "quiet zone" pra decodificar direito). Usado tanto pro download individual
+// (downloadQr abaixo) quanto pela exportação em PDF (qrCodesPdf.js), que
+// reaproveita os mesmos <svg> já renderizados na tela em vez de gerar o QR
+// de novo.
+export function svgToPngDataUrl(elId, padding = 20) {
+  return new Promise((resolve, reject) => {
+    const svg = document.getElementById(elId);
+    if (!svg) { reject(new Error(`SVG #${elId} não encontrado.`)); return; }
+    const svgData = new XMLSerializer().serializeToString(svg);
+    const canvas = document.createElement('canvas');
+    const img = new window.Image();
+    const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(svgBlob);
+    img.onload = () => {
+      canvas.width = img.width + padding * 2;
+      canvas.height = img.height + padding * 2;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, padding, padding);
+      URL.revokeObjectURL(url);
+      resolve(canvas.toDataURL('image/png'));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error(`Falha ao carregar SVG #${elId}.`)); };
+    img.src = url;
+  });
+}
+
 export function downloadQr(elId, filename) {
-  const svg = document.getElementById(elId);
-  if (!svg) return;
-  const svgData = new XMLSerializer().serializeToString(svg);
-  const canvas = document.createElement('canvas');
-  const img = new window.Image();
-  const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
-  const url = URL.createObjectURL(svgBlob);
-  img.onload = () => {
-    canvas.width = img.width + 40;
-    canvas.height = img.height + 40;
-    const ctx = canvas.getContext('2d');
-    ctx.fillStyle = '#fff';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(img, 20, 20);
-    URL.revokeObjectURL(url);
-    const pngUrl = canvas.toDataURL('image/png');
+  svgToPngDataUrl(elId).then((pngUrl) => {
     const a = document.createElement('a');
     a.href = pngUrl;
     a.download = filename;
     a.click();
-  };
-  img.src = url;
+  });
 }
 
-// Os dois cartões de QR Code (execução + status público) de um ambiente.
-// Usado tanto na aba "QR Codes" do ambiente quanto na página agregada de
-// QR Codes do condomínio inteiro (pra reimprimir tudo de uma vez).
-export default function AmbienteQrCards({ ambiente, size = 150, showDownload = true, selectable = false, selectedIds, onToggle }) {
+// Definição dos 2 cartões de um ambiente — extraída à parte pra ser
+// reaproveitada também pela exportação em PDF (qrCodesPdf.js), sem duplicar
+// título/descrição/cor num segundo lugar.
+export function getAmbienteQrCardDefs(ambiente) {
   const { execUrl, statusUrl } = getAmbienteQrUrls(ambiente.id);
   const idPrefix = `qr-${ambiente.id}`;
-
-  const cards = [
+  return [
     {
       id: `${idPrefix}-exec`,
       title: 'Execução do checklist',
@@ -64,6 +77,13 @@ export default function AmbienteQrCards({ ambiente, size = 150, showDownload = t
       color: 'green',
     },
   ];
+}
+
+// Os dois cartões de QR Code (execução + status público) de um ambiente.
+// Usado tanto na aba "QR Codes" do ambiente quanto na página agregada de
+// QR Codes do condomínio inteiro (pra reimprimir tudo de uma vez).
+export default function AmbienteQrCards({ ambiente, size = 150, showDownload = true, selectable = false, selectedIds, onToggle }) {
+  const cards = getAmbienteQrCardDefs(ambiente);
 
   return (
     <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
