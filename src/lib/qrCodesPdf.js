@@ -11,8 +11,17 @@ const CARD_COLOR = { brand: BLUE, green: GREEN };
 const MARGIN_X = 14;
 const CARD_W = 87;
 const CARD_GAP = 8;
-const CARD_H = 78;
+const CARD_H = 88;
 const HEADER_H = 26;
+// Painel branco do QR: ancorado a uma distância fixa do TOPO e do FUNDO do
+// card (CARD_PAD nos dois lados), em vez de empilhado a partir do texto —
+// senão a sobra colorida embaixo do QR varia (ou desaparece) conforme o
+// texto acima muda de tamanho. Com os dois lados fixos, a margem colorida
+// fica sempre igual em cima e embaixo, por construção.
+const CARD_PAD = 8;
+const QR_SIZE = 42;
+const QR_PANEL_PAD = 4;
+const QR_PANEL_SIZE = QR_SIZE + QR_PANEL_PAD * 2;
 
 // Logo convertida pra data URL uma vez só e cacheada — jsPDF.addImage não
 // aceita uma URL direto, precisa de data URL/base64. Duas variantes, como no
@@ -86,7 +95,7 @@ function drawCard(doc, x, y, card) {
   doc.roundedRect(x, y, CARD_W, CARD_H, 4, 4, 'F');
 
   const centerX = x + CARD_W / 2;
-  let cy = y + 9;
+  let cy = y + CARD_PAD + 4;
 
   doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'normal');
@@ -103,16 +112,15 @@ function drawCard(doc, x, y, card) {
   doc.setFontSize(7.5);
   const descLines = doc.splitTextToSize(card.desc, CARD_W - 14);
   doc.text(descLines, centerX, cy, { align: 'center' });
-  cy += descLines.length * 3.6 + 4;
 
-  // Painel branco com o QR Code, centralizado no restante do card.
-  const qrSize = 46;
-  const panelPad = 4;
-  const panelSize = qrSize + panelPad * 2;
-  const panelX = centerX - panelSize / 2;
+  // Painel branco com o QR Code — ancorado à distância CARD_PAD do fundo do
+  // card, igual à distância do texto até o topo, pra sobra colorida ficar
+  // simétrica em cima e embaixo independente do tamanho do texto acima.
+  const panelX = centerX - QR_PANEL_SIZE / 2;
+  const panelY = y + CARD_H - CARD_PAD - QR_PANEL_SIZE;
   doc.setFillColor(255, 255, 255);
-  doc.roundedRect(panelX, cy, panelSize, panelSize, 3, 3, 'F');
-  doc.addImage(card.qrDataUrl, 'PNG', panelX + panelPad, cy + panelPad, qrSize, qrSize);
+  doc.roundedRect(panelX, panelY, QR_PANEL_SIZE, QR_PANEL_SIZE, 3, 3, 'F');
+  doc.addImage(card.qrDataUrl, 'PNG', panelX + QR_PANEL_PAD, panelY + QR_PANEL_PAD, QR_SIZE, QR_SIZE);
 }
 
 /**
