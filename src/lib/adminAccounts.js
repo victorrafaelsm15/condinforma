@@ -40,8 +40,14 @@ export async function deleteAccount(userId) {
   return true;
 }
 
+// assinante_cupons é embutido via a FK asaas_subscription_id (ver
+// supabase/cupons_duracao_migration.sql) — cada assinante tem no máximo uma
+// linha lá, só quando o cupom usado vale por mais de uma cobrança.
 export async function listAssinantes() {
-  const { data, error } = await supabase.from('assinantes').select('*').order('created_at', { ascending: false });
+  const { data, error } = await supabase
+    .from('assinantes')
+    .select('*, assinante_cupons(cobrancas_restantes, tipo, valor)')
+    .order('created_at', { ascending: false });
   if (error) return [];
   return data || [];
 }

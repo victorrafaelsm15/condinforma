@@ -163,6 +163,7 @@ function AssinantesTab() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       {list.map((s) => {
         const statusInfo = STATUS_STYLES[s.status] || { color: 'gray', label: s.status || '—' };
+        const cupomAtivo = s.assinante_cupons?.[0];
         return (
           <div key={s.asaas_subscription_id} className="surface-card" style={{ padding: 18 }}>
             <Group justify="space-between" align="flex-start" wrap="wrap" gap={10}>
@@ -171,6 +172,11 @@ function AssinantesTab() {
                   <Text fw={700} size="md">{s.name || 'Sem nome'}</Text>
                   <Badge color={statusInfo.color} variant="light">{statusInfo.label}</Badge>
                   {s.plan_name && <Badge color="brand" variant="light">{s.plan_name}</Badge>}
+                  {cupomAtivo && (
+                    <Badge color="teal" variant="light">
+                      Cupom: {cupomAtivo.cobrancas_restantes == null ? 'desconto sem prazo' : `${cupomAtivo.cobrancas_restantes} cobrança(s) restante(s) com desconto`}
+                    </Badge>
+                  )}
                 </Group>
                 <Group gap={16} mt={8} wrap="wrap">
                   <Group gap={5}><Mail size={13} color="var(--text-muted)" /><Text size="xs" c="dimmed">{s.email || '—'}</Text></Group>
@@ -289,11 +295,24 @@ function SubUsuariosTab() {
   );
 }
 
-const CUPOM_EMPTY_FORM = { codigo: '', tipo: 'percentual', valor: '', validade: '', limite_usos: '', ativo: true, planos: [] };
+// duracaoModo: 'unica' (só a 1ª cobrança, comportamento padrão) | 'varias'
+// (N cobranças, usa duracao_cobrancas) | 'ilimitada' (enquanto a assinatura
+// existir, duracao_cobrancas = null no banco). Campo auxiliar só de UI —
+// toPayload() traduz pra duracao_cobrancas antes de gravar.
+const CUPOM_EMPTY_FORM = {
+  codigo: '', tipo: 'percentual', valor: '', validade: '', limite_usos: '', ativo: true, planos: [], duracaoModo: 'unica', duracaoCobrancas: '2',
+};
 const CUPOM_PLANO_OPTIONS = [{ value: 'Start', label: 'Start' }, { value: 'Pro', label: 'Pro' }, { value: 'Business', label: 'Business' }];
 
 function formatValor(cupom) {
   return cupom.tipo === 'percentual' ? `${cupom.valor}%` : `R$ ${Number(cupom.valor).toFixed(2)}`;
+}
+
+function formatDuracao(cupom) {
+  const duracao = cupom.duracao_cobrancas;
+  if (duracao === null) return 'todas as cobranças';
+  if (duracao == null || duracao <= 1) return 'só a 1ª cobrança';
+  return `${duracao} primeiras cobranças`;
 }
 
 function CuponsTab() {
@@ -321,6 +340,7 @@ function CuponsTab() {
     limite_usos: form.limite_usos === '' ? null : Number(form.limite_usos),
     ativo: form.ativo,
     planos: form.planos?.length ? form.planos : null,
+    duracao_cobrancas: form.duracaoModo === 'unica' ? 1 : (form.duracaoModo === 'ilimitada' ? null : Number(form.duracaoCobrancas) || 2),
   });
 
   const openCreate = () => {
@@ -350,6 +370,10 @@ function CuponsTab() {
 
   const openEdit = (cupom) => {
     setEditing(cupom);
+    const duracao = cupom.duracao_cobrancas;
+    let duracaoModo = 'unica';
+    if (duracao === null) duracaoModo = 'ilimitada';
+    else if (duracao != null && duracao > 1) duracaoModo = 'varias';
     setEditForm({
       codigo: cupom.codigo,
       tipo: cupom.tipo,
@@ -358,6 +382,8 @@ function CuponsTab() {
       limite_usos: cupom.limite_usos == null ? '' : String(cupom.limite_usos),
       ativo: cupom.ativo,
       planos: cupom.planos || [],
+      duracaoModo,
+      duracaoCobrancas: duracaoModo === 'varias' ? String(duracao) : '2',
     });
     setEditError('');
   };
@@ -436,6 +462,28 @@ function CuponsTab() {
         mb="sm"
       />
       <NumberInput label="Limite de usos (opcional)" min={1} value={form.limite_usos} onChange={(v) => setForm((f) => ({ ...f, limite_usos: v ?? '' }))} mb="sm" />
+      <Select
+        label="Desconto vale por"
+        description="Em quantas cobranças da assinatura o desconto é aplicado"
+        data={[
+          { value: 'unica', label: 'Só a 1ª cobrança (padrão)' },
+          { value: 'varias', label: 'Várias cobranças (número fixo)' },
+          { value: 'ilimitada', label: 'Todas as cobranças, enquanto a assinatura durar' },
+        ]}
+        value={form.duracaoModo}
+        onChange={(v) => setForm((f) => ({ ...f, duracaoModo: v }))}
+        mb={form.duracaoModo === 'varias' ? 0 : 'sm'}
+      />
+      {form.duracaoModo === 'varias' && (
+        <NumberInput
+          label="Quantidade de cobranças"
+          min={2}
+          value={form.duracaoCobrancas}
+          onChange={(v) => setForm((f) => ({ ...f, duracaoCobrancas: v ?? '' }))}
+          mb="sm"
+          mt="sm"
+        />
+      )}
       <MultiSelect
         label="Planos permitidos"
         description="Vazio = vale para qualquer plano"
@@ -482,6 +530,7 @@ function CuponsTab() {
                   <Text size="xs" c="dimmed" mt={6}>
                     {c.usos} uso(s){c.limite_usos != null ? ` de ${c.limite_usos}` : ''}
                     {c.validade ? ` · válido até ${new Date(`${c.validade}T00:00:00`).toLocaleDateString('pt-BR')}` : ' · sem validade definida'}
+                    {` · desconto em ${formatDuracao(c)}`}
                   </Text>
                 </div>
                 <Group gap={4}>

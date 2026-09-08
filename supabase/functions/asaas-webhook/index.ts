@@ -12,11 +12,12 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { corsHeaders, jsonResponse } from '../_shared/cors.ts';
 import { PLAN_LIMITS, SUB_USUARIO_LIMITS } from '../_shared/plans.ts';
-import { cancelSubscription } from '../_shared/asaas.ts';
+import { cancelSubscription, updatePaymentValue } from '../_shared/asaas.ts';
 import {
   resolveStatusFromEvent, parseExternalReference, shouldLogPlanChange,
   type AccountStatus,
 } from '../_shared/webhookLogic.ts';
+import { applyCouponToRecurringPayment } from '../_shared/cupons.ts';
 
 const supabaseAdmin = createClient(
   Deno.env.get('SUPABASE_URL') ?? '',
@@ -164,6 +165,20 @@ Deno.serve(async (req: Request) => {
         .upsert(update, { onConflict: 'asaas_subscription_id' });
 
       if (error) throw error;
+
+      // PAYMENT_CREATED = o Asaas acabou de gerar uma nova cobrança do ciclo
+      // mensal da assinatura (a 2ª em diante — a 1ª já foi tratada de forma
+      // síncrona em subscribe/index.ts). Se essa assinatura tem um cupom
+      // multi-cobrança com saldo (ver assinante_cupons), aplica o mesmo
+      // desconto aqui e decrementa o saldo. No-op silencioso quando não há
+      // cupom associado, que é o caso comum.
+      if (event === 'PAYMENT_CREATED') {
+        await applyCouponToRecurringPayment(supabaseAdmin, {
+          asaasSubscriptionId: subscriptionId,
+          payment: { id: payment.id, status: payment.status, value: payment.value },
+          updatePaymentValue,
+        });
+      }
     } else {
       console.warn(`Webhook Asaas evento ${event} sem subscription vinculada (payment ${payment.id}).`);
     }

@@ -7,7 +7,18 @@ type SupabaseAdminClient = {
 };
 
 export type CouponResult =
-  | { ok: true; finalValue: number; couponId: string }
+  | {
+    ok: true;
+    finalValue: number;
+    couponId: string;
+    tipo: 'percentual' | 'fixo';
+    valor: number;
+    // Quantas cobranças FUTURAS (além desta primeira, já aplicada) ainda
+    // devem receber o desconto. null = ilimitado (enquanto a assinatura
+    // existir). 0 = cupom de cobrança única (comportamento padrão de
+    // sempre) — não precisa de nenhum rastreamento em assinante_cupons.
+    remainingCharges: number | null;
+  }
   | { ok: false; message: string };
 
 // Asaas rejeita cobranças abaixo de R$ 5 (mínimo documentado pra criação
@@ -19,6 +30,14 @@ export type CouponResult =
 // diferenciada de uma falha de comunicação de verdade (ver catch em
 // subscribe/index.ts).
 const MIN_VALUE = 5;
+
+// Calcula o valor final de uma cobrança aplicando o desconto do cupom,
+// respeitando o piso mínimo. Usado tanto na primeira cobrança (aqui embaixo)
+// quanto nas cobranças recorrentes seguintes (applyCouponToRecurringPayment).
+export function computeFinalValue(tipo: 'percentual' | 'fixo', valor: number, price: number): number {
+  const discount = tipo === 'percentual' ? price * (valor / 100) : valor;
+  return Math.max(MIN_VALUE, Math.round((price - discount) * 100) / 100);
+}
 
 export async function validateAndApplyCoupon(
   supabaseAdmin: SupabaseAdminClient,
@@ -48,12 +67,18 @@ export async function validateAndApplyCoupon(
     return { ok: false, message: `Este cupom não é válido para o plano ${planName}.` };
   }
 
-  const discount = coupon.tipo === 'percentual'
-    ? price * (Number(coupon.valor) / 100)
-    : Number(coupon.valor);
-  const finalValue = Math.max(MIN_VALUE, Math.round((price - discount) * 100) / 100);
+  const finalValue = computeFinalValue(coupon.tipo, Number(coupon.valor), price);
 
-  return { ok: true, finalValue, couponId: coupon.id };
+  // duracao_cobrancas pode não existir ainda (coluna nova, migration não
+  // rodou) — tratado como 1 (comportamento anterior: só a primeira
+  // cobrança) pra não quebrar cupons já cadastrados. null é explícito:
+  // desconto recorrente sem prazo, enquanto a assinatura existir.
+  const duracaoCobrancas = coupon.duracao_cobrancas === undefined ? 1 : coupon.duracao_cobrancas;
+  const remainingCharges = duracaoCobrancas == null ? null : Math.max(0, Number(duracaoCobrancas) - 1);
+
+  return {
+    ok: true, finalValue, couponId: coupon.id, tipo: coupon.tipo, valor: Number(coupon.valor), remainingCharges,
+  };
 }
 
 // Best-effort — se isso falhar não deve derrubar a assinatura que já foi
@@ -65,5 +90,91 @@ export async function incrementCouponUsage(supabaseAdmin: SupabaseAdminClient, c
     await supabaseAdmin.from('cupons').update({ usos: current + 1 }).eq('id', couponId);
   } catch (err) {
     console.error('Erro ao incrementar uso do cupom:', err instanceof Error ? err.message : err);
+  }
+}
+
+// Chamado logo após a primeira cobrança já ter recebido o desconto (em
+// subscribe/index.ts) — só grava uma linha em assinante_cupons se ainda
+// sobrar desconto pra aplicar em cobranças futuras. Cupom de cobrança única
+// (remainingCharges === 0, o caso mais comum) não grava nada: não há nada
+// pro webhook fazer depois.
+export async function registerCouponSubscription(supabaseAdmin: SupabaseAdminClient, params: {
+  couponId: string;
+  tipo: 'percentual' | 'fixo';
+  valor: number;
+  remainingCharges: number | null;
+  asaasSubscriptionId: string;
+  accountId: string;
+  firstPaymentId: string;
+}) {
+  if (params.remainingCharges === 0) return;
+  try {
+    const { error } = await supabaseAdmin.from('assinante_cupons').insert({
+      cupom_id: params.couponId,
+      asaas_subscription_id: params.asaasSubscriptionId,
+      account_id: params.accountId,
+      tipo: params.tipo,
+      valor: params.valor,
+      primeiro_payment_id: params.firstPaymentId,
+      cobrancas_restantes: params.remainingCharges,
+    });
+    if (error) console.error('Erro ao registrar cupom recorrente da assinatura:', error.message);
+  } catch (err) {
+    console.error('Erro ao registrar cupom recorrente da assinatura:', err instanceof Error ? err.message : err);
+  }
+}
+
+type AsaasPayment = { id: string; status: string; value: number };
+
+// Chamado pelo webhook (evento PAYMENT_CREATED) a cada nova cobrança gerada
+// pelo ciclo da assinatura. Se essa assinatura tem um cupom multi-cobrança
+// com saldo, aplica o mesmo desconto nesta cobrança nova e decrementa o
+// saldo — espelha, cobrança a cobrança, o que subscribe/index.ts já faz na
+// primeira. Ignora silenciosamente quando não há cupom associado (o caso
+// comum) ou quando já não sobra desconto a aplicar.
+export async function applyCouponToRecurringPayment(supabaseAdmin: SupabaseAdminClient, params: {
+  asaasSubscriptionId: string;
+  payment: AsaasPayment;
+  updatePaymentValue: (paymentId: string, newValue: number) => Promise<unknown>;
+}) {
+  const { asaasSubscriptionId, payment, updatePaymentValue } = params;
+
+  const { data: row } = await supabaseAdmin
+    .from('assinante_cupons')
+    .select('*')
+    .eq('asaas_subscription_id', asaasSubscriptionId)
+    .maybeSingle();
+  if (!row) return;
+
+  // A primeira cobrança já recebeu o desconto de forma síncrona, na própria
+  // criação da assinatura — reaplicar aqui de novo (pra ela) contaria a
+  // mesma cobrança duas vezes contra o saldo de cobranças restantes.
+  if (payment.id === row.primeiro_payment_id) return;
+
+  if (row.cobrancas_restantes != null && row.cobrancas_restantes <= 0) return;
+
+  // Só é possível alterar cobrança ainda PENDING (mesma regra da primeira
+  // cobrança) — cartão é capturado de forma síncrona e nunca chega aqui
+  // como PENDING, mas cupom já é bloqueado pra cartão desde a assinatura.
+  if (payment.status === 'PENDING') {
+    const finalValue = computeFinalValue(row.tipo, Number(row.valor), Number(payment.value));
+    if (finalValue !== Number(payment.value)) {
+      try {
+        await updatePaymentValue(payment.id, finalValue);
+      } catch (err) {
+        console.error('Erro ao aplicar desconto recorrente do cupom:', err instanceof Error ? err.message : err);
+        return; // não decrementa o saldo se a aplicação falhou
+      }
+    }
+  } else {
+    console.warn(`Cupom recorrente: cobrança ${payment.id} da assinatura ${asaasSubscriptionId} já não está PENDING (status ${payment.status}) — desconto não pôde ser aplicado.`);
+    return; // não decrementa o saldo numa cobrança em que o desconto não pôde ser aplicado
+  }
+
+  if (row.cobrancas_restantes != null) {
+    const { error } = await supabaseAdmin.from('assinante_cupons')
+      .update({ cobrancas_restantes: row.cobrancas_restantes - 1, updated_at: new Date().toISOString() })
+      .eq('asaas_subscription_id', asaasSubscriptionId);
+    if (error) console.error('Erro ao decrementar saldo do cupom recorrente:', error.message);
   }
 }

@@ -21,7 +21,7 @@ import {
 } from '../_shared/asaas.ts';
 import { corsHeaders, jsonResponse } from '../_shared/cors.ts';
 import { PLAN_PRICES } from '../_shared/plans.ts';
-import { validateAndApplyCoupon, incrementCouponUsage } from '../_shared/cupons.ts';
+import { validateAndApplyCoupon, incrementCouponUsage, registerCouponSubscription } from '../_shared/cupons.ts';
 import { validateSubscribeInput, onlyDigits } from '../_shared/subscribeValidation.ts';
 import { checkRateLimit, rateLimitResponse } from '../_shared/rateLimit.ts';
 
@@ -95,6 +95,9 @@ Deno.serve(async (req: Request) => {
   // digitado errado: erro específico, sem criar nada no Asaas ainda.
   let finalValue = price;
   let couponId: string | null = null;
+  let couponTipo: 'percentual' | 'fixo' | null = null;
+  let couponValor: number | null = null;
+  let couponRemainingCharges: number | null = null;
   if (couponCode?.trim()) {
     const result = await validateAndApplyCoupon(supabaseAdmin, couponCode, price, planName);
     if (!result.ok) {
@@ -102,6 +105,9 @@ Deno.serve(async (req: Request) => {
     }
     finalValue = result.finalValue;
     couponId = result.couponId;
+    couponTipo = result.tipo;
+    couponValor = result.valor;
+    couponRemainingCharges = result.remainingCharges;
 
     // Cartão é cobrado de forma síncrona dentro da própria criação da
     // assinatura (Asaas tenta a captura na hora) — não dá pra aplicar o
@@ -151,6 +157,19 @@ Deno.serve(async (req: Request) => {
       if (payment.status === 'PENDING') {
         try {
           payment = await updatePaymentValue(payment.id, finalValue);
+          // Se o cupom vale por mais de uma cobrança (duracao_cobrancas > 1
+          // ou ilimitado), registra o saldo restante — é isso que o webhook
+          // consulta pra continuar aplicando o desconto nas cobranças
+          // seguintes geradas pelo ciclo da assinatura.
+          await registerCouponSubscription(supabaseAdmin, {
+            couponId,
+            tipo: couponTipo!,
+            valor: couponValor!,
+            remainingCharges: couponRemainingCharges,
+            asaasSubscriptionId: subscription.id,
+            accountId,
+            firstPaymentId: payment.id,
+          });
         } catch (updateErr) {
           console.error('Erro ao aplicar desconto do cupom na primeira cobrança:', updateErr instanceof Error ? updateErr.message : updateErr);
         }

@@ -1,5 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
-import { validateAndApplyCoupon, incrementCouponUsage } from './cupons.ts';
+import {
+  validateAndApplyCoupon, incrementCouponUsage, registerCouponSubscription, applyCouponToRecurringPayment,
+} from './cupons.ts';
 
 // Mock mínimo do client do Supabase — só o suficiente pra simular a cadeia
 // .from('cupons').select('*').ilike('codigo', code).maybeSingle() usada por
@@ -35,7 +37,9 @@ describe('validateAndApplyCoupon', () => {
       id: 'c1', codigo: 'PROMO10', ativo: true, tipo: 'percentual', valor: 10, validade: future, limite_usos: null, usos: 0,
     });
     const result = await validateAndApplyCoupon(client as never, 'PROMO10', 100);
-    expect(result).toEqual({ ok: true, finalValue: 90, couponId: 'c1' });
+    expect(result).toEqual({
+      ok: true, finalValue: 90, couponId: 'c1', tipo: 'percentual', valor: 10, remainingCharges: 0,
+    });
   });
 
   it('aplica corretamente um cupom de valor fixo', async () => {
@@ -43,7 +47,37 @@ describe('validateAndApplyCoupon', () => {
       id: 'c2', codigo: 'DEZOFF', ativo: true, tipo: 'fixo', valor: 20, validade: future, limite_usos: null, usos: 0,
     });
     const result = await validateAndApplyCoupon(client as never, 'DEZOFF', 100);
-    expect(result).toEqual({ ok: true, finalValue: 80, couponId: 'c2' });
+    expect(result).toEqual({
+      ok: true, finalValue: 80, couponId: 'c2', tipo: 'fixo', valor: 20, remainingCharges: 0,
+    });
+  });
+
+  it('sem duracao_cobrancas definida, trata como cupom de cobrança única (comportamento anterior)', async () => {
+    const { client } = mockSupabase({
+      id: 'c12', codigo: 'ANTIGO', ativo: true, tipo: 'percentual', valor: 10, validade: future, limite_usos: null, usos: 0,
+    });
+    const result = await validateAndApplyCoupon(client as never, 'ANTIGO', 100);
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.remainingCharges).toBe(0);
+  });
+
+  it('duracao_cobrancas > 1 devolve quantas cobranças futuras ainda recebem desconto', async () => {
+    const { client } = mockSupabase({
+      id: 'c13', codigo: 'TRESMESES', ativo: true, tipo: 'percentual', valor: 10, validade: future, limite_usos: null, usos: 0, duracao_cobrancas: 3,
+    });
+    const result = await validateAndApplyCoupon(client as never, 'TRESMESES', 100);
+    expect(result.ok).toBe(true);
+    // 3 cobranças no total: a primeira já é aplicada na hora, sobram 2.
+    if (result.ok) expect(result.remainingCharges).toBe(2);
+  });
+
+  it('duracao_cobrancas null é desconto recorrente sem prazo (remainingCharges null)', async () => {
+    const { client } = mockSupabase({
+      id: 'c14', codigo: 'VITALICIO', ativo: true, tipo: 'percentual', valor: 10, validade: future, limite_usos: null, usos: 0, duracao_cobrancas: null,
+    });
+    const result = await validateAndApplyCoupon(client as never, 'VITALICIO', 100);
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.remainingCharges).toBe(null);
   });
 
   it('nunca deixa o valor final cair abaixo do mínimo cobrável pela Asaas (R$5)', async () => {
@@ -141,5 +175,129 @@ describe('incrementCouponUsage', () => {
     const { client, updateMock } = mockSupabase({ usos: 3 });
     await expect(incrementCouponUsage(client as never, 'c1')).resolves.not.toThrow();
     expect(updateMock).toHaveBeenCalledWith({ usos: 4 });
+  });
+});
+
+describe('registerCouponSubscription', () => {
+  it('não grava nada quando o cupom é de cobrança única (remainingCharges 0)', async () => {
+    const insertMock = vi.fn();
+    const client = { from: vi.fn().mockReturnValue({ insert: insertMock }) };
+    await registerCouponSubscription(client as never, {
+      couponId: 'c1', tipo: 'percentual', valor: 10, remainingCharges: 0, asaasSubscriptionId: 'sub_1', accountId: 'acc_1', firstPaymentId: 'pay_1',
+    });
+    expect(insertMock).not.toHaveBeenCalled();
+  });
+
+  it('grava a linha em assinante_cupons quando sobram cobranças futuras', async () => {
+    const insertMock = vi.fn().mockResolvedValue({ error: null });
+    const client = { from: vi.fn().mockReturnValue({ insert: insertMock }) };
+    await registerCouponSubscription(client as never, {
+      couponId: 'c1', tipo: 'percentual', valor: 10, remainingCharges: 2, asaasSubscriptionId: 'sub_1', accountId: 'acc_1', firstPaymentId: 'pay_1',
+    });
+    expect(insertMock).toHaveBeenCalledWith({
+      cupom_id: 'c1', asaas_subscription_id: 'sub_1', account_id: 'acc_1', tipo: 'percentual', valor: 10, primeiro_payment_id: 'pay_1', cobrancas_restantes: 2,
+    });
+  });
+
+  it('grava normalmente quando remainingCharges é null (desconto sem prazo)', async () => {
+    const insertMock = vi.fn().mockResolvedValue({ error: null });
+    const client = { from: vi.fn().mockReturnValue({ insert: insertMock }) };
+    await registerCouponSubscription(client as never, {
+      couponId: 'c1', tipo: 'fixo', valor: 15, remainingCharges: null, asaasSubscriptionId: 'sub_1', accountId: 'acc_1', firstPaymentId: 'pay_1',
+    });
+    expect(insertMock).toHaveBeenCalledWith(expect.objectContaining({ cobrancas_restantes: null }));
+  });
+});
+
+describe('applyCouponToRecurringPayment', () => {
+  function mockAssinanteCupons(row: Record<string, unknown> | null) {
+    const updateEqMock = vi.fn().mockResolvedValue({ error: null });
+    const updateMock = vi.fn().mockReturnValue({ eq: updateEqMock });
+    const client = {
+      from: vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({ eq: vi.fn().mockReturnValue({ maybeSingle: vi.fn().mockResolvedValue({ data: row }) }) }),
+        update: updateMock,
+      }),
+    };
+    return { client, updateMock, updateEqMock };
+  }
+
+  it('não faz nada quando a assinatura não tem cupom associado', async () => {
+    const { client } = mockAssinanteCupons(null);
+    const updatePaymentValue = vi.fn();
+    await applyCouponToRecurringPayment(client as never, {
+      asaasSubscriptionId: 'sub_1', payment: { id: 'pay_2', status: 'PENDING', value: 100 }, updatePaymentValue,
+    });
+    expect(updatePaymentValue).not.toHaveBeenCalled();
+  });
+
+  it('ignora a própria primeira cobrança (já aplicada de forma síncrona na criação)', async () => {
+    const { client } = mockAssinanteCupons({
+      tipo: 'percentual', valor: 10, primeiro_payment_id: 'pay_1', cobrancas_restantes: 2,
+    });
+    const updatePaymentValue = vi.fn();
+    await applyCouponToRecurringPayment(client as never, {
+      asaasSubscriptionId: 'sub_1', payment: { id: 'pay_1', status: 'PENDING', value: 100 }, updatePaymentValue,
+    });
+    expect(updatePaymentValue).not.toHaveBeenCalled();
+  });
+
+  it('não aplica desconto quando já não sobra saldo de cobranças', async () => {
+    const { client } = mockAssinanteCupons({
+      tipo: 'percentual', valor: 10, primeiro_payment_id: 'pay_1', cobrancas_restantes: 0,
+    });
+    const updatePaymentValue = vi.fn();
+    await applyCouponToRecurringPayment(client as never, {
+      asaasSubscriptionId: 'sub_1', payment: { id: 'pay_2', status: 'PENDING', value: 100 }, updatePaymentValue,
+    });
+    expect(updatePaymentValue).not.toHaveBeenCalled();
+  });
+
+  it('aplica o desconto na cobrança nova e decrementa o saldo', async () => {
+    const { client, updateMock, updateEqMock } = mockAssinanteCupons({
+      tipo: 'percentual', valor: 10, primeiro_payment_id: 'pay_1', cobrancas_restantes: 2,
+    });
+    const updatePaymentValue = vi.fn().mockResolvedValue({});
+    await applyCouponToRecurringPayment(client as never, {
+      asaasSubscriptionId: 'sub_1', payment: { id: 'pay_2', status: 'PENDING', value: 100 }, updatePaymentValue,
+    });
+    expect(updatePaymentValue).toHaveBeenCalledWith('pay_2', 90);
+    expect(updateMock).toHaveBeenCalledWith(expect.objectContaining({ cobrancas_restantes: 1 }));
+    expect(updateEqMock).toHaveBeenCalledWith('asaas_subscription_id', 'sub_1');
+  });
+
+  it('aplica o desconto indefinidamente quando cobrancas_restantes é null (sem decrementar)', async () => {
+    const { client, updateMock } = mockAssinanteCupons({
+      tipo: 'fixo', valor: 20, primeiro_payment_id: 'pay_1', cobrancas_restantes: null,
+    });
+    const updatePaymentValue = vi.fn().mockResolvedValue({});
+    await applyCouponToRecurringPayment(client as never, {
+      asaasSubscriptionId: 'sub_1', payment: { id: 'pay_3', status: 'PENDING', value: 100 }, updatePaymentValue,
+    });
+    expect(updatePaymentValue).toHaveBeenCalledWith('pay_3', 80);
+    expect(updateMock).not.toHaveBeenCalled();
+  });
+
+  it('não aplica (nem decrementa) quando a cobrança já não está PENDING', async () => {
+    const { client, updateMock } = mockAssinanteCupons({
+      tipo: 'percentual', valor: 10, primeiro_payment_id: 'pay_1', cobrancas_restantes: 2,
+    });
+    const updatePaymentValue = vi.fn();
+    await applyCouponToRecurringPayment(client as never, {
+      asaasSubscriptionId: 'sub_1', payment: { id: 'pay_2', status: 'CONFIRMED', value: 100 }, updatePaymentValue,
+    });
+    expect(updatePaymentValue).not.toHaveBeenCalled();
+    expect(updateMock).not.toHaveBeenCalled();
+  });
+
+  it('não decrementa o saldo quando a chamada à Asaas falha', async () => {
+    const { client, updateMock } = mockAssinanteCupons({
+      tipo: 'percentual', valor: 10, primeiro_payment_id: 'pay_1', cobrancas_restantes: 2,
+    });
+    const updatePaymentValue = vi.fn().mockRejectedValue(new Error('Asaas fora do ar'));
+    await applyCouponToRecurringPayment(client as never, {
+      asaasSubscriptionId: 'sub_1', payment: { id: 'pay_2', status: 'PENDING', value: 100 }, updatePaymentValue,
+    });
+    expect(updateMock).not.toHaveBeenCalled();
   });
 });
