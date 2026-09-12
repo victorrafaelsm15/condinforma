@@ -157,11 +157,28 @@ export function createStore(table, { orderBy = 'created_at', ascending = false, 
     async remove(id) {
       if (isSupabaseConfigured) {
         try {
-          const { error } = await supabase.from(table).delete().eq('id', id);
+          // ".select('id')" faz o Postgres devolver as linhas realmente
+          // apagadas — sem isso, um DELETE que o RLS silenciosamente barra
+          // (nenhuma linha bate com a policy — não é um "error" pro
+          // Postgres, é sucesso com zero linhas afetadas) parecia ter
+          // funcionado: todo chamador recebia "true" e mostrava "excluído"
+          // com o registro intacto no banco.
+          const { data, error } = await supabase.from(table).delete().eq('id', id).select('id');
           if (error) throw error;
+          if (!data || data.length === 0) {
+            throw new Error('Não foi possível excluir: registro não encontrado ou sem permissão.');
+          }
           return true;
-        } catch {
-          // cai para localStorage
+        } catch (err) {
+          // CI002 (conta inativa) é uma regra de negócio real, não uma
+          // falha de infraestrutura — não cai pro localStorage pelo mesmo
+          // motivo do create() logo abaixo.
+          if (err?.code === 'CI002') throw err;
+          // idem pro caso novo acima: 0 linhas apagadas é uma negação real
+          // (RLS/permissão), não uma falha de rede — devolver "sucesso" e
+          // cair pro localStorage esconderia isso do usuário.
+          if (err instanceof Error && err.message.startsWith('Não foi possível excluir')) throw err;
+          // qualquer outro erro (rede, tabela ausente) cai para localStorage
         }
       }
       writeLocal(localKey, readLocal(localKey).filter((item) => item.id !== id));

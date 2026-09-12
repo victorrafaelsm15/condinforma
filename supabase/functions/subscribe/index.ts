@@ -147,6 +147,34 @@ Deno.serve(async (req: Request) => {
 
     let payment = await getFirstPayment(subscription.id);
 
+    // Registra o assinante como "pendente" já de cara — o webhook depois
+    // atualiza o status conforme os eventos de pagamento chegarem. Isso
+    // precisa acontecer ANTES de registerCouponSubscription() logo abaixo:
+    // assinante_cupons.asaas_subscription_id referencia
+    // assinantes.asaas_subscription_id (FK), então gravar o cupom antes
+    // dessa linha existir sempre falhava (violação de FK, silenciosa —
+    // ver catch em registerCouponSubscription) e o cupom multi-cobrança
+    // nunca era de fato registrado, mesmo aplicado corretamente na 1ª
+    // cobrança.
+    const { error: dbError } = await supabaseAdmin.from('assinantes').upsert({
+      asaas_customer_id: customer.id,
+      asaas_subscription_id: subscription.id,
+      account_id: accountId,
+      name,
+      email,
+      phone: cleanPhone,
+      cpf_cnpj: cleanCpfCnpj,
+      plan_name: planName,
+      status: 'pendente',
+      last_event: 'SUBSCRIPTION_CREATED',
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'asaas_subscription_id' });
+
+    if (dbError) {
+      console.error('Erro ao gravar assinante no Supabase:', dbError.message);
+      // Não bloqueia o fluxo do cliente por causa disso — o webhook tenta de novo depois.
+    }
+
     // Desconto do cupom vai só nesta cobrança específica (nunca na
     // assinatura). Só é possível quando a cobrança ainda está PENDING — a
     // Asaas rejeita alterar valor de cobrança já paga, e cartão é
@@ -176,27 +204,6 @@ Deno.serve(async (req: Request) => {
       } else {
         console.warn(`Cupom aplicado mas cobrança ${payment.id} já não está PENDING (status ${payment.status}) — desconto não pôde ser aplicado (billingType ${billingType}).`);
       }
-    }
-
-    // Registra o assinante como "pendente" já de cara — o webhook depois
-    // atualiza o status conforme os eventos de pagamento chegarem.
-    const { error: dbError } = await supabaseAdmin.from('assinantes').upsert({
-      asaas_customer_id: customer.id,
-      asaas_subscription_id: subscription.id,
-      account_id: accountId,
-      name,
-      email,
-      phone: cleanPhone,
-      cpf_cnpj: cleanCpfCnpj,
-      plan_name: planName,
-      status: 'pendente',
-      last_event: 'SUBSCRIPTION_CREATED',
-      updated_at: new Date().toISOString(),
-    }, { onConflict: 'asaas_subscription_id' });
-
-    if (dbError) {
-      console.error('Erro ao gravar assinante no Supabase:', dbError.message);
-      // Não bloqueia o fluxo do cliente por causa disso — o webhook tenta de novo depois.
     }
 
     if (couponId) await incrementCouponUsage(supabaseAdmin, couponId);

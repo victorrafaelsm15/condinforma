@@ -39,6 +39,18 @@ export function computeFinalValue(tipo: 'percentual' | 'fixo', valor: number, pr
   return Math.max(MIN_VALUE, Math.round((price - discount) * 100) / 100);
 }
 
+// ILIKE trata "%" e "_" como coringas — sem escapar, um cupom "código"
+// vindo direto do cliente (ver AssinaturaPage.jsx) vira um PADRÃO de
+// busca, não um valor exato. Um visitante digitando só "%" já casava com
+// qualquer cupom cadastrado (aplicava desconto sem saber nenhum código de
+// verdade), e mensagens de erro diferentes por cupom (expirado/inativo/
+// limite atingido) viravam um oráculo pra enumerar códigos reais tentando
+// padrões como "PROMO%". Escapar aqui mantém a comparação
+// case-insensitive (mesmo comportamento de antes) sem abrir esse buraco.
+function escapeLikePattern(value: string): string {
+  return value.replace(/[\\%_]/g, (char) => `\\${char}`);
+}
+
 export async function validateAndApplyCoupon(
   supabaseAdmin: SupabaseAdminClient,
   code: string,
@@ -48,7 +60,7 @@ export async function validateAndApplyCoupon(
   const { data: coupon, error } = await supabaseAdmin
     .from('cupons')
     .select('*')
-    .ilike('codigo', code.trim())
+    .ilike('codigo', escapeLikePattern(code.trim()))
     .maybeSingle();
 
   if (error || !coupon) {

@@ -10,14 +10,15 @@ function mockSupabase(coupon: Record<string, unknown> | null, { selectError = fa
   const updateMock = vi.fn().mockReturnValue({
     eq: vi.fn().mockResolvedValue({ error: null }),
   });
+  const ilikeMock = vi.fn().mockReturnValue({
+    maybeSingle: vi.fn().mockResolvedValue(
+      selectError ? { data: null, error: new Error('db error') } : { data: coupon, error: null },
+    ),
+  });
   const client = {
     from: vi.fn().mockReturnValue({
       select: vi.fn().mockReturnValue({
-        ilike: vi.fn().mockReturnValue({
-          maybeSingle: vi.fn().mockResolvedValue(
-            selectError ? { data: null, error: new Error('db error') } : { data: coupon, error: null },
-          ),
-        }),
+        ilike: ilikeMock,
         eq: vi.fn().mockReturnValue({
           maybeSingle: vi.fn().mockResolvedValue({ data: coupon, error: null }),
         }),
@@ -25,7 +26,7 @@ function mockSupabase(coupon: Record<string, unknown> | null, { selectError = fa
       update: updateMock,
     }),
   };
-  return { client, updateMock };
+  return { client, updateMock, ilikeMock };
 }
 
 const future = new Date(Date.now() + 1000 * 60 * 60 * 24 * 30).toISOString().slice(0, 10);
@@ -167,6 +168,27 @@ describe('validateAndApplyCoupon', () => {
     const { client } = mockSupabase(null, { selectError: true });
     const result = await validateAndApplyCoupon(client as never, 'ERRO', 100);
     expect(result.ok).toBe(false);
+  });
+
+  it('escapa "%" no código informado, em vez de tratar como coringa do ILIKE', async () => {
+    // Bug real: sem escapar, um visitante digitando só "%" casava com
+    // QUALQUER cupom cadastrado (aplicava desconto sem conhecer nenhum
+    // código de verdade) — ver comentário em cupons.ts, escapeLikePattern.
+    const { client, ilikeMock } = mockSupabase(null);
+    await validateAndApplyCoupon(client as never, '%', 100);
+    expect(ilikeMock).toHaveBeenCalledWith('codigo', '\\%');
+  });
+
+  it('escapa "_" no código informado', async () => {
+    const { client, ilikeMock } = mockSupabase(null);
+    await validateAndApplyCoupon(client as never, 'PROMO_10', 100);
+    expect(ilikeMock).toHaveBeenCalledWith('codigo', 'PROMO\\_10');
+  });
+
+  it('escapa a própria barra invertida antes de escapar os coringas', async () => {
+    const { client, ilikeMock } = mockSupabase(null);
+    await validateAndApplyCoupon(client as never, 'A\\%B', 100);
+    expect(ilikeMock).toHaveBeenCalledWith('codigo', 'A\\\\\\%B');
   });
 });
 

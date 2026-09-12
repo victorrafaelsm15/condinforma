@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams, Link, useNavigate } from 'react-router-dom';
 import { useForm, Controller } from 'react-hook-form';
 import { Button, TextInput, PasswordInput, Text, SegmentedControl, Checkbox, Loader, Group, CopyButton, Image as MantineImage } from '@mantine/core';
@@ -163,12 +163,24 @@ export default function AssinaturaPage() {
     });
   }, []);
 
+  // "Confirmado" precisa checar mais que status === 'ativo': numa troca de
+  // plano (Configurações → assinar de novo já logado), a conta já está
+  // 'ativo' com o plano ANTIGO desde antes desse pagamento existir — sem
+  // comparar o plano, a tela dava "Pagamento confirmado!" na primeira
+  // consulta, segundos depois de gerar o Pix, mesmo que o cliente nunca
+  // tivesse pagado nada. Só conta como confirmado quando o plano ativo na
+  // conta É o que está sendo assinado agora (accounts.plan_name vem sempre
+  // minúsculo do webhook — ver webhookLogic.ts, parseExternalReference).
+  const isAccountOnThisPlan = useCallback(
+    (account) => account?.status === 'ativo' && account?.plan_name?.toLowerCase() === plan?.name.toLowerCase(),
+    [plan],
+  );
+
   // Depois de gerar o QR Code/boleto (ou aprovar no cartão), essa tela
   // ficava parada mesmo com o pagamento já confirmado pelo webhook do
-  // outro lado — verifica periodicamente se accounts.status virou
-  // 'ativo' e reage assim que detectar, em vez de exigir que a pessoa
-  // abra outra aba pra saber que já pode entrar. Cartão recusado não
-  // entra aqui — já é um estado final, sem nada pra esperar.
+  // outro lado — verifica periodicamente até detectar, em vez de exigir
+  // que a pessoa abra outra aba pra saber que já pode entrar. Cartão
+  // recusado não entra aqui — já é um estado final, sem nada pra esperar.
   useEffect(() => {
     if (!paymentResult || !accountId || accountActivated) return undefined;
     if (paymentResult.type === 'CREDIT_CARD' && !paymentResult.approved) return undefined;
@@ -181,7 +193,7 @@ export default function AssinaturaPage() {
       if (cancelled) return;
       const account = await accountsStore.getById(accountId);
       if (cancelled) return;
-      if (account?.status === 'ativo') {
+      if (isAccountOnThisPlan(account)) {
         setAccountActivated(true);
         return;
       }
@@ -194,7 +206,7 @@ export default function AssinaturaPage() {
     };
     timer = setTimeout(checkStatus, POLL_INTERVAL_MS);
     return () => { cancelled = true; clearTimeout(timer); };
-  }, [paymentResult, accountId, accountActivated]);
+  }, [paymentResult, accountId, accountActivated, isAccountOnThisPlan]);
 
   // Confirmação detectada: mostra a mensagem de sucesso por alguns
   // segundos e manda pro login sozinho (ainda dá pra usar o botão
@@ -283,7 +295,7 @@ export default function AssinaturaPage() {
     setCheckingNow(true);
     try {
       const account = await accountsStore.getById(accountId);
-      if (account?.status === 'ativo') {
+      if (isAccountOnThisPlan(account)) {
         setAccountActivated(true);
         setPollTimedOut(false);
       }
