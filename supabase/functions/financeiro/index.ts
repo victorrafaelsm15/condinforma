@@ -79,6 +79,21 @@ Deno.serve(async (req: Request) => {
     }
   }
 
+  // Cupom multi-cobrança ainda ativo nesta assinatura (ver
+  // supabase/cupons_duracao_migration.sql) — só existe uma linha quando o
+  // cupom usado na assinatura vale por mais de uma cobrança.
+  let coupon: { tipo: string; valor: number; remainingCharges: number | null } | null = null;
+  if (assinante?.asaas_subscription_id) {
+    const { data: cupomRow } = await supabaseAdmin
+      .from('assinante_cupons')
+      .select('tipo, valor, cobrancas_restantes')
+      .eq('asaas_subscription_id', assinante.asaas_subscription_id)
+      .maybeSingle();
+    if (cupomRow && (cupomRow.cobrancas_restantes == null || cupomRow.cobrancas_restantes > 0)) {
+      coupon = { tipo: cupomRow.tipo, valor: Number(cupomRow.valor), remainingCharges: cupomRow.cobrancas_restantes };
+    }
+  }
+
   const planKey = (account?.plan_name || '').toLowerCase();
   const planLabel = planKey ? planKey.charAt(0).toUpperCase() + planKey.slice(1) : null;
   const price = planLabel ? PLAN_PRICES[planLabel] ?? null : null;
@@ -93,5 +108,6 @@ Deno.serve(async (req: Request) => {
     nextDueDate,
     subscriptionStatus,
     lastPayment,
+    coupon,
   });
 });

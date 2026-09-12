@@ -132,6 +132,18 @@ export default function FinanceiroPage() {
               label="Vencimento"
               value={data.nextDueDate ? new Date(`${data.nextDueDate}T00:00:00`).toLocaleDateString('pt-BR') : '—'}
             />
+            {data.coupon && (
+              <InfoRow
+                label="Desconto do cupom"
+                value={(
+                  <Badge color="teal" variant="light">
+                    {data.coupon.remainingCharges == null
+                      ? 'ativo enquanto durar a assinatura'
+                      : `ativo por mais ${data.coupon.remainingCharges} cobrança(s)`}
+                  </Badge>
+                )}
+              />
+            )}
             <div style={{ marginTop: 14, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               {['PIX', 'BOLETO', 'CREDIT_CARD'].map((bt) => (
                 <Button
