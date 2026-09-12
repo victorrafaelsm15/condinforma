@@ -4,6 +4,7 @@
 
 type SupabaseAdminClient = {
   from: (table: string) => any;
+  rpc: (fn: string, args?: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }>;
 };
 
 export type CouponResult =
@@ -95,11 +96,15 @@ export async function validateAndApplyCoupon(
 
 // Best-effort — se isso falhar não deve derrubar a assinatura que já foi
 // criada no Asaas, só fica um contador de uso levemente desatualizado.
+// increment_cupom_usos faz "usos = usos + 1" num único UPDATE no banco —
+// atômico de verdade. Antes isso era ler "usos" e gravar "lido + 1" em duas
+// chamadas separadas: duas assinaturas com o mesmo cupom quase ao mesmo
+// tempo liam o mesmo valor e o contador só subia 1 em vez de 2, furando
+// limite_usos silenciosamente.
 export async function incrementCouponUsage(supabaseAdmin: SupabaseAdminClient, couponId: string) {
   try {
-    const { data } = await supabaseAdmin.from('cupons').select('usos').eq('id', couponId).maybeSingle();
-    const current = data?.usos ?? 0;
-    await supabaseAdmin.from('cupons').update({ usos: current + 1 }).eq('id', couponId);
+    const { error } = await supabaseAdmin.rpc('increment_cupom_usos', { p_cupom_id: couponId });
+    if (error) throw new Error(error.message);
   } catch (err) {
     console.error('Erro ao incrementar uso do cupom:', err instanceof Error ? err.message : err);
   }

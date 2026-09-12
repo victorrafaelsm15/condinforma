@@ -5,7 +5,8 @@ import {
 
 // Mock mínimo do client do Supabase — só o suficiente pra simular a cadeia
 // .from('cupons').select('*').ilike('codigo', code).maybeSingle() usada por
-// validateAndApplyCoupon, e .select/.update usados por incrementCouponUsage.
+// validateAndApplyCoupon (incrementCouponUsage usa .rpc(), mockado à parte
+// em cada teste que precisa dele).
 function mockSupabase(coupon: Record<string, unknown> | null, { selectError = false } = {}) {
   const updateMock = vi.fn().mockReturnValue({
     eq: vi.fn().mockResolvedValue({ error: null }),
@@ -193,10 +194,17 @@ describe('validateAndApplyCoupon', () => {
 });
 
 describe('incrementCouponUsage', () => {
-  it('incrementa o contador de usos sem lançar exceção', async () => {
-    const { client, updateMock } = mockSupabase({ usos: 3 });
+  it('chama o incremento atômico via RPC, sem lançar exceção', async () => {
+    const rpcMock = vi.fn().mockResolvedValue({ data: null, error: null });
+    const client = { from: vi.fn(), rpc: rpcMock };
     await expect(incrementCouponUsage(client as never, 'c1')).resolves.not.toThrow();
-    expect(updateMock).toHaveBeenCalledWith({ usos: 4 });
+    expect(rpcMock).toHaveBeenCalledWith('increment_cupom_usos', { p_cupom_id: 'c1' });
+  });
+
+  it('não lança mesmo se a RPC devolver erro (best-effort)', async () => {
+    const rpcMock = vi.fn().mockResolvedValue({ data: null, error: { message: 'falhou' } });
+    const client = { from: vi.fn(), rpc: rpcMock };
+    await expect(incrementCouponUsage(client as never, 'c1')).resolves.not.toThrow();
   });
 });
 

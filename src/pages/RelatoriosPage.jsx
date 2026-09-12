@@ -126,10 +126,19 @@ export default function RelatoriosPage() {
     };
     // No modo "Personalizado" só recarrega quando as duas datas já foram
     // preenchidas — evita disparar consultas com um intervalo pela metade
-    // enquanto a pessoa ainda está digitando a segunda data.
-    if (preset !== 'custom' || (customFrom && customTo)) load();
+    // enquanto a pessoa ainda está digitando a segunda data. Enquanto isso,
+    // não pode deixar "data" com o resultado do preset anterior parado na
+    // tela — a pessoa vê números de "30 dias" com "Personalizado"
+    // selecionado e as datas em branco, achando que aqueles números já são
+    // do período custom (não são).
+    const customRangeInvalid = preset === 'custom' && customFrom && customTo && customFrom > customTo;
+    if (preset !== 'custom' || (customFrom && customTo && !customRangeInvalid)) load();
+    else setData(null);
     /* eslint-disable-next-line */
   }, [selectedCondominioId, preset, customFrom, customTo]);
+
+  const awaitingCustomDates = preset === 'custom' && (!customFrom || !customTo);
+  const customRangeInvalid = preset === 'custom' && customFrom && customTo && customFrom > customTo;
 
   const handleExport = () => {
     if (!data) return;
@@ -223,7 +232,11 @@ export default function RelatoriosPage() {
         </Group>
       </div>
 
-      {loading || !data ? (
+      {customRangeInvalid ? (
+        <Group justify="center" py={60}><Text c="red" size="sm">A data início precisa ser antes da data fim.</Text></Group>
+      ) : awaitingCustomDates ? (
+        <Group justify="center" py={60}><Text c="dimmed" size="sm">Selecione a data início e a data fim para ver o relatório do período personalizado.</Text></Group>
+      ) : loading || !data ? (
         <Group justify="center" py={60}><Loader color="brand" /></Group>
       ) : (
         <>
