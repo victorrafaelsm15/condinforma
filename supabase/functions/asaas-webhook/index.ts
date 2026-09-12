@@ -228,8 +228,12 @@ Deno.serve(async (req: Request) => {
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error('Erro ao processar webhook do Asaas:', message);
-    // Ainda assim responde 200: o erro é nosso (Supabase fora do ar, etc.),
-    // não do Asaas, e deixar ele retentando não resolve sozinho.
-    return jsonResponse({ received: true, warning: 'Falha ao gravar no banco, ver logs.' });
+    // Responde erro de verdade (não 200): o problema é nosso (Supabase
+    // fora do ar, erro de gravação etc.), não do Asaas, mas o cliente já
+    // pagou de verdade nesse ponto — se a conta não for liberada por causa
+    // dessa falha, é bem pior deixar a Asaas achar que entregou com
+    // sucesso (nunca reenvia) do que ela tentar de novo depois. A Asaas
+    // reentrega webhooks que não respondem 2xx.
+    return jsonResponse({ received: false, error: 'Falha ao processar o evento, ver logs.' }, 500);
   }
 });
