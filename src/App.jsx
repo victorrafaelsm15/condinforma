@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import { Loader } from '@mantine/core';
 import ProtectedRoute from './components/ProtectedRoute';
 
@@ -119,6 +119,11 @@ export default function App() {
 
         <Route path="/ambiente/:id/executar" element={<ExecutarChecklistPage />} />
         <Route path="/ambiente/:id/status" element={<StatusPublicoPage />} />
+
+        {/* Rede de segurança: qualquer hash sem rota correspondente (ex.: um
+            redirect de e-mail que a gente não soube tratar) cai na landing
+            em vez de ficar em branco sem nenhuma pista. */}
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Suspense>
   );

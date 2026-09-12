@@ -15,6 +15,7 @@ import ErrorBoundary from './components/ErrorBoundary.jsx';
 import MissingEnvScreen from './components/MissingEnvScreen.jsx';
 import { registerSW } from 'virtual:pwa-register';
 import { checkInstallLaunchRedirect } from './lib/installPrompt';
+import { normalizeAuthErrorRedirect } from './lib/authErrorRedirect';
 import { initAutoSync } from './lib/offlineQueue';
 import { isValidHttpUrl } from './lib/supabaseClient';
 
@@ -52,6 +53,12 @@ if (missingVars.length) {
   // Antes do HashRouter ler a URL: se o ícone instalado veio do botão da
   // página de login, já troca o hash pra lá — a landing page nunca renderiza.
   checkInstallLaunchRedirect();
+
+  // Também antes do HashRouter ler a URL: se um link de e-mail (recovery,
+  // confirmação) voltou com erro, o Supabase ignora a rota pedida e joga o
+  // erro cru na raiz — sem isso, o HashRouter não acha rota nenhuma e a
+  // tela fica em branco. Ver authErrorRedirect.js.
+  normalizeAuthErrorRedirect();
 
   root.render(
     <StrictMode>

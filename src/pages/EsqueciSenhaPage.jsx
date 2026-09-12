@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { Button, TextInput, Text } from '@mantine/core';
 import { KeyRound } from 'lucide-react';
 import { requestPasswordReset } from '../lib/authService';
+import { consumeAuthErrorMessage } from '../lib/authErrorRedirect';
 import Seo from '../components/common/Seo';
 
 // redirectTo aponta pra dentro do próprio HashRouter — window.location.origin
@@ -17,7 +18,15 @@ function buildRedirectTo() {
 export default function EsqueciSenhaPage() {
   const [sent, setSent] = useState(false);
   const [error, setError] = useState('');
+  const [linkErrorMessage, setLinkErrorMessage] = useState('');
   const { register, handleSubmit, formState: { isSubmitting } } = useForm();
+
+  // Se essa tela foi aberta por normalizeAuthErrorRedirect() (link de e-mail
+  // expirado/inválido), mostra o motivo antes do formulário.
+  useEffect(() => {
+    const message = consumeAuthErrorMessage();
+    if (message) setLinkErrorMessage(message);
+  }, []);
 
   const onSubmit = async ({ email }) => {
     setError('');
@@ -47,6 +56,8 @@ export default function EsqueciSenhaPage() {
           </div>
           <Text fw={800} size="lg">Esqueci minha senha</Text>
           <Text size="sm" c="dimmed" mb="lg">Informe seu e-mail para receber um link de redefinição</Text>
+
+          {linkErrorMessage && !sent && <Text size="sm" c="orange" mb="md">{linkErrorMessage}</Text>}
 
           {sent ? (
             <Text size="sm" mb="lg">
