@@ -5,6 +5,7 @@ import { Button, TextInput, PasswordInput, Text, SegmentedControl, Checkbox, Loa
 import { Check, Copy, Download, CheckCircle2, XCircle } from 'lucide-react';
 import { plans } from '../data/landingContent';
 import { signUp, getSession } from '../lib/authService';
+import { getSubUsuarioInfo } from '../lib/subUsuario';
 import { accountsStore } from '../lib/stores';
 import Seo from '../components/common/Seo';
 import SectionErrorBoundary from '../components/common/SectionErrorBoundary';
@@ -149,6 +150,7 @@ export default function AssinaturaPage() {
   const [accountActivated, setAccountActivated] = useState(false);
   const [pollTimedOut, setPollTimedOut] = useState(false);
   const [checkingNow, setCheckingNow] = useState(false);
+  const [isSubUsuario, setIsSubUsuario] = useState(false);
   const {
     register, handleSubmit, control, watch, setError, formState: { isSubmitting, errors },
   } = useForm({ defaultValues: { billingType: 'PIX' } });
@@ -157,8 +159,17 @@ export default function AssinaturaPage() {
   const seoTag = <Seo title="Assine um plano — Cond Informa" description="Assine o Cond Informa e comece a organizar checklists digitais de limpeza e manutenção com QR Code no seu condomínio." path="/assinar" />;
 
   useEffect(() => {
-    getSession().then((s) => {
+    getSession().then(async (s) => {
       setSession(s);
+      // Sub-usuário (login de colaborador dentro de uma conta) não pode
+      // assinar/trocar de plano — a Edge Function subscribe já bloqueia
+      // isso do lado do servidor, mas sem essa checagem aqui ele
+      // preencheria o formulário inteiro (inclusive dados de cartão) só
+      // pra ver um erro genérico no fim.
+      if (s?.user?.id) {
+        const subInfo = await getSubUsuarioInfo(s.user.id);
+        setIsSubUsuario(!!subInfo);
+      }
       setCheckingSession(false);
     });
   }, []);
@@ -306,6 +317,19 @@ export default function AssinaturaPage() {
 
   if (checkingSession) {
     return <>{seoTag}<Group justify="center" py={100}><Loader color="brand" /></Group></>;
+  }
+
+  if (isSubUsuario) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)', padding: 24 }}>
+        {seoTag}
+        <div className="surface-card" style={{ maxWidth: 420, padding: '40px 32px', textAlign: 'center' }}>
+          <Text fw={800} size="lg" mb={8}>Acesso restrito</Text>
+          <Text c="dimmed" size="sm" mb="lg">Sub-usuários não podem assinar ou trocar de plano. Peça para o administrador da conta fazer isso.</Text>
+          <Button component={Link} to="/admin">Voltar ao painel</Button>
+        </div>
+      </div>
+    );
   }
 
   return (

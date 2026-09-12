@@ -452,8 +452,13 @@ function CuponsTab() {
         min={0}
         value={form.valor}
         onChange={(v) => setForm((f) => ({ ...f, valor: v ?? '' }))}
-        mb="sm"
+        mb={form.tipo === 'percentual' && Number(form.valor) >= 100 ? 4 : 'sm'}
       />
+      {form.tipo === 'percentual' && Number(form.valor) >= 100 && (
+        <Text size="xs" c="orange" mb="sm">
+          Desconto de 100% ou mais não deixa a assinatura gratuita — a Asaas exige um mínimo de R$ 5 por cobrança, e é esse valor que será cobrado.
+        </Text>
+      )}
       <TextInput
         label="Validade (opcional)"
         type="date"

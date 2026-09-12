@@ -158,7 +158,7 @@ export async function applyCouponToRecurringPayment(supabaseAdmin: SupabaseAdmin
 
   const { data: row } = await supabaseAdmin
     .from('assinante_cupons')
-    .select('*')
+    .select('primeiro_payment_id')
     .eq('asaas_subscription_id', asaasSubscriptionId)
     .maybeSingle();
   if (!row) return;
@@ -168,30 +168,48 @@ export async function applyCouponToRecurringPayment(supabaseAdmin: SupabaseAdmin
   // mesma cobrança duas vezes contra o saldo de cobranças restantes.
   if (payment.id === row.primeiro_payment_id) return;
 
-  if (row.cobrancas_restantes != null && row.cobrancas_restantes <= 0) return;
-
   // Só é possível alterar cobrança ainda PENDING (mesma regra da primeira
   // cobrança) — cartão é capturado de forma síncrona e nunca chega aqui
   // como PENDING, mas cupom já é bloqueado pra cartão desde a assinatura.
-  if (payment.status === 'PENDING') {
-    const finalValue = computeFinalValue(row.tipo, Number(row.valor), Number(payment.value));
-    if (finalValue !== Number(payment.value)) {
-      try {
-        await updatePaymentValue(payment.id, finalValue);
-      } catch (err) {
-        console.error('Erro ao aplicar desconto recorrente do cupom:', err instanceof Error ? err.message : err);
-        return; // não decrementa o saldo se a aplicação falhou
-      }
-    }
-  } else {
+  if (payment.status !== 'PENDING') {
     console.warn(`Cupom recorrente: cobrança ${payment.id} da assinatura ${asaasSubscriptionId} já não está PENDING (status ${payment.status}) — desconto não pôde ser aplicado.`);
-    return; // não decrementa o saldo numa cobrança em que o desconto não pôde ser aplicado
+    return;
   }
 
-  if (row.cobrancas_restantes != null) {
-    const { error } = await supabaseAdmin.from('assinante_cupons')
-      .update({ cobrancas_restantes: row.cobrancas_restantes - 1, updated_at: new Date().toISOString() })
-      .eq('asaas_subscription_id', asaasSubscriptionId);
-    if (error) console.error('Erro ao decrementar saldo do cupom recorrente:', error.message);
+  // Reivindica atomicamente esta cobrança específica — um único UPDATE no
+  // banco (claim_assinante_cupom_desconto) que só decrementa o saldo se
+  // ainda sobrar cobrança E se essa cobrança em particular ainda não tiver
+  // sido processada antes. Substitui o antigo "ler saldo, decidir, gravar
+  // saldo-1" em duas chamadas separadas — não atômico, e sem nenhum
+  // registro de "essa cobrança já foi descontada": duas entregas do mesmo
+  // evento de webhook (retry da Asaas) decrementavam duas vezes a mesma
+  // cobrança, e duas cobranças diferentes chegando quase juntas podiam ler
+  // o mesmo saldo e as duas decrementarem a partir dele.
+  const { data: claimed, error: claimError } = await supabaseAdmin.rpc('claim_assinante_cupom_desconto', {
+    p_asaas_subscription_id: asaasSubscriptionId,
+    p_payment_id: payment.id,
+  });
+  if (claimError) {
+    console.error('Erro ao reivindicar desconto recorrente do cupom:', claimError.message);
+    return;
+  }
+  const claim = (claimed as { tipo: 'percentual' | 'fixo'; valor: number }[] | null)?.[0];
+  // Sem saldo, ou esta cobrança específica já foi processada antes
+  // (retry) — nada a fazer, e não é erro.
+  if (!claim) return;
+
+  const finalValue = computeFinalValue(claim.tipo, Number(claim.valor), Number(payment.value));
+  if (finalValue === Number(payment.value)) return;
+
+  try {
+    await updatePaymentValue(payment.id, finalValue);
+  } catch (err) {
+    // O saldo já foi reivindicado/decrementado no banco neste ponto — se a
+    // chamada à Asaas falhar aqui, essa cobrança específica fica sem o
+    // desconto (não há retry agendado pra isso hoje, então o resultado
+    // prático é o mesmo de antes: essa cobrança não sai descontada). O que
+    // mudou é que agora isso nunca decrementa o saldo DUAS VEZES por causa
+    // de uma reentrega do mesmo evento — o bug que esta função corrige.
+    console.error('Erro ao aplicar desconto recorrente do cupom:', err instanceof Error ? err.message : err);
   }
 }

@@ -10,6 +10,7 @@
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { corsHeaders, jsonResponse } from '../_shared/cors.ts';
+import { cancelSubscription } from '../_shared/asaas.ts';
 
 const supabaseAdmin = createClient(
   Deno.env.get('SUPABASE_URL') ?? '',
@@ -49,6 +50,35 @@ Deno.serve(async (req: Request) => {
   }
   if (userId === userData.user.id) {
     return jsonResponse({ error: 'Você não pode excluir a própria conta por aqui.' }, 400);
+  }
+
+  const { data: targetAccount } = await supabaseAdmin.from('accounts').select('role').eq('id', userId).maybeSingle();
+  if (targetAccount?.role === 'owner') {
+    return jsonResponse({ error: 'Não é possível excluir outra conta administradora da plataforma por aqui.' }, 400);
+  }
+
+  // Excluir a conta não cancela a assinatura dela na Asaas — sem isso, o
+  // cartão do ex-cliente continua sendo debitado todo mês por uma
+  // assinatura que já não tem mais conta nenhuma vinculada aqui (o
+  // "on delete set null" de assinantes.account_id só apaga o VÍNCULO, não
+  // a assinatura em si). Cancela todas as assinaturas ativas/pendentes
+  // dessa conta ANTES de excluir o usuário — best-effort: uma falha aqui
+  // não pode impedir a exclusão em si (é a ação que o owner pediu), só
+  // fica registrada no log pra cancelamento manual depois.
+  const { data: assinaturas } = await supabaseAdmin
+    .from('assinantes')
+    .select('asaas_subscription_id')
+    .eq('account_id', userId)
+    .in('status', ['ativo', 'pendente']);
+  for (const assinatura of assinaturas || []) {
+    try {
+      await cancelSubscription(assinatura.asaas_subscription_id as string);
+    } catch (err) {
+      console.error(
+        `Erro ao cancelar assinatura ${assinatura.asaas_subscription_id} da conta ${userId} antes da exclusão:`,
+        err instanceof Error ? err.message : err,
+      );
+    }
   }
 
   const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(userId);

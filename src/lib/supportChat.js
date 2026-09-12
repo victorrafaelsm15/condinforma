@@ -17,5 +17,8 @@ export async function sendSupportMessage(messages) {
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || 'Não foi possível responder agora.');
-  return data.reply;
+  // "sig" precisa voltar junto no próximo envio (ver SupportChat.jsx) — é
+  // a assinatura que prova pro servidor que essa resposta "assistant" veio
+  // dele mesmo, não foi forjada pelo cliente pra sair do escopo do bot.
+  return { reply: data.reply, sig: data.sig };
 }

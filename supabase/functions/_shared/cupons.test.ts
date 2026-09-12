@@ -240,42 +240,47 @@ describe('registerCouponSubscription', () => {
 });
 
 describe('applyCouponToRecurringPayment', () => {
-  function mockAssinanteCupons(row: Record<string, unknown> | null) {
-    const updateEqMock = vi.fn().mockResolvedValue({ error: null });
-    const updateMock = vi.fn().mockReturnValue({ eq: updateEqMock });
+  // preCheckRow: o que a pré-checagem (.select('primeiro_payment_id'))
+  // devolve. claimResult: o que a RPC claim_assinante_cupom_desconto
+  // devolve — data:[] simula "sem saldo OU essa cobrança já foi
+  // processada antes" (a RPC não distingue os dois casos pro chamador, o
+  // UPDATE atômico no banco já resolveu isso).
+  function mockAssinanteCupons(
+    preCheckRow: Record<string, unknown> | null,
+    claimResult: { data: unknown; error: { message: string } | null } = { data: [], error: null },
+  ) {
+    const rpcMock = vi.fn().mockResolvedValue(claimResult);
     const client = {
       from: vi.fn().mockReturnValue({
-        select: vi.fn().mockReturnValue({ eq: vi.fn().mockReturnValue({ maybeSingle: vi.fn().mockResolvedValue({ data: row }) }) }),
-        update: updateMock,
+        select: vi.fn().mockReturnValue({ eq: vi.fn().mockReturnValue({ maybeSingle: vi.fn().mockResolvedValue({ data: preCheckRow }) }) }),
       }),
+      rpc: rpcMock,
     };
-    return { client, updateMock, updateEqMock };
+    return { client, rpcMock };
   }
 
   it('não faz nada quando a assinatura não tem cupom associado', async () => {
-    const { client } = mockAssinanteCupons(null);
+    const { client, rpcMock } = mockAssinanteCupons(null);
     const updatePaymentValue = vi.fn();
     await applyCouponToRecurringPayment(client as never, {
       asaasSubscriptionId: 'sub_1', payment: { id: 'pay_2', status: 'PENDING', value: 100 }, updatePaymentValue,
     });
+    expect(rpcMock).not.toHaveBeenCalled();
     expect(updatePaymentValue).not.toHaveBeenCalled();
   });
 
   it('ignora a própria primeira cobrança (já aplicada de forma síncrona na criação)', async () => {
-    const { client } = mockAssinanteCupons({
-      tipo: 'percentual', valor: 10, primeiro_payment_id: 'pay_1', cobrancas_restantes: 2,
-    });
+    const { client, rpcMock } = mockAssinanteCupons({ primeiro_payment_id: 'pay_1' });
     const updatePaymentValue = vi.fn();
     await applyCouponToRecurringPayment(client as never, {
       asaasSubscriptionId: 'sub_1', payment: { id: 'pay_1', status: 'PENDING', value: 100 }, updatePaymentValue,
     });
+    expect(rpcMock).not.toHaveBeenCalled();
     expect(updatePaymentValue).not.toHaveBeenCalled();
   });
 
-  it('não aplica desconto quando já não sobra saldo de cobranças', async () => {
-    const { client } = mockAssinanteCupons({
-      tipo: 'percentual', valor: 10, primeiro_payment_id: 'pay_1', cobrancas_restantes: 0,
-    });
+  it('não aplica desconto quando a RPC não reivindica nada (sem saldo)', async () => {
+    const { client } = mockAssinanteCupons({ primeiro_payment_id: 'pay_1' }, { data: [], error: null });
     const updatePaymentValue = vi.fn();
     await applyCouponToRecurringPayment(client as never, {
       asaasSubscriptionId: 'sub_1', payment: { id: 'pay_2', status: 'PENDING', value: 100 }, updatePaymentValue,
@@ -283,51 +288,75 @@ describe('applyCouponToRecurringPayment', () => {
     expect(updatePaymentValue).not.toHaveBeenCalled();
   });
 
-  it('aplica o desconto na cobrança nova e decrementa o saldo', async () => {
-    const { client, updateMock, updateEqMock } = mockAssinanteCupons({
-      tipo: 'percentual', valor: 10, primeiro_payment_id: 'pay_1', cobrancas_restantes: 2,
+  it('reentrega do mesmo evento de webhook (mesma cobrança já processada) não decrementa de novo', async () => {
+    // A RPC já devolve [] nesse caso (o UPDATE não bateu no WHERE porque
+    // ultimo_payment_id_processado já é igual a p_payment_id) — do ponto
+    // de vista do chamador é indistinguível de "sem saldo", e não precisa
+    // ser: os dois casos têm a mesma ação correta, não fazer nada de novo.
+    const { client, rpcMock } = mockAssinanteCupons({ primeiro_payment_id: 'pay_1' }, { data: [], error: null });
+    const updatePaymentValue = vi.fn();
+    await applyCouponToRecurringPayment(client as never, {
+      asaasSubscriptionId: 'sub_1', payment: { id: 'pay_2', status: 'PENDING', value: 100 }, updatePaymentValue,
     });
+    expect(rpcMock).toHaveBeenCalledWith('claim_assinante_cupom_desconto', { p_asaas_subscription_id: 'sub_1', p_payment_id: 'pay_2' });
+    expect(updatePaymentValue).not.toHaveBeenCalled();
+  });
+
+  it('aplica o desconto na cobrança nova depois de reivindicar atomicamente', async () => {
+    const { client, rpcMock } = mockAssinanteCupons(
+      { primeiro_payment_id: 'pay_1' },
+      { data: [{ tipo: 'percentual', valor: 10 }], error: null },
+    );
     const updatePaymentValue = vi.fn().mockResolvedValue({});
     await applyCouponToRecurringPayment(client as never, {
       asaasSubscriptionId: 'sub_1', payment: { id: 'pay_2', status: 'PENDING', value: 100 }, updatePaymentValue,
     });
+    expect(rpcMock).toHaveBeenCalledWith('claim_assinante_cupom_desconto', { p_asaas_subscription_id: 'sub_1', p_payment_id: 'pay_2' });
     expect(updatePaymentValue).toHaveBeenCalledWith('pay_2', 90);
-    expect(updateMock).toHaveBeenCalledWith(expect.objectContaining({ cobrancas_restantes: 1 }));
-    expect(updateEqMock).toHaveBeenCalledWith('asaas_subscription_id', 'sub_1');
   });
 
-  it('aplica o desconto indefinidamente quando cobrancas_restantes é null (sem decrementar)', async () => {
-    const { client, updateMock } = mockAssinanteCupons({
-      tipo: 'fixo', valor: 20, primeiro_payment_id: 'pay_1', cobrancas_restantes: null,
-    });
+  it('aplica o desconto de cupom sem prazo (ilimitado) normalmente — quem decide o saldo é a RPC, não o JS', async () => {
+    const { client } = mockAssinanteCupons(
+      { primeiro_payment_id: 'pay_1' },
+      { data: [{ tipo: 'fixo', valor: 20 }], error: null },
+    );
     const updatePaymentValue = vi.fn().mockResolvedValue({});
     await applyCouponToRecurringPayment(client as never, {
       asaasSubscriptionId: 'sub_1', payment: { id: 'pay_3', status: 'PENDING', value: 100 }, updatePaymentValue,
     });
     expect(updatePaymentValue).toHaveBeenCalledWith('pay_3', 80);
-    expect(updateMock).not.toHaveBeenCalled();
   });
 
-  it('não aplica (nem decrementa) quando a cobrança já não está PENDING', async () => {
-    const { client, updateMock } = mockAssinanteCupons({
-      tipo: 'percentual', valor: 10, primeiro_payment_id: 'pay_1', cobrancas_restantes: 2,
-    });
+  it('não tenta reivindicar quando a cobrança já não está PENDING', async () => {
+    const { client, rpcMock } = mockAssinanteCupons({ primeiro_payment_id: 'pay_1' });
     const updatePaymentValue = vi.fn();
     await applyCouponToRecurringPayment(client as never, {
       asaasSubscriptionId: 'sub_1', payment: { id: 'pay_2', status: 'CONFIRMED', value: 100 }, updatePaymentValue,
     });
+    expect(rpcMock).not.toHaveBeenCalled();
     expect(updatePaymentValue).not.toHaveBeenCalled();
-    expect(updateMock).not.toHaveBeenCalled();
   });
 
-  it('não decrementa o saldo quando a chamada à Asaas falha', async () => {
-    const { client, updateMock } = mockAssinanteCupons({
-      tipo: 'percentual', valor: 10, primeiro_payment_id: 'pay_1', cobrancas_restantes: 2,
-    });
+  it('não lança mesmo se a chamada à Asaas falhar depois de já ter reivindicado', async () => {
+    const { client } = mockAssinanteCupons(
+      { primeiro_payment_id: 'pay_1' },
+      { data: [{ tipo: 'percentual', valor: 10 }], error: null },
+    );
     const updatePaymentValue = vi.fn().mockRejectedValue(new Error('Asaas fora do ar'));
+    await expect(applyCouponToRecurringPayment(client as never, {
+      asaasSubscriptionId: 'sub_1', payment: { id: 'pay_2', status: 'PENDING', value: 100 }, updatePaymentValue,
+    })).resolves.not.toThrow();
+  });
+
+  it('não chama a Asaas quando a RPC devolve erro', async () => {
+    const { client } = mockAssinanteCupons(
+      { primeiro_payment_id: 'pay_1' },
+      { data: null, error: { message: 'falhou' } },
+    );
+    const updatePaymentValue = vi.fn();
     await applyCouponToRecurringPayment(client as never, {
       asaasSubscriptionId: 'sub_1', payment: { id: 'pay_2', status: 'PENDING', value: 100 }, updatePaymentValue,
     });
-    expect(updateMock).not.toHaveBeenCalled();
+    expect(updatePaymentValue).not.toHaveBeenCalled();
   });
 });

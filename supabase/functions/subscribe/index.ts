@@ -51,6 +51,23 @@ Deno.serve(async (req: Request) => {
   }
   const accountId = userData.user.id;
 
+  // Sub-usuário (login de colaborador dentro de uma conta) não pode
+  // assinar/trocar de plano — a cobrança sairia com externalReference
+  // "<auth_user_id do sub-usuário>:<plano>", e o webhook, ao tentar
+  // liberar o plano, faria "update accounts where id = <esse id>" — que
+  // não bate com nenhuma conta (sub_usuarios é uma tabela separada de
+  // accounts). Resultado sem essa checagem: o cartão é cobrado de
+  // verdade e ninguém recebe acesso nenhum, sem erro visível em lugar
+  // nenhum. Só a conta principal (o dono) pode chegar até aqui.
+  const { data: subUsuarioInfo } = await supabaseAdmin
+    .from('sub_usuarios')
+    .select('id')
+    .eq('auth_user_id', accountId)
+    .maybeSingle();
+  if (subUsuarioInfo) {
+    return jsonResponse({ error: 'Sub-usuários não podem gerenciar a assinatura. Peça para o administrador da conta fazer isso.' }, 403);
+  }
+
   // Rota autenticada: limite por conta. Cria cliente/assinatura de verdade
   // no Asaas a cada chamada — 5 tentativas a cada 10 minutos é sobra pra
   // alguém corrigindo um cartão recusado ou um cupom digitado errado, mas

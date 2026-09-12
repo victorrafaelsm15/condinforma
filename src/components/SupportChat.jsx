@@ -25,8 +25,11 @@ export default function SupportChat({ opened, onClose }) {
     setInput('');
     setSending(true);
     try {
-      const reply = await sendSupportMessage(nextMessages);
-      setMessages((prev) => [...prev, { role: 'assistant', content: reply }]);
+      // O primeiro item é sempre a saudação fixa da UI (nunca foi uma
+      // resposta real da Anthropic) — não tem "sig" e o servidor rejeitaria
+      // o histórico inteiro se ela fosse enviada junto.
+      const { reply, sig } = await sendSupportMessage(nextMessages.slice(1));
+      setMessages((prev) => [...prev, { role: 'assistant', content: reply, sig }]);
     } catch {
       setMessages((prev) => [...prev, {
         role: 'assistant',
