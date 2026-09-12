@@ -1,5 +1,5 @@
 import { openDB } from 'idb';
-import { supabase } from './supabaseClient';
+import { insertExecucaoPublica, insertOcorrenciaPublica } from './publicChecklist';
 
 // Fila local (IndexedDB) pra execuções de checklist e ocorrências
 // confirmadas sem sinal (elevador, subsolo, garagem). O createStore.js
@@ -85,7 +85,7 @@ async function markAttempt(queueId, error) {
   await db.put(STORE, entry);
 }
 
-const TABLE_BY_TYPE = { execucao: 'execucoes', ocorrencia: 'ocorrencias' };
+const INSERT_BY_TYPE = { execucao: insertExecucaoPublica, ocorrencia: insertOcorrenciaPublica };
 
 // Dispara a notificação push pro dono do condomínio (e sub-usuários com
 // acesso) depois que a ocorrência realmente chegou no servidor — nunca
@@ -101,13 +101,16 @@ function notifyOcorrenciaCreated(ocorrenciaId) {
 }
 
 async function sendToServer(entry) {
-  const table = TABLE_BY_TYPE[entry.type];
-  const { error } = await supabase.from(table).insert(entry.payload);
-  // 23505 = chave duplicada: o insert já tinha ido pro servidor numa
-  // tentativa anterior (ex.: a resposta caiu da rede depois de gravar) —
-  // trata como sucesso, senão o item ficaria preso reenviando pra sempre.
-  if (error && error.code !== '23505') throw error;
-  if (entry.type === 'ocorrencia' && (!error || error.code === '23505')) {
+  // As funções insert_execucao_publica/insert_ocorrencia_publica são
+  // idempotentes por "id" (on conflict do nothing) — reenviar o mesmo
+  // registro (retry depois de uma resposta que caiu da rede) nunca cria
+  // duplicata nem lança erro, diferente do INSERT cru de antes (que
+  // dependia de checar o código 23505 aqui).
+  const result = await INSERT_BY_TYPE[entry.type](entry.payload);
+  // "inserted" distingue "acabei de criar" de "já existia de uma
+  // tentativa anterior" — só dispara notificação na primeira vez, senão
+  // um retry bem-sucedido gera um push duplicado pro síndico.
+  if (entry.type === 'ocorrencia' && result?.inserted) {
     notifyOcorrenciaCreated(entry.payload.id);
   }
 }

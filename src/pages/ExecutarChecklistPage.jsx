@@ -5,7 +5,9 @@ import {
   Text, Checkbox, Button, TextInput, Textarea, Loader, FileButton, Group, Progress, Image as MantineImage, Badge, ActionIcon,
 } from '@mantine/core';
 import { CheckCircle2, Camera, Building2, WifiOff, CloudUpload, AlertTriangle, MessageSquareWarning } from 'lucide-react';
-import { ambientesStore, checklistPeriodosStore, checklistItemsStore, ocorrenciasStore } from '../lib/stores';
+import {
+  getAmbientePublico, getPeriodoAtivoPublico, listChecklistItemsPublico, listOcorrenciasPendentesPublico, resolveOcorrenciaPublica,
+} from '../lib/publicChecklist';
 import { enqueue, syncQueue, isPending, subscribeQueue, generateRecordId } from '../lib/offlineQueue';
 import { reporterLabel } from '../lib/ocorrenciaDisplay';
 import OcorrenciaForm from '../components/OcorrenciaForm';
@@ -327,15 +329,14 @@ export default function ExecutarChecklistPage() {
   }, []);
 
   const load = async () => {
-    const [amb, periodos] = await Promise.all([
-      ambientesStore.getById(id),
-      checklistPeriodosStore.list({ ambiente_id: id, status: 'ativo' }),
+    const [amb, ativo] = await Promise.all([
+      getAmbientePublico(id),
+      getPeriodoAtivoPublico(id),
     ]);
     setAmbiente(amb);
-    const ativo = periodos[0] || null;
     setPeriodoAtivo(ativo);
     if (ativo) {
-      const itemsList = await checklistItemsStore.list({ checklist_periodo_id: ativo.id });
+      const itemsList = await listChecklistItemsPublico(ativo.id);
       setItems(itemsList.sort((a, b) => (a.order_index || 0) - (b.order_index || 0)));
     } else {
       setItems([]);
@@ -351,16 +352,13 @@ export default function ExecutarChecklistPage() {
   // tarefas, sem nenhum aviso de que já existe uma ocorrência aberta
   // nesse mesmo ambiente.
   const loadPendingOcorrencias = () => {
-    // '*' explícito aqui: essa listagem é sempre 1 ambiente + status
-    // pendente (poucos itens) e a UI mostra a foto anexada — diferente da
-    // listagem padrão de ocorrenciasStore, que omite "photo" por padrão.
-    ocorrenciasStore.list({ ambiente_id: id, status: 'pendente' }, { columns: '*' }).then(setPendingOcorrencias);
+    listOcorrenciasPendentesPublico(id).then(setPendingOcorrencias);
   };
 
   const handleResolveOcorrencia = async (ocorrenciaId) => {
     setResolvingId(ocorrenciaId);
     try {
-      await ocorrenciasStore.update(ocorrenciaId, { status: 'resolvido' });
+      await resolveOcorrenciaPublica(ocorrenciaId, id);
       setPendingOcorrencias((prev) => prev.filter((o) => o.id !== ocorrenciaId));
     } catch {
       // silencioso — o item continua na lista, a pessoa pode tentar de novo

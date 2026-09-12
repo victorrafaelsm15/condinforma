@@ -3,7 +3,9 @@ import { useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Text, Loader, Badge, Group } from '@mantine/core';
 import { CheckCircle2, Clock, Building2, ListChecks, HelpCircle, AlertTriangle } from 'lucide-react';
-import { ambientesStore, execucoesStore, checklistPeriodosStore, checklistItemsStore, ocorrenciasStore } from '../lib/stores';
+import {
+  getAmbientePublico, getUltimaExecucaoPublica, getPeriodoAtivoPublico, listChecklistItemsPublico, listOcorrenciasPendentesPublico,
+} from '../lib/publicChecklist';
 import OcorrenciaForm from '../components/OcorrenciaForm';
 import Seo from '../components/common/Seo';
 import FalarComSindicoButton from '../components/common/FalarComSindicoButton';
@@ -57,17 +59,16 @@ export default function StatusPublicoPage() {
 
   useEffect(() => {
     Promise.all([
-      ambientesStore.getById(id),
-      execucoesStore.list({ ambiente_id: id }),
-      checklistPeriodosStore.list({ ambiente_id: id, status: 'ativo' }),
-      ocorrenciasStore.list({ ambiente_id: id, status: 'pendente' }),
-    ]).then(async ([amb, execs, periodosAtivos, pendentes]) => {
+      getAmbientePublico(id),
+      getUltimaExecucaoPublica(id),
+      getPeriodoAtivoPublico(id),
+      listOcorrenciasPendentesPublico(id),
+    ]).then(async ([amb, execAtual, periodoAtivo, pendentes]) => {
       setAmbiente(amb);
-      setLastExec(execs[0] || null);
+      setLastExec(execAtual);
       // Só itens do período ATIVO — só faz sentido o morador vincular a
       // ocorrência a uma tarefa que está de fato em uso agora.
-      const periodoAtivo = periodosAtivos[0];
-      const items = periodoAtivo ? await checklistItemsStore.list({ checklist_periodo_id: periodoAtivo.id }) : [];
+      const items = periodoAtivo ? await listChecklistItemsPublico(periodoAtivo.id) : [];
       setChecklistItems(items);
       setPendingCount(pendentes.length);
       setLoading(false);
