@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { Button, TextInput, PasswordInput, Text } from '@mantine/core';
 import { ShieldCheck, QrCode, BarChart3 } from 'lucide-react';
@@ -15,6 +15,7 @@ function translateAuthError(message) {
 
 export default function AdminLogin() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [error, setError] = useState('');
   const { register, handleSubmit, formState: { isSubmitting } } = useForm();
 
@@ -79,9 +80,16 @@ export default function AdminLogin() {
             <Text fw={800} size="lg">Painel do gestor</Text>
             <Text size="sm" c="dimmed" mb="lg">Entre com suas credenciais para continuar</Text>
 
+            {location.state?.passwordResetSuccess && (
+              <Text size="sm" c="green" mb="md" ta="center">Senha redefinida com sucesso. Entre com sua nova senha.</Text>
+            )}
+
             <form onSubmit={handleSubmit(onSubmit)} style={{ textAlign: 'left' }}>
               <TextInput label="E-mail" placeholder="voce@condinforma.com" {...register('email', { required: true })} />
               <PasswordInput label="Senha" placeholder="••••••••" mt="md" {...register('password', { required: true })} />
+              <Text size="sm" ta="right" mt={8}>
+                <Link to="/admin/esqueci-senha" style={{ color: 'var(--blue)', fontWeight: 600 }}>Esqueci minha senha</Link>
+              </Text>
               {error && <Text c="red" size="sm" mt="sm">{error}</Text>}
               <Button
                 type="submit"

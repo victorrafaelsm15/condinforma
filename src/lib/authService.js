@@ -29,6 +29,26 @@ export async function signOut() {
   await supabase.auth.signOut();
 }
 
+// "Esqueci minha senha" — dispara o e-mail de recuperação. O GoTrue sempre
+// devolve sucesso aqui independente do e-mail existir ou não na base (não é
+// coisa nossa, é o comportamento padrão do endpoint /recover), o que já
+// evita enumeração de contas por e-mail sem precisar de nenhuma lógica
+// extra — a tela que chama isso (EsqueciSenhaPage) só precisa exibir a
+// mesma mensagem genérica de sempre.
+export async function requestPasswordReset(email, redirectTo) {
+  const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo });
+  return { error };
+}
+
+// Efetiva a nova senha — só funciona dentro da sessão temporária de
+// recuperação que o Supabase cria a partir do link do e-mail (ver
+// RedefinirSenhaPage.jsx), a mesma API usada por SegurancaPage.jsx pra
+// trocar senha de uma sessão normal já logada.
+export async function updatePassword(newPassword) {
+  const { error } = await supabase.auth.updateUser({ password: newPassword });
+  return { error };
+}
+
 export async function getSession() {
   const { data } = await supabase.auth.getSession();
   return data.session;

@@ -34,7 +34,16 @@ export const isSupabaseConfigured = Boolean(isValidHttpUrl(supabaseUrl) && supab
 // funcional pra localStorage — sem Supabase configurado, o app não
 // funciona de verdade, só não deve quebrar de um jeito que produza tela
 // branca sem nenhuma pista.
+// flowType: 'pkce' é obrigatório aqui por causa do HashRouter (main.jsx) —
+// o flow padrão ("implicit") entrega o token de recuperação de senha DENTRO
+// do fragmento da URL (depois do "#"), que é exatamente onde o HashRouter
+// já espera encontrar a rota da SPA. As duas coisas competem pelo mesmo "#"
+// e o token nunca é reconhecido (vira parte do path, não do fragmento de
+// auth). PKCE evita isso porque entrega um "?code=" como query string de
+// verdade, antes do "#" — sem conflito com o roteamento. Ver
+// EsqueciSenhaPage.jsx / RedefinirSenhaPage.jsx.
 export const supabase = createClient(
   isValidHttpUrl(supabaseUrl) ? supabaseUrl : 'https://placeholder.supabase.co',
-  supabaseAnonKey || 'placeholder-anon-key'
+  supabaseAnonKey || 'placeholder-anon-key',
+  { auth: { flowType: 'pkce' } }
 );

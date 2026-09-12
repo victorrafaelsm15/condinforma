@@ -46,6 +46,8 @@ const AdminLayout = lazyWithChunkRetry(() => import('./layouts/AdminLayout'));
 const LandingPage = lazyWithChunkRetry(() => import('./pages/LandingPage'));
 const AdminLogin = lazyWithChunkRetry(() => import('./pages/AdminLogin'));
 const AdminSignup = lazyWithChunkRetry(() => import('./pages/AdminSignup'));
+const EsqueciSenhaPage = lazyWithChunkRetry(() => import('./pages/EsqueciSenhaPage'));
+const RedefinirSenhaPage = lazyWithChunkRetry(() => import('./pages/RedefinirSenhaPage'));
 const AssinaturaPage = lazyWithChunkRetry(() => import('./pages/AssinaturaPage'));
 const TermosPage = lazyWithChunkRetry(() => import('./pages/TermosPage'));
 const PrivacidadePage = lazyWithChunkRetry(() => import('./pages/PrivacidadePage'));
@@ -86,6 +88,8 @@ export default function App() {
 
         <Route path="/admin/login" element={<AdminLogin />} />
         <Route path="/admin/signup" element={<AdminSignup />} />
+        <Route path="/admin/esqueci-senha" element={<EsqueciSenhaPage />} />
+        <Route path="/admin/redefinir-senha" element={<RedefinirSenhaPage />} />
         {/* Pública mas sensível à sessão: funciona tanto pra quem ainda não
             tem conta (cria conta + assina) quanto pra cliente já logado
             trocando de plano pelas Configurações — ver AssinaturaPage.jsx. */}
