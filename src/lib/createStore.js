@@ -52,12 +52,13 @@ export function createStore(table, { orderBy = 'created_at', ascending = false, 
     // limit: corta a listagem nos N mais recentes (por orderBy) — evita
     // baixar o histórico inteiro em telas que só mostram os últimos
     // registros.
-    async list(filters = {}, { columns: columnsOverride } = {}) {
+    async list(filters = {}, { columns: columnsOverride, limit: limitOverride } = {}) {
+      const effectiveLimit = limitOverride ?? limit;
       if (isSupabaseConfigured) {
         try {
           let query = supabase.from(table).select(columnsOverride || columns).order(orderBy, { ascending });
           Object.entries(filters).forEach(([k, v]) => { query = query.eq(k, v); });
-          if (limit) query = query.limit(limit);
+          if (effectiveLimit) query = query.limit(effectiveLimit);
           const { data, error } = await query;
           if (error) throw error;
           return data;
@@ -78,7 +79,7 @@ export function createStore(table, { orderBy = 'created_at', ascending = false, 
         const cmp = String(av).localeCompare(String(bv));
         return ascending ? cmp : -cmp;
       });
-      return limit ? list.slice(0, limit) : list;
+      return effectiveLimit ? list.slice(0, effectiveLimit) : list;
     },
 
     async getById(id) {

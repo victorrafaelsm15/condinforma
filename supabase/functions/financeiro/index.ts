@@ -12,6 +12,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 import { getSubscription, getLatestPayment } from '../_shared/asaas.ts';
 import { corsHeaders, jsonResponse } from '../_shared/cors.ts';
 import { PLAN_PRICES } from '../_shared/plans.ts';
+import { checkRateLimit, rateLimitResponse } from '../_shared/rateLimit.ts';
 
 const supabaseAdmin = createClient(
   Deno.env.get('SUPABASE_URL') ?? '',
@@ -36,6 +37,15 @@ Deno.serve(async (req: Request) => {
     return jsonResponse({ error: 'Sessão inválida ou expirada.' }, 401);
   }
   const accountId = userData.user.id;
+
+  // Rota autenticada: limite por conta. Cada chamada faz até 2 requisições
+  // reais à API da Asaas — sem limite, é fácil estourar a cota da conta
+  // Asaas DA PLATAFORMA (compartilhada por todos os clientes) só de recarregar
+  // essa tela em loop, o que derrubaria o checkout de verdade pra todo mundo.
+  const allowed = await checkRateLimit({
+    supabaseAdmin, key: `financeiro:acc:${accountId}`, max: 30, windowSeconds: 600,
+  });
+  if (!allowed) return rateLimitResponse();
 
   const { data: account } = await supabaseAdmin
     .from('accounts')

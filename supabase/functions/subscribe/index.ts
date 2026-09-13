@@ -77,6 +77,26 @@ Deno.serve(async (req: Request) => {
   });
   if (!allowed) return rateLimitResponse();
 
+  // Duplo clique no botão "Assinar", ou um retry manual imediato depois de
+  // um erro de rede (a chamada anterior já criou a assinatura no Asaas, só
+  // a resposta que não voltou) — sem essa checagem, cada uma dessas cria
+  // uma assinatura NOVA de verdade, e com cartão a cobrança é capturada na
+  // hora: duas cobranças reais em segundos. Bucket separado do rate limit
+  // geral acima (max 1 a cada 10s, não 5 a cada 10min): só existe pra
+  // pegar chamadas quase simultâneas — não usa a tabela "assinantes" pra
+  // isso de propósito, porque o status dela fica "pendente" tanto pra uma
+  // tentativa ainda em voo quanto pra uma que já foi definitivamente
+  // recusada (cartão negado), e barrar a segunda nesse caso impediria a
+  // pessoa de corrigir o cartão e tentar de novo na mesma hora.
+  const debounceAllowed = await checkRateLimit({
+    supabaseAdmin, key: `subscribe:debounce:acc:${accountId}`, max: 1, windowSeconds: 10,
+  });
+  if (!debounceAllowed) {
+    return jsonResponse({
+      error: 'Já recebemos uma tentativa de assinatura sua há poucos segundos. Aguarde um instante antes de tentar de novo.',
+    }, 429);
+  }
+
   const {
     planName, name, email, cpfCnpj, phone, billingType, couponCode, creditCard, cep, addressNumber,
   } = await req.json().catch(() => ({}));

@@ -14,15 +14,7 @@ import { getSession } from '../lib/authService';
 import { listSubUsuarios } from '../lib/subUsuario';
 import ConfirmDeleteModal from '../components/common/ConfirmDeleteModal';
 import InitialsAvatar from '../components/common/InitialsAvatar';
-
-function fileToBase64(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
+import { validateImageFile, fileToBase64 } from '../lib/imageUpload';
 
 export default function ChecklistItemPage() {
   const { ambienteId, itemId } = useParams();
@@ -129,11 +121,21 @@ export default function ChecklistItemPage() {
 
   const handlePhoto = async (file) => {
     if (!file) return;
+    const validationError = validateImageFile(file);
+    if (validationError) {
+      notifications.show({ color: 'red', message: validationError });
+      return;
+    }
     setUploadingPhoto(true);
-    const base64 = await fileToBase64(file);
-    await checklistItemsStore.update(item.id, { foto: base64 });
-    setUploadingPhoto(false);
-    load();
+    try {
+      const base64 = await fileToBase64(file);
+      await checklistItemsStore.update(item.id, { foto: base64 });
+      load();
+    } catch {
+      notifications.show({ color: 'red', message: 'Não foi possível anexar essa foto. Tente novamente.' });
+    } finally {
+      setUploadingPhoto(false);
+    }
   };
 
   const handleDelete = async () => {

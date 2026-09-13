@@ -3,15 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Text, Button, Textarea, TextInput, Select, FileButton, Group } from '@mantine/core';
 import { Camera, AlertTriangle, CloudUpload } from 'lucide-react';
 import { enqueue, syncQueue, isPending, subscribeQueue, generateRecordId } from '../lib/offlineQueue';
-
-function fileToBase64(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
+import { validateImageFile, fileToBase64 } from '../lib/imageUpload';
 
 /**
  * Formulário de "Registrar ocorrência", usado tanto na página pública do
@@ -191,7 +183,20 @@ export default function OcorrenciaForm({
               styles={{ input: { minHeight: 44 } }}
             />
           )}
-          <FileButton onChange={async (f) => setPhoto(f ? await fileToBase64(f) : null)} accept="image/*">
+          <FileButton
+            onChange={async (f) => {
+              if (!f) { setPhoto(null); return; }
+              const validationError = validateImageFile(f);
+              if (validationError) { setError(validationError); return; }
+              setError('');
+              try {
+                setPhoto(await fileToBase64(f));
+              } catch {
+                setError('Não foi possível anexar essa foto. Tente novamente.');
+              }
+            }}
+            accept="image/*"
+          >
             {(props) => (
               <Button
                 {...props}

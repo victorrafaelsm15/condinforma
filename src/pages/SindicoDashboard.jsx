@@ -73,8 +73,11 @@ export default function SindicoDashboard() {
       setCondominio(c);
 
       const [execEntries, occEntries] = await Promise.all([
+        // Só created_at é usado (formatRelative/hoursSince) — evita baixar
+        // fotos em base64 do histórico inteiro de cada ambiente só pra
+        // achar a data da última execução.
         Promise.all(ambientes.map(async (a) => {
-          const execs = await execucoesStore.list({ ambiente_id: a.id });
+          const execs = await execucoesStore.list({ ambiente_id: a.id }, { columns: 'id, created_at', limit: 1 });
           return [a.id, execs[0] || null];
         })),
         Promise.all(ambientes.map(async (a) => {

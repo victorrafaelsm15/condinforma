@@ -43,7 +43,11 @@ export default function CondominioPage() {
 
     const execEntries = await Promise.all(
       list.map(async (a) => {
-        const execs = await execucoesStore.list({ ambiente_id: a.id });
+        // Só a data da última execução é usada aqui (badge "Última
+        // execução: ...") — colunas explícitas e limit:1 evitam baixar
+        // fotos em base64 do histórico inteiro de cada ambiente só pra
+        // isso, uma consulta por ambiente da lista inteira.
+        const execs = await execucoesStore.list({ ambiente_id: a.id }, { columns: 'id, created_at', limit: 1 });
         return [a.id, execs[0] || null];
       })
     );

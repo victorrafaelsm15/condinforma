@@ -10,18 +10,10 @@ import {
 } from '../lib/publicChecklist';
 import { enqueue, syncQueue, isPending, subscribeQueue, generateRecordId } from '../lib/offlineQueue';
 import { reporterLabel } from '../lib/ocorrenciaDisplay';
+import { validateImageFile, fileToBase64 } from '../lib/imageUpload';
 import OcorrenciaForm from '../components/OcorrenciaForm';
 import Seo from '../components/common/Seo';
 import FalarComSindicoButton from '../components/common/FalarComSindicoButton';
-
-function fileToBase64(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
 
 // Card único de execução do período ATIVO do ambiente (sempre existe
 // exatamente um) — nome do executor, foto, progresso, envio — que vira
@@ -54,7 +46,17 @@ function PeriodoExecutionCard({ periodo, items, ambiente, isOnline, onReportItem
   const toggleItem = (itemId) => setChecked((prev) => ({ ...prev, [itemId]: !prev[itemId] }));
   const handlePhoto = async (file) => {
     if (!file) return;
-    setPhoto(await fileToBase64(file));
+    const validationError = validateImageFile(file);
+    if (validationError) {
+      setSubmitError(validationError);
+      return;
+    }
+    setSubmitError('');
+    try {
+      setPhoto(await fileToBase64(file));
+    } catch {
+      setSubmitError('Não foi possível anexar essa foto. Tente novamente.');
+    }
   };
 
   const completedCount = Object.values(checked).filter(Boolean).length;
